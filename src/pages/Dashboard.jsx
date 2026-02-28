@@ -227,39 +227,44 @@ export default function Dashboard() {
         {/* Last Session Summary */}
         {!loading && lastExercises.length > 0 && (
           <div className="card">
-            <div className="flex items-center justify-between mb-3">
-              <p className="section-title mb-0">Last Session</p>
-              <p className="text-text-secondary text-xs">{lastDate?.slice(5).replace('-', '/')}</p>
-            </div>
-            <div className="space-y-1.5 mb-4">
-              {lastExercises.slice(0, 5).map((ex, i) => (
-                <div key={i} className="flex items-center gap-2">
-                  <div className="w-1.5 h-1.5 rounded-full bg-accent flex-shrink-0" />
-                  <span className="text-text-primary text-sm truncate">{ex}</span>
+            <div className="flex gap-3 items-start">
+              {/* Exercise list */}
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between mb-3">
+                  <p className="section-title mb-0">Last Session</p>
+                  <p className="text-text-secondary text-xs">{lastDate?.slice(5).replace('-', '/')}</p>
                 </div>
-              ))}
-              {lastExercises.length > 5 && (
-                <p className="text-text-secondary text-xs pl-3.5">+{lastExercises.length - 5} more</p>
-              )}
-            </div>
-            {/* This-week volume ring — large + centered */}
-            <div className="flex flex-col items-center pt-2 border-t border-surface2">
-              <div className="relative w-32 h-32">
-                <svg className="w-32 h-32 -rotate-90" viewBox="0 0 120 120">
-                  <circle cx="60" cy="60" r="50" fill="none" stroke="currentColor" strokeWidth="10" className="text-accent-green/15" />
-                  <circle
-                    cx="60" cy="60" r="50" fill="none"
-                    stroke="currentColor" strokeWidth="10"
-                    strokeLinecap="round"
-                    strokeDasharray={`${Math.min((thisWeekVol / (maxVol || 1)) * 314, 314)} 314`}
-                    className="text-accent-green transition-all duration-700"
-                  />
-                </svg>
-                <div className="absolute inset-0 flex flex-col items-center justify-center">
-                  <p className="font-display text-xl font-bold text-text-primary leading-tight">
-                    {thisWeekVol >= 1000 ? `${Math.round(thisWeekVol / 1000)}k` : thisWeekVol || '—'}
-                  </p>
-                  <p className="text-text-secondary text-[10px]">lbs this week</p>
+                <div className="space-y-1.5">
+                  {lastExercises.slice(0, 5).map((ex, i) => (
+                    <div key={i} className="flex items-center gap-2">
+                      <div className="w-1.5 h-1.5 rounded-full bg-accent flex-shrink-0" />
+                      <span className="text-text-primary text-sm truncate">{ex}</span>
+                    </div>
+                  ))}
+                  {lastExercises.length > 5 && (
+                    <p className="text-text-secondary text-xs pl-3.5">+{lastExercises.length - 5} more</p>
+                  )}
+                </div>
+              </div>
+              {/* This-week volume ring — top right */}
+              <div className="flex flex-col items-center flex-shrink-0">
+                <div className="relative w-24 h-24">
+                  <svg className="w-24 h-24 -rotate-90" viewBox="0 0 120 120">
+                    <circle cx="60" cy="60" r="50" fill="none" stroke="currentColor" strokeWidth="10" className="text-accent-green/15" />
+                    <circle
+                      cx="60" cy="60" r="50" fill="none"
+                      stroke="currentColor" strokeWidth="10"
+                      strokeLinecap="round"
+                      strokeDasharray={`${Math.min((thisWeekVol / (maxVol || 1)) * 314, 314)} 314`}
+                      className="text-accent-green transition-all duration-700"
+                    />
+                  </svg>
+                  <div className="absolute inset-0 flex flex-col items-center justify-center">
+                    <p className="font-display text-lg font-bold text-text-primary leading-tight">
+                      {thisWeekVol >= 1000 ? `${Math.round(thisWeekVol / 1000)}k` : thisWeekVol || '—'}
+                    </p>
+                    <p className="text-text-secondary text-[9px]">lbs/week</p>
+                  </div>
                 </div>
               </div>
             </div>
@@ -292,7 +297,7 @@ export default function Dashboard() {
         )}
 
         {/* Weekly Volume Chart */}
-        <div className="card">
+        <div className="card pb-4">
           <div className="flex items-center justify-between mb-3">
             <p className="section-title mb-0">Weekly Volume</p>
             {totalSessions > 0 && (
@@ -353,37 +358,6 @@ export default function Dashboard() {
           )}
         </div>
 
-        {/* Quick Actions */}
-        <div className="grid grid-cols-2 gap-3 pb-4">
-          <button
-            onClick={() => navigate('/routines')}
-            className="card flex items-center gap-3 active:scale-95 transition-transform text-left"
-          >
-            <div className="w-9 h-9 rounded-xl bg-accent/10 flex items-center justify-center flex-shrink-0">
-              <svg className="w-5 h-5 text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M5.636 5.636a9 9 0 1012.728 0M12 3v9" />
-              </svg>
-            </div>
-            <div>
-              <p className="text-text-primary text-sm font-semibold">Start Workout</p>
-              <p className="text-text-secondary text-xs">Open routines</p>
-            </div>
-          </button>
-          <button
-            onClick={() => navigate('/calendar')}
-            className="card flex items-center gap-3 active:scale-95 transition-transform text-left"
-          >
-            <div className="w-9 h-9 rounded-xl bg-accent-green/10 flex items-center justify-center flex-shrink-0">
-              <svg className="w-5 h-5 text-accent-green" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
-              </svg>
-            </div>
-            <div>
-              <p className="text-text-primary text-sm font-semibold">Calendar</p>
-              <p className="text-text-secondary text-xs">View history</p>
-            </div>
-          </button>
-        </div>
 
       </div>
     </PageWrapper>
