@@ -12,6 +12,26 @@ import { sessionsCol } from '../firebase/collections'
 
 const TODAY = format(new Date(), 'yyyy-MM-dd')
 
+// ─── Body part normalization ────────────────────────────────
+const BODY_PARTS = [
+  { key: 'Arms',      match: ['arms', 'bicep', 'biceps', 'forearm', 'forearms', 'arm'] },
+  { key: 'Shoulders', match: ['shoulders', 'shoulder', 'delt', 'delts'] },
+  { key: 'Back',      match: ['back', 'lats', 'lat', 'rhomboid', 'trap', 'traps', 'rear'] },
+  { key: 'Triceps',   match: ['triceps', 'tricep'] },
+  { key: 'Legs',      match: ['legs', 'leg', 'quad', 'quads', 'hamstring', 'hamstrings', 'calf', 'calves', 'calve', 'lunge', 'squat'] },
+  { key: 'Glutes',    match: ['glutes', 'glute', 'gluts', 'hip', 'hips', 'butt', 'gluteal'] },
+  { key: 'Cardio',    match: ['cardio', 'walking', 'walk', 'run', 'running', 'bike', 'elliptical', 'swim', 'rowing', 'treadmill', 'fitness bike'] },
+  { key: 'Abs',       match: ['abs', 'ab', 'core', 'abdominal', 'abdominals', 'crunch', 'plank'] },
+]
+
+function getBodyPart(muscleGroup, exerciseName) {
+  const searchStr = `${muscleGroup || ''} ${exerciseName || ''}`.toLowerCase()
+  for (const bp of BODY_PARTS) {
+    if (bp.match.some((k) => searchStr.includes(k))) return bp.key
+  }
+  return null
+}
+
 // ─── Chart Tooltip ──────────────────────────────────────────
 function ChartTooltip({ active, payload, label }) {
   if (!active || !payload?.length) return null
@@ -109,6 +129,11 @@ export default function Dashboard() {
   const lastSessions = lastDate ? sessions.filter((s) => s.date === lastDate) : []
   const lastExercises = lastSessions.map((s) => s.exerciseName).filter(Boolean)
 
+  // Body parts worked in last session
+  const workedParts = new Set(
+    lastSessions.map((s) => getBodyPart(s.muscleGroup, s.exerciseName)).filter(Boolean)
+  )
+
   const totalSessions = sessions.length
 
   // ── Error / Empty state ──────────────────────────────────
@@ -204,29 +229,62 @@ export default function Dashboard() {
               <p className="section-title mb-0">Last Session</p>
               <p className="text-text-secondary text-xs">{lastDate?.slice(5).replace('-', '/')}</p>
             </div>
-            <div className="flex items-start justify-between gap-4">
-              <div className="space-y-1.5 flex-1 min-w-0">
-                {lastExercises.slice(0, 5).map((ex, i) => (
-                  <div key={i} className="flex items-center gap-2">
-                    <div className="w-1.5 h-1.5 rounded-full bg-accent flex-shrink-0" />
-                    <span className="text-text-primary text-sm truncate">{ex}</span>
-                  </div>
-                ))}
-                {lastExercises.length > 5 && (
-                  <p className="text-text-secondary text-xs pl-3.5">+{lastExercises.length - 5} more</p>
-                )}
-              </div>
-              {/* This-week volume ring */}
-              <div className="flex-shrink-0 text-center">
-                <div className="w-20 h-20 rounded-full border-4 border-accent-green/20 border-t-accent-green flex items-center justify-center">
-                  <div>
-                    <p className="font-display text-sm font-bold text-text-primary leading-tight">
-                      {thisWeekVol >= 1000 ? `${Math.round(thisWeekVol / 1000)}k` : thisWeekVol || '—'}
-                    </p>
-                    <p className="text-text-secondary text-[9px]">this week</p>
-                  </div>
+            <div className="space-y-1.5 mb-4">
+              {lastExercises.slice(0, 5).map((ex, i) => (
+                <div key={i} className="flex items-center gap-2">
+                  <div className="w-1.5 h-1.5 rounded-full bg-accent flex-shrink-0" />
+                  <span className="text-text-primary text-sm truncate">{ex}</span>
+                </div>
+              ))}
+              {lastExercises.length > 5 && (
+                <p className="text-text-secondary text-xs pl-3.5">+{lastExercises.length - 5} more</p>
+              )}
+            </div>
+            {/* This-week volume ring — large + centered */}
+            <div className="flex flex-col items-center pt-2 border-t border-surface2">
+              <div className="relative w-32 h-32">
+                <svg className="w-32 h-32 -rotate-90" viewBox="0 0 120 120">
+                  <circle cx="60" cy="60" r="50" fill="none" stroke="currentColor" strokeWidth="10" className="text-accent-green/15" />
+                  <circle
+                    cx="60" cy="60" r="50" fill="none"
+                    stroke="currentColor" strokeWidth="10"
+                    strokeLinecap="round"
+                    strokeDasharray={`${Math.min((thisWeekVol / (maxVol || 1)) * 314, 314)} 314`}
+                    className="text-accent-green transition-all duration-700"
+                  />
+                </svg>
+                <div className="absolute inset-0 flex flex-col items-center justify-center">
+                  <p className="font-display text-xl font-bold text-text-primary leading-tight">
+                    {thisWeekVol >= 1000 ? `${Math.round(thisWeekVol / 1000)}k` : thisWeekVol || '—'}
+                  </p>
+                  <p className="text-text-secondary text-[10px]">lbs this week</p>
                 </div>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* Body Zones */}
+        {!loading && lastSessions.length > 0 && (
+          <div className="card">
+            <p className="section-title mb-3">Body Zones · Last Session</p>
+            <div className="grid grid-cols-4 gap-2">
+              {BODY_PARTS.map((bp) => {
+                const hit = workedParts.has(bp.key)
+                return (
+                  <div
+                    key={bp.key}
+                    className={`rounded-xl py-3 flex flex-col items-center gap-1.5 transition-colors ${
+                      hit ? 'bg-accent-green/15 border border-accent-green/25' : 'bg-surface2'
+                    }`}
+                  >
+                    <div className={`w-2.5 h-2.5 rounded-full ${hit ? 'bg-accent-green' : 'bg-border'}`} />
+                    <p className={`text-[11px] font-semibold leading-none ${hit ? 'text-accent-green' : 'text-text-secondary'}`}>
+                      {bp.key}
+                    </p>
+                  </div>
+                )
+              })}
             </div>
           </div>
         )}
