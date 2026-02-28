@@ -1,6 +1,6 @@
 // src/pages/Dashboard.jsx
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { getDocs } from 'firebase/firestore'
 import { differenceInDays, parseISO, startOfWeek, format } from 'date-fns'
 import {
@@ -40,6 +40,7 @@ function StatCard({ label, value, sub, valueClass = 'text-text-primary' }) {
 export default function Dashboard() {
   const { profile, user } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
 
   const displayName = profile?.displayName || user?.displayName || user?.email?.split('@')[0] || 'Athlete'
   const firstName = displayName.split(' ')[0]
@@ -48,11 +49,10 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState(null)
 
-  // Load all sessions, sort client-side (no index required)
+  // Refetch on every navigation to this page so deletions are reflected immediately
   useEffect(() => {
     if (!user?.uid) return
-    // Get a fresh ID token first to ensure Firestore has auth context,
-    // then fetch sessions
+    setLoading(true)
     user.getIdToken().then(() => getDocs(sessionsCol(user.uid)))
       .then((snap) => {
         const sorted = snap.docs
@@ -66,7 +66,7 @@ export default function Dashboard() {
         setLoadError(err?.message || 'Unknown error')
         setLoading(false)
       })
-  }, [user?.uid])
+  }, [user?.uid, location.key])
 
   // ── Derived stats ──────────────────────────────────────────
   const uniqueDates = [...new Set(sessions.map((s) => s.date))].sort()
@@ -89,20 +89,21 @@ export default function Dashboard() {
   }
 
   // Weekly volume chart — last 8 weeks
+  // Key by full ISO date so cross-year sorting works correctly
   const weeklyMap = {}
   sessions.forEach((s) => {
     if (!s.date) return
-    const weekStart = format(startOfWeek(parseISO(s.date), { weekStartsOn: 1 }), 'MM/dd')
-    weeklyMap[weekStart] = (weeklyMap[weekStart] || 0) + (s.totalVolume || 0)
+    const weekKey = format(startOfWeek(parseISO(s.date), { weekStartsOn: 1 }), 'yyyy-MM-dd')
+    weeklyMap[weekKey] = (weeklyMap[weekKey] || 0) + (s.totalVolume || 0)
   })
   const chartData = Object.entries(weeklyMap)
     .sort(([a], [b]) => (a < b ? -1 : 1))
     .slice(-8)
-    .map(([week, vol]) => ({ week, vol }))
+    .map(([key, vol]) => ({ week: key.slice(5).replace('-', '/'), vol }))
 
   const maxVol = chartData.length ? Math.max(...chartData.map((d) => d.vol)) : 0
-  const thisWeekStart = format(startOfWeek(new Date(), { weekStartsOn: 1 }), 'MM/dd')
-  const thisWeekVol = weeklyMap[thisWeekStart] || 0
+  const thisWeekKey = format(startOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd')
+  const thisWeekVol = weeklyMap[thisWeekKey] || 0
 
   // Last session exercises (most recent date's unique exercises)
   const lastSessions = lastDate ? sessions.filter((s) => s.date === lastDate) : []
