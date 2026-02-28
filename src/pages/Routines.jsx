@@ -6,7 +6,7 @@ import {
   serverTimestamp, arrayUnion, arrayRemove,
 } from 'firebase/firestore'
 import { useAuth } from '../context/AuthContext'
-import { routinesCol, routineDoc, globalExercisesCol } from '../firebase/collections'
+import { routinesCol, routineDoc, sessionsCol } from '../firebase/collections'
 import PageWrapper from '../components/layout/PageWrapper'
 
 // ─── New Routine Bottom Sheet ──────────────────────────────
@@ -56,6 +56,7 @@ function NewRoutineSheet({ onClose, onSave }) {
 
 // ─── Add Exercise Sheet (Library Picker) ──────────────────
 function AddExerciseSheet({ onClose, onAdd, existingIds = [] }) {
+  const { user } = useAuth()
   const [library, setLibrary] = useState([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -64,14 +65,22 @@ function AddExerciseSheet({ onClose, onAdd, existingIds = [] }) {
   const [newlyAdded, setNewlyAdded] = useState(0)
 
   useEffect(() => {
-    getDocs(globalExercisesCol()).then((snap) => {
-      const data = snap.docs
-        .map((d) => ({ id: d.id, ...d.data() }))
-        .sort((a, b) => a.name.localeCompare(b.name))
+    if (!user?.uid) return
+    getDocs(sessionsCol(user.uid)).then((snap) => {
+      const seen = new Set()
+      const data = []
+      snap.docs.forEach((d) => {
+        const { exerciseId, exerciseName, muscleGroup } = d.data()
+        if (exerciseId && !seen.has(exerciseId)) {
+          seen.add(exerciseId)
+          data.push({ id: exerciseId, name: exerciseName || exerciseId, muscleGroup: muscleGroup || '' })
+        }
+      })
+      data.sort((a, b) => a.name.localeCompare(b.name))
       setLibrary(data)
       setLoading(false)
     })
-  }, [])
+  }, [user?.uid])
 
   const groups = ['All', ...[...new Set(library.map((e) => e.muscleGroup))].sort()]
 
