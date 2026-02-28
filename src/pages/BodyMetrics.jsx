@@ -122,10 +122,10 @@ function LogSheet({ onClose, onSave, lastEntry }) {
 
   return (
     <>
-      <div className="fixed inset-0 bg-black/60 z-40" onClick={onClose} />
+      <div className="fixed inset-0 bg-black/60 z-[54]" onClick={onClose} />
       <form
         onSubmit={handleSave}
-        className="fixed bottom-0 left-0 right-0 z-50 bg-surface rounded-t-2xl shadow-2xl flex flex-col"
+        className="fixed bottom-0 left-0 right-0 z-[55] bg-surface rounded-t-2xl shadow-2xl flex flex-col"
         style={{ maxHeight: '88vh' }}
       >
         {/* Drag handle + title — fixed at top */}
