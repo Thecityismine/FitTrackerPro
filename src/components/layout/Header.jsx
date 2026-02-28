@@ -1,4 +1,5 @@
 // src/components/layout/Header.jsx
+import { useState } from 'react'
 import { format } from 'date-fns'
 import { useAuth } from '../../context/AuthContext'
 import { useNavigate } from 'react-router-dom'
@@ -7,7 +8,9 @@ export default function Header({ showSettings = false }) {
   const { user, profile } = useAuth()
   const navigate = useNavigate()
   const today = format(new Date(), 'EEE, MMM d')
+  const [showQr, setShowQr] = useState(false)
 
+  const photoURL = profile?.photoURL || user?.photoURL
   const initials = (profile?.displayName || user?.displayName || 'U')
     .split(' ')
     .map((n) => n[0])
@@ -16,44 +19,85 @@ export default function Header({ showSettings = false }) {
     .slice(0, 2)
 
   return (
-    <div className="flex items-center justify-between px-4 pt-3 pb-2 flex-shrink-0">
-      {/* Date */}
-      <div>
+    <>
+      <div className="flex items-center justify-between px-4 pt-3 pb-2 flex-shrink-0">
+        {/* Date */}
         <span className="text-text-secondary text-sm font-medium">{today}</span>
-      </div>
 
-      {/* Right side: Settings (optional) + Profile */}
-      <div className="flex items-center gap-2">
-        {showSettings && (
-          <button
-            onClick={() => navigate('/settings')}
-            className="w-9 h-9 rounded-xl bg-surface2 flex items-center justify-center active:scale-95 transition-transform"
-          >
-            <svg className="w-4.5 h-4.5 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M10.343 3.94c.09-.542.56-.94 1.11-.94h1.093c.55 0 1.02.398 1.11.94l.149.894c.07.424.384.764.78.93.398.164.855.142 1.205-.108l.737-.527a1.125 1.125 0 011.45.12l.773.774c.39.389.44 1.002.12 1.45l-.527.737c-.25.35-.272.806-.107 1.204.165.397.505.71.93.78l.893.15c.543.09.94.56.94 1.109v1.094c0 .55-.397 1.02-.94 1.11l-.893.149c-.425.07-.765.383-.93.78-.165.398-.143.854.107 1.204l.527.738c.32.447.269 1.06-.12 1.45l-.774.773a1.125 1.125 0 01-1.449.12l-.738-.527c-.35-.25-.806-.272-1.203-.107-.397.165-.71.505-.781.929l-.149.894c-.09.542-.56.94-1.11.94h-1.094c-.55 0-1.019-.398-1.11-.94l-.148-.894c-.071-.424-.384-.764-.781-.93-.398-.164-.854-.142-1.204.108l-.738.527c-.447.32-1.06.269-1.45-.12l-.773-.774a1.125 1.125 0 01-.12-1.45l.527-.737c.25-.35.273-.806.108-1.204-.165-.397-.505-.71-.93-.78l-.894-.15c-.542-.09-.94-.56-.94-1.109v-1.094c0-.55.398-1.02.94-1.11l.894-.149c.424-.07.765-.383.93-.78.165-.398.143-.854-.107-1.204l-.527-.738a1.125 1.125 0 01.12-1.45l.773-.773a1.125 1.125 0 011.45-.12l.737.527c.35.25.807.272 1.204.107.397-.165.71-.505.78-.929l.15-.894z" />
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-            </svg>
-          </button>
-        )}
-
-        {/* Profile Avatar */}
-        <button
-          onClick={() => navigate('/profile')}
-          className="active:scale-95 transition-transform"
-        >
-          {user?.photoURL ? (
-            <img
-              src={user.photoURL}
-              alt="Profile"
-              className="w-9 h-9 rounded-full object-cover border-2 border-accent"
-            />
-          ) : (
-            <div className="w-9 h-9 rounded-full bg-accent flex items-center justify-center border-2 border-accent/50">
-              <span className="text-white text-xs font-bold font-display">{initials}</span>
-            </div>
+        {/* Right side: QR icon (optional) + Profile avatar */}
+        <div className="flex items-center gap-2">
+          {showSettings && (
+            <button
+              onClick={() => setShowQr(true)}
+              className="w-9 h-9 rounded-xl bg-surface2 flex items-center justify-center active:scale-95 transition-transform"
+              title="Gym QR Code"
+            >
+              {/* QR code icon */}
+              <svg className="w-5 h-5 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 013.75 9.375v-4.5zM3.75 14.625c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5a1.125 1.125 0 01-1.125-1.125v-4.5zM13.5 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0113.5 9.375v-4.5z" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 6.75h.75v.75h-.75v-.75zM6.75 16.5h.75v.75h-.75V16.5zM16.5 6.75h.75v.75h-.75v-.75zM13.5 13.5h.75v.75h-.75v-.75zM13.5 18.75h.75v.75h-.75v-.75zM18.75 13.5h.75v.75h-.75v-.75zM18.75 18.75h.75v.75h-.75v-.75zM16.5 16.5h.75v.75h-.75V16.5z" />
+              </svg>
+            </button>
           )}
-        </button>
+
+          {/* Profile avatar */}
+          <button onClick={() => navigate('/profile')} className="active:scale-95 transition-transform">
+            {photoURL ? (
+              <img src={photoURL} alt="Profile" className="w-9 h-9 rounded-full object-cover border-2 border-accent" />
+            ) : (
+              <div className="w-9 h-9 rounded-full bg-accent flex items-center justify-center border-2 border-accent/50">
+                <span className="text-white text-xs font-bold font-display">{initials}</span>
+              </div>
+            )}
+          </button>
+        </div>
       </div>
-    </div>
+
+      {/* ── Gym QR Modal ─────────────────────────────────────── */}
+      {showQr && (
+        <div
+          className="fixed inset-0 z-[80] flex flex-col items-center justify-center bg-black/75"
+          onClick={() => setShowQr(false)}
+        >
+          <div
+            className="bg-surface rounded-3xl p-6 mx-6 w-full max-w-sm flex flex-col items-center gap-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <p className="font-display text-lg font-bold text-text-primary">Gym QR Code</p>
+
+            {profile?.gymQrUrl ? (
+              <div className="bg-white rounded-2xl p-4 w-full flex items-center justify-center">
+                <img
+                  src={profile.gymQrUrl}
+                  alt="Gym QR Code"
+                  className="w-56 h-56 object-contain"
+                />
+              </div>
+            ) : (
+              <div className="w-full flex flex-col items-center gap-3 bg-surface2 rounded-2xl py-10 px-4">
+                <svg className="w-12 h-12 text-text-secondary/50" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 013.75 9.375v-4.5zM3.75 14.625c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5a1.125 1.125 0 01-1.125-1.125v-4.5zM13.5 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0113.5 9.375v-4.5z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 6.75h.75v.75h-.75v-.75zM6.75 16.5h.75v.75h-.75V16.5zM16.5 6.75h.75v.75h-.75v-.75zM13.5 13.5h.75v.75h-.75v-.75zM13.5 18.75h.75v.75h-.75v-.75zM18.75 13.5h.75v.75h-.75v-.75zM18.75 18.75h.75v.75h-.75v-.75zM16.5 16.5h.75v.75h-.75V16.5z" />
+                </svg>
+                <p className="text-text-secondary text-sm text-center">No QR code uploaded yet</p>
+                <button
+                  onClick={() => { setShowQr(false); navigate('/profile') }}
+                  className="btn-primary text-sm px-5 py-2"
+                >
+                  Upload in Profile
+                </button>
+              </div>
+            )}
+
+            <button
+              onClick={() => setShowQr(false)}
+              className="text-text-secondary text-sm py-1 px-4"
+            >
+              Dismiss
+            </button>
+          </div>
+        </div>
+      )}
+    </>
   )
 }
