@@ -99,7 +99,7 @@ function AddExerciseSheet({ onClose, onAdd, existingIds = [] }) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex flex-col justify-end bg-black/60 animate-fade-in"
+      className="fixed inset-0 z-[65] flex flex-col justify-end bg-black/60 animate-fade-in"
       onClick={onClose}
     >
       <div
@@ -209,7 +209,7 @@ function AddExerciseSheet({ onClose, onAdd, existingIds = [] }) {
 // ─── Delete Confirm Dialog ─────────────────────────────────
 function DeleteConfirm({ routineName, onCancel, onConfirm }) {
   return (
-    <div className="fixed inset-0 z-60 flex items-center justify-center bg-black/70 px-6 animate-fade-in">
+    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/70 px-6 animate-fade-in">
       <div className="bg-surface rounded-2xl p-5 w-full max-w-sm border border-surface2">
         <h3 className="font-display font-bold text-text-primary text-lg mb-2">Delete Routine?</h3>
         <p className="text-text-secondary text-sm mb-5">
@@ -262,7 +262,7 @@ function RoutineDetail({ routine, onClose, onAddExercise, onRemoveExercise, onDe
 
   return (
     <>
-      <div className="fixed inset-0 z-40 flex flex-col bg-bg animate-fade-in">
+      <div className="fixed inset-0 z-[55] flex flex-col bg-bg animate-fade-in">
 
         {/* Header */}
         <div className="flex items-center gap-3 px-4 pt-4 pb-2 flex-shrink-0 border-b border-surface2">
@@ -337,15 +337,18 @@ function RoutineDetail({ routine, onClose, onAddExercise, onRemoveExercise, onDe
         {/* Exercise list */}
         <div className="flex-1 overflow-y-auto px-4 py-4 space-y-2">
           {exercises.length === 0 ? (
-            <div className="card flex flex-col items-center justify-center py-16 text-center">
-              <div className="w-14 h-14 rounded-2xl bg-surface2 flex items-center justify-center mb-4">
-                <svg className="w-7 h-7 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+            <button
+              onClick={() => setShowAddExercise(true)}
+              className="card flex flex-col items-center justify-center py-16 text-center w-full active:scale-95 transition-transform"
+            >
+              <div className="w-14 h-14 rounded-2xl bg-accent/20 flex items-center justify-center mb-4">
+                <svg className="w-7 h-7 text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
                 </svg>
               </div>
               <p className="text-text-primary font-semibold">No exercises yet</p>
-              <p className="text-text-secondary text-sm mt-1">Tap Add Exercise below to build this routine</p>
-            </div>
+              <p className="text-text-secondary text-sm mt-1">Tap here to add your first exercise</p>
+            </button>
           ) : (
             exercises.map((ex, i) => (
               <div key={ex.id} className="card flex items-center gap-3 py-3">
