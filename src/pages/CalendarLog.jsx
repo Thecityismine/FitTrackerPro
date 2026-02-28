@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import {
   format, startOfMonth, endOfMonth, eachDayOfInterval,
   getDay, addMonths, subMonths, parseISO,
+  startOfWeek, endOfWeek,
 } from 'date-fns'
 import { getDocs } from 'firebase/firestore'
 import PageWrapper from '../components/layout/PageWrapper'
@@ -22,6 +23,7 @@ export default function CalendarLog() {
   const [currentMonth, setCurrentMonth] = useState(new Date())
   const [selectedDate, setSelectedDate] = useState(null)
   const [expandedKey, setExpandedKey] = useState(null)
+  const [filter, setFilter] = useState('month') // 'week' | 'month'
 
   useEffect(() => {
     if (!user?.uid) return
@@ -54,11 +56,19 @@ export default function CalendarLog() {
     return map
   }, [sessions])
 
+  // Bounds for filters
+  const monthStartStr = format(startOfMonth(currentMonth), 'yyyy-MM-dd')
+  const monthEndStr   = format(endOfMonth(currentMonth),   'yyyy-MM-dd')
+  const weekStartStr  = format(startOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd')
+  const weekEndStr    = format(endOfWeek(new Date(),   { weekStartsOn: 1 }), 'yyyy-MM-dd')
+
   // Which dates to show in the list
   const listDates = useMemo(() => {
     if (selectedDate) return grouped[selectedDate] ? [selectedDate] : []
-    return Object.keys(grouped).sort().reverse().slice(0, 20)
-  }, [grouped, selectedDate])
+    const allDates = Object.keys(grouped).sort().reverse()
+    if (filter === 'week') return allDates.filter((d) => d >= weekStartStr && d <= weekEndStr)
+    return allDates.filter((d) => d >= monthStartStr && d <= monthEndStr)
+  }, [grouped, selectedDate, filter, monthStartStr, monthEndStr, weekStartStr, weekEndStr])
 
   // Calendar for current month
   const monthStart = startOfMonth(currentMonth)
@@ -91,7 +101,7 @@ export default function CalendarLog() {
           {/* Month prev / next */}
           <div className="flex gap-1 mt-1">
             <button
-              onClick={() => { setCurrentMonth((m) => subMonths(m, 1)); setSelectedDate(null) }}
+              onClick={() => { setCurrentMonth((m) => subMonths(m, 1)); setSelectedDate(null); setFilter('month') }}
               className="w-9 h-9 rounded-xl bg-surface2 flex items-center justify-center active:scale-95 transition-transform"
             >
               <svg className="w-5 h-5 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -99,7 +109,7 @@ export default function CalendarLog() {
               </svg>
             </button>
             <button
-              onClick={() => { setCurrentMonth((m) => addMonths(m, 1)); setSelectedDate(null) }}
+              onClick={() => { setCurrentMonth((m) => addMonths(m, 1)); setSelectedDate(null); setFilter('month') }}
               className="w-9 h-9 rounded-xl bg-surface2 flex items-center justify-center active:scale-95 transition-transform"
             >
               <svg className="w-5 h-5 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -156,15 +166,40 @@ export default function CalendarLog() {
             <p className="section-title mb-0">
               {selectedDate
                 ? format(parseISO(selectedDate), 'MMMM d')
-                : 'Recent Sessions'}
+                : filter === 'week'
+                ? 'This Week'
+                : format(currentMonth, 'MMMM')}
             </p>
-            {selectedDate && (
+            {selectedDate ? (
               <button
                 onClick={() => setSelectedDate(null)}
                 className="text-xs text-accent font-semibold"
               >
-                Show all
+                Clear
               </button>
+            ) : (
+              <div className="flex gap-1.5">
+                <button
+                  onClick={() => setFilter('week')}
+                  className={`px-3 py-1 rounded-lg text-xs font-semibold transition-colors ${
+                    filter === 'week'
+                      ? 'bg-accent-green text-white'
+                      : 'bg-surface2 text-text-secondary'
+                  }`}
+                >
+                  Week
+                </button>
+                <button
+                  onClick={() => setFilter('month')}
+                  className={`px-3 py-1 rounded-lg text-xs font-semibold transition-colors ${
+                    filter === 'month'
+                      ? 'bg-accent-green text-white'
+                      : 'bg-surface2 text-text-secondary'
+                  }`}
+                >
+                  Month
+                </button>
+              </div>
             )}
           </div>
 
