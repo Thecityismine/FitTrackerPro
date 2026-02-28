@@ -1,0 +1,28 @@
+// firestore.rules
+// Deploy: firebase deploy --only firestore:rules
+// Or paste into Firebase Console → Firestore → Rules
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ─── User profiles ────────────────────────────────────
+    // Users can only read/write their own profile
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+
+      // All subcollections: only the owner can access
+      match /{subcollection}/{docId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+    }
+
+    // ─── Global exercise library ───────────────────────────
+    // Any authenticated user can read; only admins can write
+    // (To seed exercises, temporarily set write: if true, then revert)
+    match /globalExercises/{exerciseId} {
+      allow read: if request.auth != null;
+      allow write: if false; // Set to true temporarily to seed exercises
+    }
+  }
+}
