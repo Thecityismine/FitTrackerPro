@@ -14,14 +14,14 @@ const TODAY = format(new Date(), 'yyyy-MM-dd')
 
 // ─── Body part normalization ────────────────────────────────
 const BODY_PARTS = [
+  { key: 'Abs',       match: ['abs', 'ab', 'core', 'abdominal', 'abdominals', 'crunch', 'plank'] },
   { key: 'Arms',      match: ['arms', 'bicep', 'biceps', 'forearm', 'forearms', 'arm'] },
+  { key: 'Triceps',   match: ['triceps', 'tricep'] },
   { key: 'Shoulders', match: ['shoulders', 'shoulder', 'delt', 'delts'] },
   { key: 'Back',      match: ['back', 'lats', 'lat', 'rhomboid', 'trap', 'traps', 'rear'] },
-  { key: 'Triceps',   match: ['triceps', 'tricep'] },
   { key: 'Legs',      match: ['legs', 'leg', 'quad', 'quads', 'hamstring', 'hamstrings', 'calf', 'calves', 'calve', 'lunge', 'squat'] },
   { key: 'Glutes',    match: ['glutes', 'glute', 'gluts', 'hip', 'hips', 'butt', 'gluteal'] },
   { key: 'Cardio',    match: ['cardio', 'walking', 'walk', 'run', 'running', 'bike', 'elliptical', 'swim', 'rowing', 'treadmill', 'fitness bike'] },
-  { key: 'Abs',       match: ['abs', 'ab', 'core', 'abdominal', 'abdominals', 'crunch', 'plank'] },
 ]
 
 function getBodyPart(muscleGroup, exerciseName) {
