@@ -2,17 +2,12 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
-  addDoc, deleteDoc, updateDoc, onSnapshot,
+  addDoc, deleteDoc, updateDoc, onSnapshot, getDocs,
   serverTimestamp, arrayUnion, arrayRemove,
 } from 'firebase/firestore'
 import { useAuth } from '../context/AuthContext'
-import { routinesCol, routineDoc } from '../firebase/collections'
+import { routinesCol, routineDoc, globalExercisesCol } from '../firebase/collections'
 import PageWrapper from '../components/layout/PageWrapper'
-
-const MUSCLE_GROUPS = [
-  'Chest', 'Back', 'Shoulders', 'Biceps', 'Triceps',
-  'Legs', 'Glutes', 'Core', 'Cardio', 'Full Body',
-]
 
 // ─── New Routine Bottom Sheet ──────────────────────────────
 function NewRoutineSheet({ onClose, onSave }) {
@@ -59,87 +54,143 @@ function NewRoutineSheet({ onClose, onSave }) {
   )
 }
 
-// ─── Add Exercise Bottom Sheet ─────────────────────────────
-function AddExerciseSheet({ onClose, onAdd }) {
-  const [name, setName] = useState('')
-  const [muscle, setMuscle] = useState(MUSCLE_GROUPS[0])
-  const [saving, setSaving] = useState(false)
-  const [added, setAdded] = useState([])
+// ─── Add Exercise Sheet (Library Picker) ──────────────────
+function AddExerciseSheet({ onClose, onAdd, existingIds = [] }) {
+  const [library, setLibrary] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [search, setSearch] = useState('')
+  const [activeGroup, setActiveGroup] = useState('All')
+  const [addedIds, setAddedIds] = useState(new Set(existingIds))
+  const [newlyAdded, setNewlyAdded] = useState(0)
 
-  async function handleAdd() {
-    if (!name.trim()) return
-    setSaving(true)
-    const ex = { id: Date.now().toString(), name: name.trim(), muscleGroup: muscle }
-    await onAdd(ex)
-    setAdded((prev) => [...prev, ex])
-    setSaving(false)
-    setName('')
+  useEffect(() => {
+    getDocs(globalExercisesCol()).then((snap) => {
+      const data = snap.docs
+        .map((d) => ({ id: d.id, ...d.data() }))
+        .sort((a, b) => a.name.localeCompare(b.name))
+      setLibrary(data)
+      setLoading(false)
+    })
+  }, [])
+
+  const groups = ['All', ...[...new Set(library.map((e) => e.muscleGroup))].sort()]
+
+  const filtered = library.filter((ex) => {
+    const matchGroup = activeGroup === 'All' || ex.muscleGroup === activeGroup
+    const matchSearch = ex.name.toLowerCase().includes(search.toLowerCase())
+    return matchGroup && matchSearch
+  })
+
+  async function handleAdd(ex) {
+    if (addedIds.has(ex.id)) return
+    await onAdd({ id: ex.id, name: ex.name, muscleGroup: ex.muscleGroup })
+    setAddedIds((prev) => new Set([...prev, ex.id]))
+    setNewlyAdded((n) => n + 1)
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col justify-end bg-black/60 animate-fade-in" onClick={onClose}>
+    <div
+      className="fixed inset-0 z-50 flex flex-col justify-end bg-black/60 animate-fade-in"
+      onClick={onClose}
+    >
       <div
-        className="bg-surface rounded-t-2xl px-4 pt-3 pb-8 space-y-4 animate-slide-up max-h-[85dvh] overflow-y-auto"
+        className="bg-surface rounded-t-2xl flex flex-col animate-slide-up"
+        style={{ maxHeight: '88dvh' }}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="w-10 h-1 bg-surface2 rounded-full mx-auto mb-1" />
-        <div className="flex items-center justify-between">
-          <h2 className="font-display font-bold text-text-primary text-lg">Add Exercise</h2>
-          {added.length > 0 && (
-            <span className="text-text-secondary text-xs">{added.length} added</span>
+        {/* Fixed header */}
+        <div className="px-4 pt-3 pb-2 flex-shrink-0">
+          <div className="w-10 h-1 bg-surface2 rounded-full mx-auto mb-3" />
+
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="font-display font-bold text-text-primary text-lg">Add Exercise</h2>
+            <button onClick={onClose} className="btn-secondary text-sm py-1.5 px-4">
+              {newlyAdded > 0 ? `Done (${newlyAdded} added)` : 'Done'}
+            </button>
+          </div>
+
+          {/* Search bar */}
+          <div className="relative mb-3">
+            <svg
+              className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-secondary pointer-events-none"
+              fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
+            </svg>
+            <input
+              autoFocus
+              type="text"
+              className="input pl-9"
+              placeholder="Search exercises…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
+
+          {/* Muscle group filter chips */}
+          {!loading && (
+            <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-none">
+              {groups.map((g) => (
+                <button
+                  key={g}
+                  onClick={() => setActiveGroup(g)}
+                  className={`flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                    activeGroup === g ? 'bg-accent text-white' : 'bg-surface2 text-text-secondary'
+                  }`}
+                >
+                  {g}
+                </button>
+              ))}
+            </div>
           )}
         </div>
 
-        {/* Recently added */}
-        {added.length > 0 && (
-          <div className="flex flex-wrap gap-2">
-            {added.map((ex) => (
-              <span key={ex.id} className="bg-accent/15 text-accent text-xs px-2.5 py-1 rounded-lg font-medium">
-                {ex.name}
-              </span>
-            ))}
-          </div>
-        )}
-
-        <div>
-          <label className="label">Exercise Name</label>
-          <input
-            autoFocus
-            type="text"
-            className="input"
-            placeholder="e.g. Bench Press"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
-          />
-        </div>
-
-        <div>
-          <label className="label">Muscle Group</label>
-          <div className="flex flex-wrap gap-2">
-            {MUSCLE_GROUPS.map((m) => (
-              <button
-                key={m}
-                onClick={() => setMuscle(m)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
-                  muscle === m ? 'bg-accent text-white' : 'bg-surface2 text-text-secondary'
-                }`}
-              >
-                {m}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="flex gap-2">
-          <button onClick={onClose} className="btn-secondary flex-1">Done</button>
-          <button
-            onClick={handleAdd}
-            disabled={!name.trim() || saving}
-            className="btn-primary flex-1 disabled:opacity-50"
-          >
-            {saving ? 'Adding…' : 'Add'}
-          </button>
+        {/* Scrollable exercise list */}
+        <div className="flex-1 overflow-y-auto px-4 pb-6">
+          {loading ? (
+            <div className="flex justify-center py-12">
+              <div className="w-7 h-7 border-2 border-accent border-t-transparent rounded-full animate-spin" />
+            </div>
+          ) : filtered.length === 0 ? (
+            <div className="text-center py-12">
+              <p className="text-text-secondary text-sm">No exercises found</p>
+              <p className="text-text-secondary text-xs mt-1">Try a different search or group</p>
+            </div>
+          ) : (
+            <div className="space-y-1.5">
+              {filtered.map((ex) => {
+                const isAdded = addedIds.has(ex.id)
+                return (
+                  <button
+                    key={ex.id}
+                    onClick={() => handleAdd(ex)}
+                    disabled={isAdded}
+                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors text-left ${
+                      isAdded
+                        ? 'bg-accent-green/10 border border-accent-green/20'
+                        : 'bg-surface2 active:bg-border'
+                    }`}
+                  >
+                    <div className="flex-1 min-w-0">
+                      <p className={`text-sm font-semibold truncate ${isAdded ? 'text-accent-green' : 'text-text-primary'}`}>
+                        {ex.name}
+                      </p>
+                      <p className="text-text-secondary text-xs">{ex.muscleGroup}</p>
+                    </div>
+                    {isAdded ? (
+                      <svg className="w-5 h-5 text-accent-green flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                      </svg>
+                    ) : (
+                      <svg className="w-5 h-5 text-text-secondary flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                      </svg>
+                    )}
+                  </button>
+                )
+              })}
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -176,6 +227,7 @@ function RoutineDetail({ routine, onClose, onAddExercise, onRemoveExercise, onDe
   const [confirmDelete, setConfirmDelete] = useState(false)
 
   const exercises = routine.exercises || []
+  const existingIds = exercises.map((ex) => ex.id)
 
   async function handleDelete() {
     await onDeleteRoutine(routine.id)
@@ -206,7 +258,7 @@ function RoutineDetail({ routine, onClose, onAddExercise, onRemoveExercise, onDe
             onClick={() => setConfirmDelete(true)}
             className="w-9 h-9 rounded-xl bg-surface2 flex items-center justify-center active:scale-95 transition-transform"
           >
-            <svg className="w-4.5 h-4.5 text-accent-red" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <svg className="w-4 h-4 text-accent-red" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
             </svg>
           </button>
@@ -278,6 +330,7 @@ function RoutineDetail({ routine, onClose, onAddExercise, onRemoveExercise, onDe
         <AddExerciseSheet
           onClose={() => setShowAddExercise(false)}
           onAdd={(ex) => onAddExercise(routine.id, ex)}
+          existingIds={existingIds}
         />
       )}
 
@@ -326,7 +379,6 @@ export default function Routines() {
   const [showNew, setShowNew] = useState(false)
   const [selectedRoutine, setSelectedRoutine] = useState(null)
 
-  // Real-time listener
   useEffect(() => {
     if (!user) return
     const unsub = onSnapshot(routinesCol(user.uid), (snap) => {
@@ -337,7 +389,6 @@ export default function Routines() {
     return unsub
   }, [user])
 
-  // Keep detail view in sync when Firestore updates
   useEffect(() => {
     if (!selectedRoutine) return
     const updated = routines.find((r) => r.id === selectedRoutine.id)
