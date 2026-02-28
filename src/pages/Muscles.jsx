@@ -1,11 +1,12 @@
 // src/pages/Muscles.jsx
 import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { getDocs } from 'firebase/firestore'
+import { getDocs, query, where, writeBatch } from 'firebase/firestore'
 import { differenceInDays, parseISO } from 'date-fns'
 import PageWrapper from '../components/layout/PageWrapper'
 import { useAuth } from '../context/AuthContext'
 import { sessionsCol } from '../firebase/collections'
+import { db } from '../firebase/config'
 
 function toSlug(name) {
   return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
@@ -65,7 +66,7 @@ function GroupCard({ group, sessions, onClick }) {
 }
 
 // ─── Exercise Row Card (detail view) ────────────────────
-function ExerciseCard({ exerciseName, sessions, onClick }) {
+function ExerciseCard({ exerciseName, sessions, onClick, editMode, onDelete }) {
   const count = sessions.length
   const lastDate = sessions.map(s => s.date).sort().at(-1)
   const days = daysAgo(lastDate)
@@ -83,35 +84,48 @@ function ExerciseCard({ exerciseName, sessions, onClick }) {
   }, 0)
 
   return (
-    <button
-      onClick={onClick}
-      className="card flex items-center gap-3 active:scale-95 transition-transform text-left w-full"
-    >
-      <div className="flex-1 min-w-0">
-        <p className="text-text-primary font-semibold text-sm truncate">{exerciseName}</p>
-        <p className="text-text-secondary text-xs mt-0.5">
-          {count} session{count !== 1 ? 's' : ''}
-          {days !== null ? ` · ${lastDoneLabel(days)}` : ''}
-        </p>
-      </div>
-
-      {pr > 0 && (
-        <div className="flex-shrink-0 text-right">
-          <p className="text-accent-green font-bold text-base font-mono">{pr}</p>
-          <p className="text-white text-xs">lbs PR</p>
-        </div>
-      )}
-      {pr === 0 && maxTime > 0 && (
-        <div className="flex-shrink-0 text-right">
-          <p className="text-accent-green font-bold text-sm font-mono">{Math.round(maxTime / 60)}m</p>
-          <p className="text-text-secondary text-[10px]">best</p>
-        </div>
+    <div className="card flex items-center gap-3 text-left w-full">
+      {/* Delete button (edit mode) */}
+      {editMode && (
+        <button
+          onClick={onDelete}
+          className="w-7 h-7 rounded-full bg-accent-red flex items-center justify-center flex-shrink-0 active:scale-90 transition-transform"
+        >
+          <svg className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
       )}
 
-      <svg className="w-4 h-4 text-text-secondary flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-      </svg>
-    </button>
+      <button onClick={editMode ? undefined : onClick} className="flex items-center gap-3 flex-1 min-w-0 active:scale-95 transition-transform">
+        <div className="flex-1 min-w-0">
+          <p className="text-text-primary font-semibold text-sm truncate">{exerciseName}</p>
+          <p className="text-text-secondary text-xs mt-0.5">
+            {count} session{count !== 1 ? 's' : ''}
+            {days !== null ? ` · ${lastDoneLabel(days)}` : ''}
+          </p>
+        </div>
+
+        {!editMode && pr > 0 && (
+          <div className="flex-shrink-0 text-right">
+            <p className="text-accent-green font-bold text-base font-mono">{pr}</p>
+            <p className="text-white text-xs">lbs PR</p>
+          </div>
+        )}
+        {!editMode && pr === 0 && maxTime > 0 && (
+          <div className="flex-shrink-0 text-right">
+            <p className="text-accent-green font-bold text-sm font-mono">{Math.round(maxTime / 60)}m</p>
+            <p className="text-text-secondary text-[10px]">best</p>
+          </div>
+        )}
+
+        {!editMode && (
+          <svg className="w-4 h-4 text-text-secondary flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+          </svg>
+        )}
+      </button>
+    </div>
   )
 }
 
@@ -196,6 +210,19 @@ export default function Muscles() {
   }, [user?.uid])
 
   const [showAdd, setShowAdd] = useState(false)
+  const [editMode, setEditMode] = useState(false)
+
+  async function handleDeleteExercise(exerciseId, exerciseName) {
+    if (!window.confirm(`Delete "${exerciseName}" and all its sessions? This cannot be undone.`)) return
+    const snap = await getDocs(
+      query(sessionsCol(user.uid), where('exerciseId', '==', exerciseId))
+    )
+    if (snap.empty) return
+    const batch = writeBatch(db)
+    snap.docs.forEach(d => batch.delete(d.ref))
+    await batch.commit()
+    setSessions(prev => prev.filter(s => s.exerciseId !== exerciseId))
+  }
 
   // ── Detail view ───────────────────────────────────────
   if (groupId) {
@@ -247,14 +274,34 @@ export default function Muscles() {
                 </p>
               )}
             </div>
+            {/* Edit mode toggle */}
             <button
-              onClick={() => setShowAdd(true)}
-              className="w-9 h-9 rounded-xl bg-accent flex items-center justify-center active:scale-95 transition-transform flex-shrink-0"
+              onClick={() => setEditMode(e => !e)}
+              className={`w-9 h-9 rounded-xl flex items-center justify-center active:scale-95 transition-colors flex-shrink-0 ${
+                editMode ? 'bg-accent-red text-white' : 'bg-surface2 text-text-secondary'
+              }`}
             >
-              <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-              </svg>
+              {editMode ? (
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              ) : (
+                <svg className="w-4.5 h-4.5 w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z" />
+                </svg>
+              )}
             </button>
+            {/* Add exercise */}
+            {!editMode && (
+              <button
+                onClick={() => setShowAdd(true)}
+                className="w-9 h-9 rounded-xl bg-accent flex items-center justify-center active:scale-95 transition-transform flex-shrink-0"
+              >
+                <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                </svg>
+              </button>
+            )}
           </div>
 
           {/* Exercise list */}
@@ -277,7 +324,9 @@ export default function Muscles() {
                 <ExerciseCard
                   key={ex.exerciseId}
                   {...ex}
+                  editMode={editMode}
                   onClick={() => navigate(`/workout/${ex.exerciseId}`)}
+                  onDelete={() => handleDeleteExercise(ex.exerciseId, ex.exerciseName)}
                 />
               ))}
             </div>
