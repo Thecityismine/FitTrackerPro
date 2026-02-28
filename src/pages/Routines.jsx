@@ -1,6 +1,6 @@
 // src/pages/Routines.jsx
-import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useState, useEffect, useRef } from 'react'
+import { useNavigate, useLocation } from 'react-router-dom'
 import {
   addDoc, deleteDoc, updateDoc, onSnapshot, getDocs,
   serverTimestamp, arrayUnion, arrayRemove,
@@ -447,10 +447,12 @@ function RoutineCard({ routine, onSelect }) {
 // ─── Main Page ─────────────────────────────────────────────
 export default function Routines() {
   const { user } = useAuth()
+  const location = useLocation()
   const [routines, setRoutines] = useState([])
   const [loading, setLoading] = useState(true)
   const [showNew, setShowNew] = useState(false)
   const [selectedRoutine, setSelectedRoutine] = useState(null)
+  const autoOpenedRef = useRef(false)
 
   useEffect(() => {
     if (!user) return
@@ -461,6 +463,17 @@ export default function Routines() {
     })
     return unsub
   }, [user])
+
+  // Auto-reopen routine when navigating back from a workout
+  useEffect(() => {
+    const targetId = location.state?.openRoutineId
+    if (!targetId || autoOpenedRef.current || routines.length === 0) return
+    const r = routines.find((r) => r.id === targetId)
+    if (r) {
+      setSelectedRoutine(r)
+      autoOpenedRef.current = true
+    }
+  }, [routines, location.state?.openRoutineId])
 
   useEffect(() => {
     if (!selectedRoutine) return
