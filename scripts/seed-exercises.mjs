@@ -1,15 +1,15 @@
 // scripts/seed-exercises.mjs
-// Run once: node scripts/seed-exercises.mjs
+// Run once: node --env-file=.env.local scripts/seed-exercises.mjs
 import { initializeApp, deleteApp } from 'firebase/app'
 import { getFirestore, doc, writeBatch } from 'firebase/firestore'
 
 const firebaseConfig = {
-  apiKey: "AIzaSyCVinC1Y4Jn6Y8IKEHHsdC8B10VBs2DkXY",
-  authDomain: "fittrackpro-cfdb6.firebaseapp.com",
-  projectId: "fittrackpro-cfdb6",
-  storageBucket: "fittrackpro-cfdb6.firebasestorage.app",
-  messagingSenderId: "294189209613",
-  appId: "1:294189209613:web:c6c16d2c19bfe3db2b5d44",
+  apiKey:            process.env.VITE_FIREBASE_API_KEY,
+  authDomain:        process.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId:         process.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket:     process.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId:             process.env.VITE_FIREBASE_APP_ID,
 }
 
 const app = initializeApp(firebaseConfig)
