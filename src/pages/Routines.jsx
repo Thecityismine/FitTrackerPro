@@ -1,82 +1,432 @@
 // src/pages/Routines.jsx
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
+import {
+  addDoc, deleteDoc, updateDoc, onSnapshot,
+  serverTimestamp, arrayUnion, arrayRemove,
+} from 'firebase/firestore'
+import { useAuth } from '../context/AuthContext'
+import { routinesCol, routineDoc } from '../firebase/collections'
 import PageWrapper from '../components/layout/PageWrapper'
 
-const PLACEHOLDER_ROUTINES = [
-  { id: '1', name: 'Push Day', exerciseCount: 5, lastPerformed: '3 days ago' },
-  { id: '2', name: 'Pull Day', exerciseCount: 6, lastPerformed: '5 days ago' },
-  { id: '3', name: 'Leg Day', exerciseCount: 7, lastPerformed: '1 week ago' },
-  { id: '4', name: 'Upper Body', exerciseCount: 8, lastPerformed: 'Never' },
+const MUSCLE_GROUPS = [
+  'Chest', 'Back', 'Shoulders', 'Biceps', 'Triceps',
+  'Legs', 'Glutes', 'Core', 'Cardio', 'Full Body',
 ]
 
+// ─── New Routine Bottom Sheet ──────────────────────────────
+function NewRoutineSheet({ onClose, onSave }) {
+  const [name, setName] = useState('')
+  const [saving, setSaving] = useState(false)
+
+  async function handleSave() {
+    if (!name.trim()) return
+    setSaving(true)
+    await onSave(name.trim())
+    setSaving(false)
+    onClose()
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex flex-col justify-end bg-black/60 animate-fade-in" onClick={onClose}>
+      <div
+        className="bg-surface rounded-t-2xl px-4 pt-3 pb-8 space-y-4 animate-slide-up"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="w-10 h-1 bg-surface2 rounded-full mx-auto mb-1" />
+        <h2 className="font-display font-bold text-text-primary text-lg">New Routine</h2>
+        <div>
+          <label className="label">Routine Name</label>
+          <input
+            autoFocus
+            type="text"
+            className="input"
+            placeholder="e.g. Push Day"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && handleSave()}
+          />
+        </div>
+        <button
+          onClick={handleSave}
+          disabled={!name.trim() || saving}
+          className="btn-primary w-full disabled:opacity-50"
+        >
+          {saving ? 'Creating…' : 'Create Routine'}
+        </button>
+      </div>
+    </div>
+  )
+}
+
+// ─── Add Exercise Bottom Sheet ─────────────────────────────
+function AddExerciseSheet({ onClose, onAdd }) {
+  const [name, setName] = useState('')
+  const [muscle, setMuscle] = useState(MUSCLE_GROUPS[0])
+  const [saving, setSaving] = useState(false)
+  const [added, setAdded] = useState([])
+
+  async function handleAdd() {
+    if (!name.trim()) return
+    setSaving(true)
+    const ex = { id: Date.now().toString(), name: name.trim(), muscleGroup: muscle }
+    await onAdd(ex)
+    setAdded((prev) => [...prev, ex])
+    setSaving(false)
+    setName('')
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex flex-col justify-end bg-black/60 animate-fade-in" onClick={onClose}>
+      <div
+        className="bg-surface rounded-t-2xl px-4 pt-3 pb-8 space-y-4 animate-slide-up max-h-[85dvh] overflow-y-auto"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="w-10 h-1 bg-surface2 rounded-full mx-auto mb-1" />
+        <div className="flex items-center justify-between">
+          <h2 className="font-display font-bold text-text-primary text-lg">Add Exercise</h2>
+          {added.length > 0 && (
+            <span className="text-text-secondary text-xs">{added.length} added</span>
+          )}
+        </div>
+
+        {/* Recently added */}
+        {added.length > 0 && (
+          <div className="flex flex-wrap gap-2">
+            {added.map((ex) => (
+              <span key={ex.id} className="bg-accent/15 text-accent text-xs px-2.5 py-1 rounded-lg font-medium">
+                {ex.name}
+              </span>
+            ))}
+          </div>
+        )}
+
+        <div>
+          <label className="label">Exercise Name</label>
+          <input
+            autoFocus
+            type="text"
+            className="input"
+            placeholder="e.g. Bench Press"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
+          />
+        </div>
+
+        <div>
+          <label className="label">Muscle Group</label>
+          <div className="flex flex-wrap gap-2">
+            {MUSCLE_GROUPS.map((m) => (
+              <button
+                key={m}
+                onClick={() => setMuscle(m)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                  muscle === m ? 'bg-accent text-white' : 'bg-surface2 text-text-secondary'
+                }`}
+              >
+                {m}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="flex gap-2">
+          <button onClick={onClose} className="btn-secondary flex-1">Done</button>
+          <button
+            onClick={handleAdd}
+            disabled={!name.trim() || saving}
+            className="btn-primary flex-1 disabled:opacity-50"
+          >
+            {saving ? 'Adding…' : 'Add'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── Delete Confirm Dialog ─────────────────────────────────
+function DeleteConfirm({ routineName, onCancel, onConfirm }) {
+  return (
+    <div className="fixed inset-0 z-60 flex items-center justify-center bg-black/70 px-6 animate-fade-in">
+      <div className="bg-surface rounded-2xl p-5 w-full max-w-sm border border-surface2">
+        <h3 className="font-display font-bold text-text-primary text-lg mb-2">Delete Routine?</h3>
+        <p className="text-text-secondary text-sm mb-5">
+          This will permanently delete <span className="text-text-primary font-medium">"{routineName}"</span> and all its exercises.
+        </p>
+        <div className="flex gap-3">
+          <button onClick={onCancel} className="btn-secondary flex-1">Cancel</button>
+          <button
+            onClick={onConfirm}
+            className="flex-1 py-2.5 rounded-xl bg-red-500/20 border border-red-500/30 text-accent-red font-semibold text-sm active:scale-95 transition-transform"
+          >
+            Delete
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── Routine Detail (full-screen overlay) ─────────────────
+function RoutineDetail({ routine, onClose, onAddExercise, onRemoveExercise, onDeleteRoutine }) {
+  const navigate = useNavigate()
+  const [showAddExercise, setShowAddExercise] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState(false)
+
+  const exercises = routine.exercises || []
+
+  async function handleDelete() {
+    await onDeleteRoutine(routine.id)
+    onClose()
+  }
+
+  return (
+    <>
+      <div className="fixed inset-0 z-40 flex flex-col bg-bg animate-fade-in">
+
+        {/* Header */}
+        <div className="flex items-center gap-3 px-4 pt-4 pb-2 flex-shrink-0 border-b border-surface2">
+          <button
+            onClick={onClose}
+            className="w-9 h-9 rounded-xl bg-surface2 flex items-center justify-center active:scale-95 transition-transform"
+          >
+            <svg className="w-5 h-5 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
+            </svg>
+          </button>
+          <div className="flex-1 min-w-0">
+            <h1 className="font-display text-xl font-bold text-text-primary truncate">{routine.name}</h1>
+            <p className="text-text-secondary text-xs">
+              {exercises.length} exercise{exercises.length !== 1 ? 's' : ''}
+            </p>
+          </div>
+          <button
+            onClick={() => setConfirmDelete(true)}
+            className="w-9 h-9 rounded-xl bg-surface2 flex items-center justify-center active:scale-95 transition-transform"
+          >
+            <svg className="w-4.5 h-4.5 text-accent-red" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
+            </svg>
+          </button>
+        </div>
+
+        {/* Exercise list */}
+        <div className="flex-1 overflow-y-auto px-4 py-4 space-y-2">
+          {exercises.length === 0 ? (
+            <div className="card flex flex-col items-center justify-center py-16 text-center">
+              <div className="w-14 h-14 rounded-2xl bg-surface2 flex items-center justify-center mb-4">
+                <svg className="w-7 h-7 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                </svg>
+              </div>
+              <p className="text-text-primary font-semibold">No exercises yet</p>
+              <p className="text-text-secondary text-sm mt-1">Tap Add Exercise below to build this routine</p>
+            </div>
+          ) : (
+            exercises.map((ex, i) => (
+              <div key={ex.id} className="card flex items-center gap-3 py-3">
+                <div className="w-8 h-8 rounded-lg bg-accent/20 flex items-center justify-center flex-shrink-0">
+                  <span className="text-accent text-xs font-bold font-display">{i + 1}</span>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-text-primary text-sm font-semibold truncate">{ex.name}</p>
+                  <p className="text-text-secondary text-xs">{ex.muscleGroup}</p>
+                </div>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <button
+                    onClick={() => navigate(`/workout/${ex.id}`, { state: { exercise: ex, routine } })}
+                    className="text-xs text-accent font-semibold px-3 py-1.5 rounded-lg bg-accent/10 active:scale-95 transition-transform"
+                  >
+                    Log
+                  </button>
+                  <button
+                    onClick={() => onRemoveExercise(routine.id, ex)}
+                    className="w-7 h-7 rounded-lg bg-surface2 flex items-center justify-center active:scale-95 transition-transform"
+                  >
+                    <svg className="w-3.5 h-3.5 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="px-4 pb-8 pt-3 flex gap-2 flex-shrink-0 border-t border-surface2">
+          <button onClick={() => setShowAddExercise(true)} className="btn-secondary flex-1">
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+            </svg>
+            Add Exercise
+          </button>
+          {exercises.length > 0 && (
+            <button
+              onClick={() => navigate(`/workout/${exercises[0].id}`, { state: { exercise: exercises[0], routine } })}
+              className="btn-primary flex-1"
+            >
+              Start Workout
+            </button>
+          )}
+        </div>
+      </div>
+
+      {showAddExercise && (
+        <AddExerciseSheet
+          onClose={() => setShowAddExercise(false)}
+          onAdd={(ex) => onAddExercise(routine.id, ex)}
+        />
+      )}
+
+      {confirmDelete && (
+        <DeleteConfirm
+          routineName={routine.name}
+          onCancel={() => setConfirmDelete(false)}
+          onConfirm={handleDelete}
+        />
+      )}
+    </>
+  )
+}
+
+// ─── Routine Card ──────────────────────────────────────────
 function RoutineCard({ routine, onSelect }) {
+  const exercises = routine.exercises || []
   return (
     <button
       onClick={() => onSelect(routine)}
       className="card text-left active:scale-95 transition-transform w-full"
     >
-      <div className="flex items-start justify-between mb-2">
+      <div className="flex items-start justify-between mb-3">
         <div className="w-8 h-8 rounded-lg bg-accent/20 flex items-center justify-center">
           <svg className="w-4 h-4 text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25H12" />
           </svg>
         </div>
-        <svg className="w-4 h-4 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <svg className="w-4 h-4 text-text-secondary mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
         </svg>
       </div>
-      <h3 className="font-display font-semibold text-text-primary text-base">{routine.name}</h3>
-      <p className="text-text-secondary text-xs mt-1">{routine.exerciseCount} exercises</p>
-      <p className="text-text-secondary text-xs mt-0.5">Last: {routine.lastPerformed}</p>
+      <h3 className="font-display font-semibold text-text-primary text-base leading-tight">{routine.name}</h3>
+      <p className="text-text-secondary text-xs mt-1">
+        {exercises.length} exercise{exercises.length !== 1 ? 's' : ''}
+      </p>
     </button>
   )
 }
 
+// ─── Main Page ─────────────────────────────────────────────
 export default function Routines() {
-  const [routines] = useState(PLACEHOLDER_ROUTINES)
+  const { user } = useAuth()
+  const [routines, setRoutines] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [showNew, setShowNew] = useState(false)
+  const [selectedRoutine, setSelectedRoutine] = useState(null)
+
+  // Real-time listener
+  useEffect(() => {
+    if (!user) return
+    const unsub = onSnapshot(routinesCol(user.uid), (snap) => {
+      const data = snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+      setRoutines(data)
+      setLoading(false)
+    })
+    return unsub
+  }, [user])
+
+  // Keep detail view in sync when Firestore updates
+  useEffect(() => {
+    if (!selectedRoutine) return
+    const updated = routines.find((r) => r.id === selectedRoutine.id)
+    if (updated) setSelectedRoutine(updated)
+  }, [routines]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function createRoutine(name) {
+    await addDoc(routinesCol(user.uid), {
+      name,
+      exercises: [],
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    })
+  }
+
+  async function deleteRoutine(id) {
+    await deleteDoc(routineDoc(user.uid, id))
+  }
+
+  async function addExercise(routineId, exercise) {
+    await updateDoc(routineDoc(user.uid, routineId), {
+      exercises: arrayUnion(exercise),
+      updatedAt: serverTimestamp(),
+    })
+  }
+
+  async function removeExercise(routineId, exercise) {
+    await updateDoc(routineDoc(user.uid, routineId), {
+      exercises: arrayRemove(exercise),
+      updatedAt: serverTimestamp(),
+    })
+  }
 
   return (
-    <PageWrapper showHeader>
-      <div className="px-4 pt-2 space-y-4">
+    <>
+      <PageWrapper showHeader>
+        <div className="px-4 pt-2 space-y-4">
 
-        <div className="flex items-center justify-between">
-          <h1 className="font-display text-2xl font-bold text-text-primary">Routines</h1>
-          <button className="btn-primary text-sm py-2 px-3">
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-            </svg>
-            New
-          </button>
-        </div>
+          <div className="flex items-center justify-between">
+            <h1 className="font-display text-2xl font-bold text-text-primary">Routines</h1>
+            <button onClick={() => setShowNew(true)} className="btn-primary text-sm py-2 px-3">
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+              </svg>
+              New
+            </button>
+          </div>
 
-        {/* Routine Grid */}
-        <div className="grid grid-cols-2 gap-3">
-          {routines.map((r) => (
-            <RoutineCard key={r.id} routine={r} onSelect={(r) => console.log('selected', r)} />
-          ))}
-        </div>
-
-        {/* Routine Metrics */}
-        <div>
-          <p className="section-title">Routine Metrics</p>
-          <div className="card">
-            <div className="flex items-center justify-center h-24">
-              <p className="text-text-secondary text-sm">Select a routine to see metrics</p>
+          {loading ? (
+            <div className="flex justify-center py-16">
+              <div className="w-8 h-8 border-2 border-accent border-t-transparent rounded-full animate-spin" />
             </div>
-          </div>
-        </div>
+          ) : routines.length === 0 ? (
+            <div className="card flex flex-col items-center justify-center py-16 text-center">
+              <div className="w-16 h-16 rounded-2xl bg-accent/10 flex items-center justify-center mb-4">
+                <svg className="w-8 h-8 text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25H12" />
+                </svg>
+              </div>
+              <p className="text-text-primary font-semibold">No routines yet</p>
+              <p className="text-text-secondary text-sm mt-1">Tap New to create your first routine</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-3">
+              {routines.map((r) => (
+                <RoutineCard key={r.id} routine={r} onSelect={setSelectedRoutine} />
+              ))}
+            </div>
+          )}
 
-        {/* Bottom placeholder cards */}
-        <div className="grid grid-cols-2 gap-3">
-          <div className="card min-h-[70px] flex items-center justify-center">
-            <p className="text-text-secondary text-xs text-center">Analytics<br/>Coming Soon</p>
-          </div>
-          <div className="card min-h-[70px] flex items-center justify-center">
-            <p className="text-text-secondary text-xs text-center">Schedule<br/>Coming Soon</p>
-          </div>
         </div>
+      </PageWrapper>
 
-      </div>
-    </PageWrapper>
+      {showNew && (
+        <NewRoutineSheet
+          onClose={() => setShowNew(false)}
+          onSave={createRoutine}
+        />
+      )}
+
+      {selectedRoutine && (
+        <RoutineDetail
+          routine={selectedRoutine}
+          onClose={() => setSelectedRoutine(null)}
+          onAddExercise={addExercise}
+          onRemoveExercise={removeExercise}
+          onDeleteRoutine={deleteRoutine}
+        />
+      )}
+    </>
   )
 }
