@@ -14,20 +14,22 @@ const TODAY = format(new Date(), 'yyyy-MM-dd')
 
 // ─── Body part normalization ────────────────────────────────
 const BODY_PARTS = [
-  { key: 'Abs',       match: ['abs', 'ab', 'core', 'abdominal', 'abdominals', 'crunch', 'plank'] },
-  { key: 'Arms',      match: ['arms', 'bicep', 'biceps', 'forearm', 'forearms', 'arm'] },
-  { key: 'Triceps',   match: ['triceps', 'tricep'] },
+  { key: 'Abs',       match: ['abs', 'core', 'abdominal', 'crunch', 'plank', 'situp', 'sit-up'] },
+  { key: 'Arms',      match: ['arms', 'bicep', 'biceps', 'forearm', 'forearms', 'curl'] },
+  { key: 'Triceps',   match: ['triceps', 'tricep', 'pushdown', 'push-down', 'skull'] },
   { key: 'Shoulders', match: ['shoulders', 'shoulder', 'delt', 'delts'] },
-  { key: 'Back',      match: ['back', 'lats', 'lat', 'rhomboid', 'trap', 'traps', 'rear'] },
+  { key: 'Back',      match: ['back', 'lats', 'lat', 'rhomboid', 'trap', 'traps', 'rear', 'row', 'rows', 'pulldown', 'pull-down', 'chin', 'deadlift'] },
   { key: 'Legs',      match: ['legs', 'leg', 'quad', 'quads', 'hamstring', 'hamstrings', 'calf', 'calves', 'calve', 'lunge', 'squat'] },
   { key: 'Glutes',    match: ['glutes', 'glute', 'gluts', 'hip', 'hips', 'butt', 'gluteal'] },
   { key: 'Cardio',    match: ['cardio', 'walking', 'walk', 'run', 'running', 'bike', 'elliptical', 'swim', 'rowing', 'treadmill', 'fitness bike'] },
 ]
 
+// Use word-boundary regex so short keywords like "ab" don't falsely match
+// words like "cable". e.g. /\bab/ won't match "cable" but will match "abs".
 function getBodyPart(muscleGroup, exerciseName) {
   const searchStr = `${muscleGroup || ''} ${exerciseName || ''}`.toLowerCase()
   for (const bp of BODY_PARTS) {
-    if (bp.match.some((k) => searchStr.includes(k))) return bp.key
+    if (bp.match.some((k) => new RegExp(`\\b${k}`).test(searchStr))) return bp.key
   }
   return null
 }
