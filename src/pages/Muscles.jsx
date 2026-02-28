@@ -156,18 +156,24 @@ function AddExerciseSheet({ group, onClose, onAdd }) {
       />
 
       {/* Sheet */}
-      <div className="fixed bottom-0 left-0 right-0 z-50 bg-surface rounded-t-2xl px-4 pt-5 pb-10 shadow-2xl">
-        {/* Drag handle */}
-        <div className="w-10 h-1 bg-surface2 rounded-full mx-auto mb-5" />
+      <form
+        onSubmit={handleSubmit}
+        className="fixed bottom-0 left-0 right-0 z-50 bg-surface rounded-t-2xl shadow-2xl flex flex-col"
+        style={{ maxHeight: '80vh' }}
+      >
+        {/* Drag handle + title */}
+        <div className="flex-shrink-0 px-4 pt-5 pb-4">
+          <div className="w-10 h-1 bg-surface2 rounded-full mx-auto mb-4" />
+          <h2 className="font-display text-lg font-bold text-text-primary mb-1">
+            Add Exercise
+          </h2>
+          <p className="text-text-secondary text-sm">
+            Adding to <span className={`font-semibold ${group.text}`}>{group.label}</span>
+          </p>
+        </div>
 
-        <h2 className="font-display text-lg font-bold text-text-primary mb-1">
-          Add Exercise
-        </h2>
-        <p className="text-text-secondary text-sm mb-5">
-          Adding to <span className={`font-semibold ${group.text}`}>{group.label}</span>
-        </p>
-
-        <form onSubmit={handleSubmit} className="space-y-4">
+        {/* Input field */}
+        <div className="flex-1 overflow-y-auto px-4 pb-2">
           <input
             ref={inputRef}
             type="text"
@@ -176,6 +182,10 @@ function AddExerciseSheet({ group, onClose, onAdd }) {
             placeholder="e.g. Preacher Curl"
             className="w-full bg-surface2 rounded-xl px-4 py-3 text-text-primary text-sm placeholder-text-secondary focus:outline-none focus:ring-2 focus:ring-accent"
           />
+        </div>
+
+        {/* Submit — always visible */}
+        <div className="flex-shrink-0 px-4 pt-3 pb-8 border-t border-surface2">
           <button
             type="submit"
             disabled={!name.trim()}
@@ -183,8 +193,8 @@ function AddExerciseSheet({ group, onClose, onAdd }) {
           >
             Start Workout
           </button>
-        </form>
-      </div>
+        </div>
+      </form>
     </>
   )
 }
