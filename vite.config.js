@@ -3,6 +3,18 @@ import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
 export default defineConfig({
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'vendor-react':    ['react', 'react-dom', 'react-router-dom'],
+          'vendor-firebase': ['firebase/app', 'firebase/auth', 'firebase/firestore'],
+          'vendor-charts':   ['recharts'],
+          'vendor-utils':    ['date-fns'],
+        },
+      },
+    },
+  },
   plugins: [
     react(),
     VitePWA({
@@ -22,13 +34,9 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg}'],
-        runtimeCaching: [
-          {
-            urlPattern: /^https:\/\/firestore\.googleapis\.com/,
-            handler: 'NetworkFirst',
-            options: { cacheName: 'firestore-cache' }
-          }
-        ]
+        cleanupOutdatedCaches: true,
+        skipWaiting: true,
+        clientsClaim: true,
       }
     })
   ]

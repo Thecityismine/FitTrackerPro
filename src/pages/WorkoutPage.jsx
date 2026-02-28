@@ -17,29 +17,31 @@ const TODAY = format(new Date(), 'yyyy-MM-dd')
 const TODAY_DISPLAY = format(new Date(), 'EEEE, MMM d')
 
 // ─── Set Row ───────────────────────────────────────────────
-function SetRow({ set, index, onUpdate, onDelete }) {
+function SetRow({ set, index, onUpdate, onDelete, isCardio }) {
   const volume = (set.reps || 0) * (set.weight || 0)
   return (
     <div className="grid grid-cols-[28px_1fr_1fr_1fr_28px] gap-2 items-center py-2.5 border-b border-surface2 last:border-0">
-      <span className="text-text-secondary text-xs text-center font-mono font-semibold">{index + 1}</span>
+      <span className="text-text-secondary text-sm text-center font-mono font-semibold">{index + 1}</span>
       <input
         type="number"
         inputMode="numeric"
         value={set.reps || ''}
         placeholder="0"
         onChange={(e) => onUpdate({ ...set, reps: Number(e.target.value) })}
-        className="bg-surface2 rounded-lg px-2 py-2 text-text-primary text-sm text-center w-full focus:outline-none focus:ring-1 focus:ring-accent"
+        className="bg-surface2 rounded-lg px-2 py-2.5 text-text-primary text-base text-center w-full focus:outline-none focus:ring-1 focus:ring-accent"
       />
       <input
         type="number"
         inputMode="decimal"
         value={set.weight || ''}
-        placeholder="0"
+        placeholder={isCardio ? 'min' : '0'}
         onChange={(e) => onUpdate({ ...set, weight: Number(e.target.value) })}
-        className="bg-surface2 rounded-lg px-2 py-2 text-text-primary text-sm text-center w-full focus:outline-none focus:ring-1 focus:ring-accent"
+        className="bg-surface2 rounded-lg px-2 py-2.5 text-white font-semibold text-base text-center w-full focus:outline-none focus:ring-1 focus:ring-accent"
       />
-      <span className="text-text-secondary text-xs text-right font-mono">
-        {volume > 0 ? volume.toLocaleString() : '—'}
+      <span className="text-text-secondary text-sm text-right font-mono">
+        {isCardio
+          ? (set.weight > 0 ? `${set.weight}m` : '—')
+          : (volume > 0 ? volume.toLocaleString() : '—')}
       </span>
       <button
         onClick={() => onDelete(set.id)}
@@ -79,10 +81,12 @@ export default function WorkoutPage() {
     muscleGroup: '',
   }
   const routine = state?.routine ?? null
+  const isCardio = exercise.muscleGroup?.toLowerCase() === 'cardio'
 
   const [sets, setSets] = useState([])
   const [sessionId, setSessionId] = useState(null)
   const [history, setHistory] = useState([])
+  const [lastHistoricalWeight, setLastHistoricalWeight] = useState(0)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
 
@@ -104,11 +108,17 @@ export default function WorkoutPage() {
         setSets(todaySession.sets || [])
       }
 
-      const pastHistory = all
-        .filter((s) => s.date !== TODAY)
+      const pastSessions = all.filter((s) => s.date !== TODAY)
+      const pastHistory = pastSessions
         .slice(-8)
         .map((s) => ({ date: s.date.slice(5), volume: s.totalVolume || 0 }))
       setHistory(pastHistory)
+
+      // Remember last weight used in any past session
+      const lastPast = pastSessions.at(-1)
+      const lastWeight = (lastPast?.sets || []).reduce((m, s) => Math.max(m, s.weight || 0), 0)
+      setLastHistoricalWeight(lastWeight)
+
       setLoading(false)
     })
   }, [user, exerciseId])
@@ -147,9 +157,11 @@ export default function WorkoutPage() {
   // ── Set mutations ────────────────────────────────────────
   function addSet() {
     const last = sets[sets.length - 1]
+    const defaultWeight = last?.weight || lastHistoricalWeight || 0
+    const defaultReps = last?.reps || 8
     const newSets = [
       ...sets,
-      { id: Date.now().toString(), reps: last?.reps || 8, weight: last?.weight || 0 },
+      { id: Date.now().toString(), reps: defaultReps, weight: defaultWeight },
     ]
     setSets(newSets)
     scheduleSave(newSets)
@@ -170,6 +182,7 @@ export default function WorkoutPage() {
   async function handleFinish() {
     clearTimeout(saveTimeoutRef.current)
     await persistSets(sets)
+    reset()
     navigate(-1)
   }
 
@@ -245,8 +258,8 @@ export default function WorkoutPage() {
             <div className="flex items-center justify-between mb-1">
               <p className="section-title mb-0">Volume History</p>
               {bestWeight > 0 && (
-                <p className="text-text-secondary text-xs">
-                  Best: <span className="text-accent font-semibold">{bestWeight} lbs</span>
+                <p className="text-text-secondary text-sm">
+                  Best: <span className="text-accent-green font-semibold">{bestWeight} lbs</span>
                 </p>
               )}
             </div>
@@ -292,8 +305,8 @@ export default function WorkoutPage() {
 
             {/* Column headers */}
             <div className="grid grid-cols-[28px_1fr_1fr_1fr_28px] gap-2 pb-2 border-b border-surface2 mb-1">
-              {['#', 'Reps', 'Lbs', 'Vol', ''].map((h, i) => (
-                <span key={i} className="text-text-secondary text-xs font-medium text-center">{h}</span>
+              {['#', 'Reps', isCardio ? 'Min' : 'Lbs', isCardio ? 'Time' : 'Vol', ''].map((h, i) => (
+                <span key={i} className="text-text-secondary text-sm font-semibold text-center">{h}</span>
               ))}
             </div>
 
@@ -307,13 +320,14 @@ export default function WorkoutPage() {
                 <p className="text-text-secondary text-xs mt-1">Tap Add Set to start tracking</p>
               </div>
             ) : (
-              sets.map((set, i) => (
+              [...sets].reverse().map((set, i) => (
                 <SetRow
                   key={set.id}
                   set={set}
-                  index={i}
+                  index={sets.length - 1 - i}
                   onUpdate={updateSet}
                   onDelete={deleteSet}
+                  isCardio={isCardio}
                 />
               ))
             )}
@@ -322,7 +336,7 @@ export default function WorkoutPage() {
             <div className="flex items-center justify-between mt-3 pt-2.5 border-t border-surface2">
               <button
                 onClick={addSet}
-                className="text-accent text-sm font-semibold flex items-center gap-1.5 active:scale-95 transition-transform"
+                className="text-white text-sm font-semibold flex items-center gap-1.5 active:scale-95 transition-transform"
               >
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
@@ -330,9 +344,11 @@ export default function WorkoutPage() {
                 Add Set
               </button>
               <div className="text-right">
-                <p className="text-text-secondary text-xs">Total Volume</p>
+                <p className="text-text-secondary text-xs">{isCardio ? 'Total Time' : 'Total Volume'}</p>
                 <p className="font-display font-bold text-accent-green text-lg leading-tight">
-                  {totalVolume > 0 ? `${totalVolume.toLocaleString()} lbs` : '—'}
+                  {isCardio
+                    ? (totalVolume > 0 ? `${totalVolume} min` : '—')
+                    : (totalVolume > 0 ? `${totalVolume.toLocaleString()} lbs` : '—')}
                 </p>
               </div>
             </div>
@@ -346,16 +362,16 @@ export default function WorkoutPage() {
             <svg className="w-4 h-4 text-text-secondary flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
-            <span className="font-mono text-text-primary text-sm font-bold tracking-wide">{formatted()}</span>
+            <span className="font-mono text-text-primary text-base font-bold tracking-wide">{formatted()}</span>
             <button
               onClick={toggle}
-              className={`text-xs font-semibold ml-auto transition-colors ${
+              className={`text-sm font-semibold ml-auto transition-colors ${
                 isRunning ? 'text-accent-green' : 'text-accent'
               }`}
             >
               {isRunning ? 'Pause' : 'Start'}
             </button>
-            <button onClick={reset} className="text-xs text-text-secondary">
+            <button onClick={reset} className="text-sm text-text-secondary">
               Reset
             </button>
           </div>

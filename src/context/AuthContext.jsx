@@ -20,14 +20,16 @@ export function AuthProvider({ children }) {
 
   // Listen to Firebase Auth state
   useEffect(() => {
-    const unsub = onAuthStateChanged(auth, async (firebaseUser) => {
+    const unsub = onAuthStateChanged(auth, (firebaseUser) => {
       setUser(firebaseUser)
+      setLoading(false)           // unblock UI immediately — don't wait for Firestore
       if (firebaseUser) {
-        await loadProfile(firebaseUser.uid)
+        loadProfile(firebaseUser.uid).catch((e) => {
+          console.error('loadProfile error:', e)
+        })
       } else {
         setProfile(null)
       }
-      setLoading(false)
     })
     return unsub
   }, [])
