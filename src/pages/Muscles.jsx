@@ -97,7 +97,7 @@ function ExerciseCard({ exerciseName, sessions, onClick, editMode, onDelete }) {
         </button>
       )}
 
-      <button onClick={editMode ? undefined : onClick} className="flex items-center gap-3 flex-1 min-w-0 active:scale-95 transition-transform">
+      <button onClick={editMode ? undefined : onClick} className="flex items-center gap-3 flex-1 min-w-0 text-left active:scale-95 transition-transform">
         <div className="flex-1 min-w-0">
           <p className="text-text-primary font-semibold text-sm truncate">{exerciseName}</p>
           <p className="text-text-secondary text-xs mt-0.5">
