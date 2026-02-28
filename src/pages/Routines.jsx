@@ -221,10 +221,13 @@ function DeleteConfirm({ routineName, onCancel, onConfirm }) {
 }
 
 // ─── Routine Detail (full-screen overlay) ─────────────────
-function RoutineDetail({ routine, onClose, onAddExercise, onRemoveExercise, onDeleteRoutine }) {
+function RoutineDetail({ routine, onClose, onAddExercise, onRemoveExercise, onDeleteRoutine, onRenameRoutine }) {
   const navigate = useNavigate()
   const [showAddExercise, setShowAddExercise] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const [renaming, setRenaming] = useState(false)
+  const [newName, setNewName] = useState(routine.name)
+  const [saving, setSaving] = useState(false)
 
   const exercises = routine.exercises || []
   const existingIds = exercises.map((ex) => ex.id)
@@ -232,6 +235,20 @@ function RoutineDetail({ routine, onClose, onAddExercise, onRemoveExercise, onDe
   async function handleDelete() {
     await onDeleteRoutine(routine.id)
     onClose()
+  }
+
+  async function handleRename() {
+    const trimmed = newName.trim()
+    if (!trimmed || trimmed === routine.name) { setRenaming(false); return }
+    setSaving(true)
+    await onRenameRoutine(routine.id, trimmed)
+    setSaving(false)
+    setRenaming(false)
+  }
+
+  function cancelRename() {
+    setNewName(routine.name)
+    setRenaming(false)
   }
 
   return (
@@ -242,26 +259,70 @@ function RoutineDetail({ routine, onClose, onAddExercise, onRemoveExercise, onDe
         <div className="flex items-center gap-3 px-4 pt-4 pb-2 flex-shrink-0 border-b border-surface2">
           <button
             onClick={onClose}
-            className="w-9 h-9 rounded-xl bg-surface2 flex items-center justify-center active:scale-95 transition-transform"
+            className="w-9 h-9 rounded-xl bg-surface2 flex items-center justify-center active:scale-95 transition-transform flex-shrink-0"
           >
             <svg className="w-5 h-5 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
             </svg>
           </button>
-          <div className="flex-1 min-w-0">
-            <h1 className="font-display text-xl font-bold text-text-primary truncate">{routine.name}</h1>
-            <p className="text-text-secondary text-xs">
-              {exercises.length} exercise{exercises.length !== 1 ? 's' : ''}
-            </p>
-          </div>
-          <button
-            onClick={() => setConfirmDelete(true)}
-            className="w-9 h-9 rounded-xl bg-surface2 flex items-center justify-center active:scale-95 transition-transform"
-          >
-            <svg className="w-4 h-4 text-accent-red" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
-            </svg>
-          </button>
+
+          {renaming ? (
+            <div className="flex-1 flex items-center gap-2 min-w-0">
+              <input
+                autoFocus
+                type="text"
+                className="input flex-1 text-base font-bold py-1.5"
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') handleRename(); if (e.key === 'Escape') cancelRename() }}
+              />
+              <button
+                onClick={handleRename}
+                disabled={saving || !newName.trim()}
+                className="w-8 h-8 rounded-lg bg-accent-green/20 flex items-center justify-center active:scale-95 transition-transform flex-shrink-0"
+              >
+                <svg className="w-4 h-4 text-accent-green" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                </svg>
+              </button>
+              <button
+                onClick={cancelRename}
+                className="w-8 h-8 rounded-lg bg-surface2 flex items-center justify-center active:scale-95 transition-transform flex-shrink-0"
+              >
+                <svg className="w-4 h-4 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+          ) : (
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2">
+                <h1 className="font-display text-xl font-bold text-text-primary truncate">{routine.name}</h1>
+                <button
+                  onClick={() => { setNewName(routine.name); setRenaming(true) }}
+                  className="w-7 h-7 rounded-lg bg-surface2 flex items-center justify-center active:scale-95 transition-transform flex-shrink-0"
+                >
+                  <svg className="w-3.5 h-3.5 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125" />
+                  </svg>
+                </button>
+              </div>
+              <p className="text-text-secondary text-xs">
+                {exercises.length} exercise{exercises.length !== 1 ? 's' : ''}
+              </p>
+            </div>
+          )}
+
+          {!renaming && (
+            <button
+              onClick={() => setConfirmDelete(true)}
+              className="w-9 h-9 rounded-xl bg-surface2 flex items-center justify-center active:scale-95 transition-transform flex-shrink-0"
+            >
+              <svg className="w-4 h-4 text-accent-red" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
+              </svg>
+            </button>
+          )}
         </div>
 
         {/* Exercise list */}
@@ -422,6 +483,13 @@ export default function Routines() {
     })
   }
 
+  async function renameRoutine(routineId, name) {
+    await updateDoc(routineDoc(user.uid, routineId), {
+      name,
+      updatedAt: serverTimestamp(),
+    })
+  }
+
   return (
     <>
       <PageWrapper showHeader>
@@ -476,6 +544,7 @@ export default function Routines() {
           onAddExercise={addExercise}
           onRemoveExercise={removeExercise}
           onDeleteRoutine={deleteRoutine}
+          onRenameRoutine={renameRoutine}
         />
       )}
     </>
