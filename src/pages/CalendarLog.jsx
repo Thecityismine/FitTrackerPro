@@ -59,8 +59,8 @@ export default function CalendarLog() {
   // Bounds for filters
   const monthStartStr = format(startOfMonth(currentMonth), 'yyyy-MM-dd')
   const monthEndStr   = format(endOfMonth(currentMonth),   'yyyy-MM-dd')
-  const weekStartStr  = format(startOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd')
-  const weekEndStr    = format(endOfWeek(new Date(),   { weekStartsOn: 1 }), 'yyyy-MM-dd')
+  const weekStartStr  = format(startOfWeek(new Date(), { weekStartsOn: 0 }), 'yyyy-MM-dd')
+  const weekEndStr    = format(endOfWeek(new Date(),   { weekStartsOn: 0 }), 'yyyy-MM-dd')
 
   // Days worked out this week (for the progress counter)
   const weekDaysCount = useMemo(
