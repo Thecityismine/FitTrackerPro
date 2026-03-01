@@ -80,10 +80,9 @@ function MetricCard({ label, value, unit, delta, lowerIsBetter, color, note }) {
   )
 }
 
-// ── Log Metrics Bottom Sheet ───────────────────────────────
+// ── Log Metrics Dialog ─────────────────────────────────────
 function LogSheet({ onClose, onSave, lastEntry }) {
   const photoInputRef = useRef(null)
-  const formRef = useRef(null)
   const [form, setForm] = useState({
     weight: lastEntry?.weight ?? '',
     bodyFat: lastEntry?.bodyFat ?? '',
@@ -95,23 +94,6 @@ function LogSheet({ onClose, onSave, lastEntry }) {
   const [photo, setPhoto] = useState(null) // base64
   const [processingPhoto, setProcessingPhoto] = useState(false)
   const [saving, setSaving] = useState(false)
-
-  // Push sheet up when soft keyboard opens so save button stays visible
-  useEffect(() => {
-    const vv = window.visualViewport
-    if (!vv) return
-    function handleResize() {
-      if (!formRef.current) return
-      const offset = Math.max(0, window.innerHeight - vv.height - vv.offsetTop)
-      formRef.current.style.bottom = `${offset}px`
-    }
-    vv.addEventListener('resize', handleResize)
-    vv.addEventListener('scroll', handleResize)
-    return () => {
-      vv.removeEventListener('resize', handleResize)
-      vv.removeEventListener('scroll', handleResize)
-    }
-  }, [])
 
   function set(key, val) { setForm(f => ({ ...f, [key]: val })) }
 
@@ -136,119 +118,122 @@ function LogSheet({ onClose, onSave, lastEntry }) {
     setSaving(false)
   }
 
-  const hasHeight = form.heightFt !== '' || lastEntry?.heightInches
-
   return (
     <>
       <div className="fixed inset-0 bg-black/60 z-[54]" onClick={onClose} />
-      <form
-        ref={formRef}
-        onSubmit={handleSave}
-        className="fixed bottom-0 left-0 right-0 z-[55] bg-surface rounded-t-2xl shadow-2xl flex flex-col"
-        style={{ maxHeight: '90dvh' }}
-      >
-        {/* Drag handle + title — fixed at top */}
-        <div className="flex-shrink-0 px-4 pt-5 pb-3">
-          <div className="w-10 h-1 bg-surface2 rounded-full mx-auto mb-4" />
-          <h2 className="font-display text-lg font-bold text-text-primary">Log Today's Metrics</h2>
-        </div>
-
-        {/* Scrollable fields + sticky save button */}
-        <div className="flex-1 overflow-y-auto px-4 space-y-4">
-          {/* Weight */}
-          <div>
-            <label className="text-text-secondary text-xs font-semibold block mb-1">WEIGHT (lbs)</label>
-            <input
-              type="number" inputMode="decimal" placeholder="185"
-              value={form.weight}
-              onChange={e => set('weight', e.target.value)}
-              className="w-full bg-surface2 rounded-xl px-4 py-3 text-text-primary text-sm focus:outline-none focus:ring-2 focus:ring-accent"
-            />
+      <div className="fixed inset-0 z-[55] flex items-center justify-center px-4">
+        <form
+          onSubmit={handleSave}
+          className="bg-surface rounded-2xl shadow-2xl w-full max-w-md flex flex-col"
+          style={{ maxHeight: '85dvh' }}
+        >
+          {/* Title + close button */}
+          <div className="flex items-center justify-between px-4 pt-5 pb-3 flex-shrink-0">
+            <h2 className="font-display text-lg font-bold text-text-primary">Log Today's Metrics</h2>
+            <button type="button" onClick={onClose}
+              className="w-8 h-8 rounded-full bg-surface2 flex items-center justify-center text-text-secondary active:scale-95 transition-transform">
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
           </div>
 
-          {/* Height — only show if not previously entered */}
-          {!lastEntry?.heightInches && (
+          {/* Scrollable fields */}
+          <div className="overflow-y-auto px-4 space-y-4 flex-1">
+            {/* Weight */}
             <div>
-              <label className="text-text-secondary text-xs font-semibold block mb-1">HEIGHT (for BMI)</label>
-              <div className="flex gap-2">
-                <input
-                  type="number" inputMode="numeric" placeholder="5 ft"
-                  value={form.heightFt}
-                  onChange={e => set('heightFt', e.target.value)}
-                  className="flex-1 bg-surface2 rounded-xl px-4 py-3 text-text-primary text-sm focus:outline-none focus:ring-2 focus:ring-accent"
-                />
-                <input
-                  type="number" inputMode="numeric" placeholder="10 in"
-                  value={form.heightIn}
-                  onChange={e => set('heightIn', e.target.value)}
-                  className="flex-1 bg-surface2 rounded-xl px-4 py-3 text-text-primary text-sm focus:outline-none focus:ring-2 focus:ring-accent"
-                />
-              </div>
-            </div>
-          )}
-
-          {/* Body Fat / Muscle Mass */}
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-text-secondary text-xs font-semibold block mb-1">BODY FAT (%)</label>
+              <label className="text-text-secondary text-xs font-semibold block mb-1">WEIGHT (lbs)</label>
               <input
-                type="number" inputMode="decimal" placeholder="22"
-                value={form.bodyFat}
-                onChange={e => set('bodyFat', e.target.value)}
+                type="number" inputMode="decimal" placeholder="185"
+                value={form.weight}
+                onChange={e => set('weight', e.target.value)}
                 className="w-full bg-surface2 rounded-xl px-4 py-3 text-text-primary text-sm focus:outline-none focus:ring-2 focus:ring-accent"
               />
             </div>
-            <div>
-              <label className="text-text-secondary text-xs font-semibold block mb-1">MUSCLE MASS (%)</label>
-              <input
-                type="number" inputMode="decimal" placeholder="35"
-                value={form.muscleMass}
-                onChange={e => set('muscleMass', e.target.value)}
-                className="w-full bg-surface2 rounded-xl px-4 py-3 text-text-primary text-sm focus:outline-none focus:ring-2 focus:ring-accent"
-              />
-            </div>
-          </div>
 
-          {/* Visceral Fat */}
-          <div>
-            <label className="text-text-secondary text-xs font-semibold block mb-1">VISCERAL FAT (1–30 scale)</label>
-            <input
-              type="number" inputMode="numeric" placeholder="8"
-              value={form.visceralFat}
-              onChange={e => set('visceralFat', e.target.value)}
-              className="w-full bg-surface2 rounded-xl px-4 py-3 text-text-primary text-sm focus:outline-none focus:ring-2 focus:ring-accent"
-            />
-          </div>
-
-          {/* Progress photo */}
-          <div>
-            <label className="text-text-secondary text-xs font-semibold block mb-1">PROGRESS PHOTO (optional)</label>
-            <input ref={photoInputRef} type="file" accept="image/*" className="hidden" onChange={handlePhoto} />
-            {photo ? (
-              <div className="relative">
-                <img src={photo} alt="Preview" className="w-full h-40 object-cover rounded-xl" />
-                <button type="button" onClick={() => setPhoto(null)}
-                  className="absolute top-2 right-2 w-7 h-7 bg-black/60 rounded-full flex items-center justify-center text-white text-xs">✕</button>
+            {/* Height — only show if not previously entered */}
+            {!lastEntry?.heightInches && (
+              <div>
+                <label className="text-text-secondary text-xs font-semibold block mb-1">HEIGHT (for BMI)</label>
+                <div className="flex gap-2">
+                  <input
+                    type="number" inputMode="numeric" placeholder="5 ft"
+                    value={form.heightFt}
+                    onChange={e => set('heightFt', e.target.value)}
+                    className="flex-1 bg-surface2 rounded-xl px-4 py-3 text-text-primary text-sm focus:outline-none focus:ring-2 focus:ring-accent"
+                  />
+                  <input
+                    type="number" inputMode="numeric" placeholder="10 in"
+                    value={form.heightIn}
+                    onChange={e => set('heightIn', e.target.value)}
+                    className="flex-1 bg-surface2 rounded-xl px-4 py-3 text-text-primary text-sm focus:outline-none focus:ring-2 focus:ring-accent"
+                  />
+                </div>
               </div>
-            ) : (
-              <button type="button" onClick={() => photoInputRef.current?.click()}
-                className="w-full bg-surface2 rounded-xl px-4 py-3 text-text-secondary text-sm flex items-center justify-center gap-2 active:scale-95 transition-transform">
-                {processingPhoto ? <span>Processing…</span> : (
-                  <>
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
-                    </svg>
-                    Add Photo
-                  </>
-                )}
-              </button>
             )}
+
+            {/* Body Fat / Muscle Mass */}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-text-secondary text-xs font-semibold block mb-1">BODY FAT (%)</label>
+                <input
+                  type="number" inputMode="decimal" placeholder="22"
+                  value={form.bodyFat}
+                  onChange={e => set('bodyFat', e.target.value)}
+                  className="w-full bg-surface2 rounded-xl px-4 py-3 text-text-primary text-sm focus:outline-none focus:ring-2 focus:ring-accent"
+                />
+              </div>
+              <div>
+                <label className="text-text-secondary text-xs font-semibold block mb-1">MUSCLE MASS (%)</label>
+                <input
+                  type="number" inputMode="decimal" placeholder="35"
+                  value={form.muscleMass}
+                  onChange={e => set('muscleMass', e.target.value)}
+                  className="w-full bg-surface2 rounded-xl px-4 py-3 text-text-primary text-sm focus:outline-none focus:ring-2 focus:ring-accent"
+                />
+              </div>
+            </div>
+
+            {/* Visceral Fat */}
+            <div>
+              <label className="text-text-secondary text-xs font-semibold block mb-1">VISCERAL FAT (1–30 scale)</label>
+              <input
+                type="number" inputMode="numeric" placeholder="8"
+                value={form.visceralFat}
+                onChange={e => set('visceralFat', e.target.value)}
+                className="w-full bg-surface2 rounded-xl px-4 py-3 text-text-primary text-sm focus:outline-none focus:ring-2 focus:ring-accent"
+              />
+            </div>
+
+            {/* Progress photo */}
+            <div>
+              <label className="text-text-secondary text-xs font-semibold block mb-1">PROGRESS PHOTO (optional)</label>
+              <input ref={photoInputRef} type="file" accept="image/*" className="hidden" onChange={handlePhoto} />
+              {photo ? (
+                <div className="relative">
+                  <img src={photo} alt="Preview" className="w-full h-40 object-cover rounded-xl" />
+                  <button type="button" onClick={() => setPhoto(null)}
+                    className="absolute top-2 right-2 w-7 h-7 bg-black/60 rounded-full flex items-center justify-center text-white text-xs">✕</button>
+                </div>
+              ) : (
+                <button type="button" onClick={() => photoInputRef.current?.click()}
+                  className="w-full bg-surface2 rounded-xl px-4 py-3 text-text-secondary text-sm flex items-center justify-center gap-2 active:scale-95 transition-transform">
+                  {processingPhoto ? <span>Processing…</span> : (
+                    <>
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                      </svg>
+                      Add Photo
+                    </>
+                  )}
+                </button>
+              )}
+            </div>
           </div>
 
-          {/* Save button — sticky at bottom of scroll area so it's always reachable */}
-          <div className="sticky bottom-0 -mx-4 px-4 pt-3 bg-surface border-t border-surface2"
-            style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 1rem)' }}>
+          {/* Save button — always visible at bottom of dialog */}
+          <div className="px-4 pt-3 pb-4 flex-shrink-0 border-t border-surface2 mt-4">
             <button
               type="submit"
               disabled={saving}
@@ -257,8 +242,8 @@ function LogSheet({ onClose, onSave, lastEntry }) {
               {saving ? 'Saving…' : 'Save Metrics'}
             </button>
           </div>
-        </div>
-      </form>
+        </form>
+      </div>
     </>
   )
 }
