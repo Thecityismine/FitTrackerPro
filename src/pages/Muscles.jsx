@@ -401,7 +401,7 @@ export default function Muscles() {
             <div className="flex-1 min-w-0">
               <h1 className="font-display text-2xl font-bold text-text-primary flex items-center gap-2">
                 {meta?.icon && (
-                  <img src={meta.icon} alt="" className="w-8 h-8 object-contain flex-shrink-0" />
+                  <img src={meta.icon} alt="" className="w-8 h-8 object-contain flex-shrink-0 mix-blend-screen" />
                 )}
                 {groupLabel}
               </h1>
@@ -550,7 +550,7 @@ export default function Muscles() {
                   className="rounded-2xl border border-surface2 bg-surface p-4 relative overflow-hidden flex flex-col justify-end active:scale-95 transition-transform"
                   style={{ minHeight: '130px' }}
                 >
-                  <img src={g.icon} alt="" className="absolute right-2 top-2 w-24 h-24 object-contain opacity-90" />
+                  <img src={g.icon} alt="" className="absolute right-2 top-2 w-24 h-24 object-contain mix-blend-screen" />
                   <div className="relative z-10 text-left">
                     <p className="text-base font-bold text-white leading-tight">{g.label}</p>
                     <p className="text-text-secondary text-xs mt-0.5">
