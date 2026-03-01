@@ -23,7 +23,7 @@ export default function CalendarLog() {
   const [currentMonth, setCurrentMonth] = useState(new Date())
   const [selectedDate, setSelectedDate] = useState(null)
   const [expandedKey, setExpandedKey] = useState(null)
-  const [filter, setFilter] = useState('month') // 'week' | 'month'
+  const [filter, setFilter] = useState('week') // 'week' | 'month'
 
   useEffect(() => {
     if (!user?.uid) return
@@ -61,6 +61,13 @@ export default function CalendarLog() {
   const monthEndStr   = format(endOfMonth(currentMonth),   'yyyy-MM-dd')
   const weekStartStr  = format(startOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd')
   const weekEndStr    = format(endOfWeek(new Date(),   { weekStartsOn: 1 }), 'yyyy-MM-dd')
+
+  // Days worked out this week (for the progress counter)
+  const weekDaysCount = useMemo(
+    () => Object.keys(grouped).filter((d) => d >= weekStartStr && d <= weekEndStr).length,
+    [grouped, weekStartStr, weekEndStr]
+  )
+  const WEEKLY_GOAL = 3
 
   // Which dates to show in the list
   const listDates = useMemo(() => {
@@ -163,13 +170,25 @@ export default function CalendarLog() {
         {/* ── Sessions list ────────────────────────────────── */}
         <div>
           <div className="flex items-center justify-between mb-3">
-            <p className="section-title mb-0">
-              {selectedDate
-                ? format(parseISO(selectedDate), 'MMMM d')
-                : filter === 'week'
-                ? 'This Week'
-                : format(currentMonth, 'MMMM')}
-            </p>
+            <div className="flex items-center gap-2">
+              <p className="section-title mb-0">
+                {selectedDate
+                  ? format(parseISO(selectedDate), 'MMMM d')
+                  : filter === 'week'
+                  ? 'This Week'
+                  : format(currentMonth, 'MMMM')}
+              </p>
+              {/* Weekly goal progress — only show in week view without a selected date */}
+              {!selectedDate && filter === 'week' && (
+                <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
+                  weekDaysCount >= WEEKLY_GOAL
+                    ? 'bg-accent-green/20 text-accent-green'
+                    : 'bg-surface2 text-text-secondary'
+                }`}>
+                  {weekDaysCount} / {WEEKLY_GOAL} days
+                </span>
+              )}
+            </div>
             {selectedDate ? (
               <button
                 onClick={() => setSelectedDate(null)}
