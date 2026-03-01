@@ -121,6 +121,7 @@ export default function Dashboard() {
   const [sessions, setSessions] = useState([])
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState(null)
+  const [chartPeriod, setChartPeriod] = useState('weekly')
 
   // Refetch on every navigation to this page so deletions are reflected immediately
   useEffect(() => {
@@ -163,22 +164,44 @@ export default function Dashboard() {
     }
   }
 
-  // Weekly volume chart — last 8 weeks
-  // Key by full ISO date so cross-year sorting works correctly
+  // Weekly volume map — used for chart + this-week stats
   const weeklyMap = {}
   activeSessions.forEach((s) => {
     if (!s.date) return
     const weekKey = format(startOfWeek(parseISO(s.date), { weekStartsOn: 0 }), 'yyyy-MM-dd')
     weeklyMap[weekKey] = (weeklyMap[weekKey] || 0) + (s.totalVolume || 0)
   })
-  const chartData = Object.entries(weeklyMap)
-    .sort(([a], [b]) => (a < b ? -1 : 1))
-    .slice(-8)
-    .map(([key, vol]) => ({ week: key.slice(5).replace('-', '/'), vol }))
-
-  const maxVol = chartData.length ? Math.max(...chartData.map((d) => d.vol)) : 0
   const thisWeekKey = format(startOfWeek(new Date(), { weekStartsOn: 0 }), 'yyyy-MM-dd')
   const thisWeekVol = weeklyMap[thisWeekKey] || 0
+
+  // Monthly volume map
+  const monthlyMap = {}
+  activeSessions.forEach((s) => {
+    if (!s.date) return
+    const monthKey = s.date.slice(0, 7) // 'yyyy-MM'
+    monthlyMap[monthKey] = (monthlyMap[monthKey] || 0) + (s.totalVolume || 0)
+  })
+
+  const chartData = (() => {
+    if (chartPeriod === 'weekly') {
+      return Object.entries(weeklyMap)
+        .sort(([a], [b]) => (a < b ? -1 : 1))
+        .slice(-8)
+        .map(([key, vol]) => ({ week: key.slice(5).replace('-', '/'), vol }))
+    }
+    if (chartPeriod === 'monthly') {
+      return Object.entries(monthlyMap)
+        .sort(([a], [b]) => (a < b ? -1 : 1))
+        .slice(-6)
+        .map(([key, vol]) => ({ week: key.slice(5), vol })) // 'MM' label
+    }
+    // all
+    return Object.entries(monthlyMap)
+      .sort(([a], [b]) => (a < b ? -1 : 1))
+      .map(([key, vol]) => ({ week: key.slice(5), vol }))
+  })()
+
+  const maxVol = chartData.length ? Math.max(...chartData.map((d) => d.vol)) : 0
 
   // Weekly Set Targets (PPL)
   const weekEndStr = format(endOfWeek(new Date(), { weekStartsOn: 0 }), 'yyyy-MM-dd')
@@ -420,13 +443,24 @@ export default function Dashboard() {
         {/* Weekly Volume Chart */}
         <div className="card pb-4">
           <div className="flex items-center justify-between mb-3">
-            <p className="section-title mb-0">Weekly Volume</p>
-            {totalSessions > 0 && (
-              <p className="text-text-secondary text-xs">
-                {totalSessions} sessions total
-              </p>
-            )}
+            <p className="section-title mb-0">Volume</p>
+            <div className="flex items-center gap-1 bg-surface2 rounded-lg p-0.5">
+              {['weekly', 'monthly', 'all'].map((p) => (
+                <button
+                  key={p}
+                  onClick={() => setChartPeriod(p)}
+                  className={`px-2.5 py-1 rounded-md text-xs font-semibold transition-colors ${
+                    chartPeriod === p ? 'bg-accent text-white' : 'text-text-secondary'
+                  }`}
+                >
+                  {p.charAt(0).toUpperCase() + p.slice(1)}
+                </button>
+              ))}
+            </div>
           </div>
+          {totalSessions > 0 && (
+            <p className="text-text-secondary text-xs mb-2">{totalSessions} sessions total</p>
+          )}
           {loading ? (
             <div className="h-36 animate-pulse bg-surface2 rounded-xl" />
           ) : chartData.length > 0 ? (
