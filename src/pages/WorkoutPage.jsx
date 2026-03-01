@@ -164,6 +164,8 @@ export default function WorkoutPage() {
   // ── Persist sets to Firestore ────────────────────────────
   async function persistSets(currentSets) {
     if (!user || !exerciseId) return
+    // Never create a new session doc for an empty workout
+    if (currentSets.length === 0 && !sessionIdRef.current) return
     setSaving(true)
     const totalVolume = currentSets.reduce((sum, s) => sum + (s.reps || 0) * (s.weight || 0), 0)
     const payload = {
@@ -227,7 +229,10 @@ export default function WorkoutPage() {
 
   async function handleFinish() {
     clearTimeout(saveTimeoutRef.current)
-    await persistSets(sets)
+    // Only persist if there is actual data to save
+    if (sets.length > 0) {
+      await persistSets(sets)
+    }
     reset()
     goBack()
   }

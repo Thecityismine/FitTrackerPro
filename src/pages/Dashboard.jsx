@@ -142,7 +142,9 @@ export default function Dashboard() {
   }, [user?.uid, location.key])
 
   // ── Derived stats ──────────────────────────────────────────
-  const uniqueDates = [...new Set(sessions.map((s) => s.date))].sort()
+  // Only count sessions that have at least one set logged
+  const activeSessions = sessions.filter((s) => (s.sets?.length ?? 0) > 0)
+  const uniqueDates = [...new Set(activeSessions.map((s) => s.date))].sort()
 
   // Days since last workout
   const lastDate = uniqueDates[uniqueDates.length - 1]
@@ -164,7 +166,7 @@ export default function Dashboard() {
   // Weekly volume chart — last 8 weeks
   // Key by full ISO date so cross-year sorting works correctly
   const weeklyMap = {}
-  sessions.forEach((s) => {
+  activeSessions.forEach((s) => {
     if (!s.date) return
     const weekKey = format(startOfWeek(parseISO(s.date), { weekStartsOn: 1 }), 'yyyy-MM-dd')
     weeklyMap[weekKey] = (weeklyMap[weekKey] || 0) + (s.totalVolume || 0)
@@ -180,14 +182,14 @@ export default function Dashboard() {
 
   // Weekly Set Targets (PPL)
   const weekEndStr = format(endOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd')
-  const thisWeekSessions = sessions.filter(s => s.date >= thisWeekKey && s.date <= weekEndStr)
+  const thisWeekSessions = activeSessions.filter(s => s.date >= thisWeekKey && s.date <= weekEndStr)
   const weekSets = computeDashSets(thisWeekSessions)
   const weekTotal = PPL_DASH.reduce((s, g) =>
     s + g.muscles.reduce((ms, m) => ms + (weekSets[g.id]?.[m.id] || 0), 0), 0)
   const weekPct = Math.min(weekTotal / PPL_TOTAL, 1)
 
-  // Last session exercises (most recent date's unique exercises)
-  const lastSessions = lastDate ? sessions.filter((s) => s.date === lastDate) : []
+  // Last session exercises (most recent date's unique exercises, with actual sets)
+  const lastSessions = lastDate ? activeSessions.filter((s) => s.date === lastDate) : []
   const lastExercises = lastSessions.map((s) => s.exerciseName).filter(Boolean)
 
   // Body parts worked in last session
@@ -195,7 +197,7 @@ export default function Dashboard() {
     lastSessions.map((s) => getBodyPart(s.muscleGroup, s.exerciseName)).filter(Boolean)
   )
 
-  const totalSessions = sessions.length
+  const totalSessions = activeSessions.length
 
   // ── Error / Empty state ──────────────────────────────────
   if (!loading && (sessions.length === 0 || loadError)) {

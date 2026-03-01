@@ -311,10 +311,10 @@ function HistoryHex({ pct, label, color }) {
           size={64} strokeWidth={6}
         />
         <div className="absolute inset-0 flex items-center justify-center">
-          <p className="text-[10px] font-bold text-text-primary">{overall}%</p>
+          <p className="text-xs font-bold text-text-primary">{overall}%</p>
         </div>
       </div>
-      <p className="text-text-secondary text-[10px]">{label}</p>
+      <p className="text-text-secondary text-xs">{label}</p>
     </div>
   )
 }
@@ -366,7 +366,7 @@ export default function Muscles() {
     return Array.from({ length: 4 }, (_, i) => {
       const ws  = format(startOfWeek(subWeeks(new Date(), i + 1), { weekStartsOn: 1 }), 'yyyy-MM-dd')
       const we  = format(endOfWeek(subWeeks(new Date(),   i + 1), { weekStartsOn: 1 }), 'yyyy-MM-dd')
-      const wl  = format(new Date(ws + 'T12:00:00'), 'MMM d')
+      const wl  = format(new Date(we + 'T12:00:00'), 'MMM d')
       const wSessions = sessions.filter(s => s.date >= ws && s.date <= we)
       const wSets = computeWeekSets(wSessions)
       const wTotal = PPL.reduce((s, g) => s + g.muscles.reduce((ms, m) => ms + (wSets[g.id]?.[m.id] || 0), 0), 0)

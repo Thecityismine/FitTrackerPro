@@ -83,6 +83,7 @@ function MetricCard({ label, value, unit, delta, lowerIsBetter, color, note }) {
 // ── Log Metrics Bottom Sheet ───────────────────────────────
 function LogSheet({ onClose, onSave, lastEntry }) {
   const photoInputRef = useRef(null)
+  const formRef = useRef(null)
   const [form, setForm] = useState({
     weight: lastEntry?.weight ?? '',
     bodyFat: lastEntry?.bodyFat ?? '',
@@ -94,6 +95,23 @@ function LogSheet({ onClose, onSave, lastEntry }) {
   const [photo, setPhoto] = useState(null) // base64
   const [processingPhoto, setProcessingPhoto] = useState(false)
   const [saving, setSaving] = useState(false)
+
+  // Push sheet up when soft keyboard opens so save button stays visible
+  useEffect(() => {
+    const vv = window.visualViewport
+    if (!vv) return
+    function handleResize() {
+      if (!formRef.current) return
+      const offset = Math.max(0, window.innerHeight - vv.height - vv.offsetTop)
+      formRef.current.style.bottom = `${offset}px`
+    }
+    vv.addEventListener('resize', handleResize)
+    vv.addEventListener('scroll', handleResize)
+    return () => {
+      vv.removeEventListener('resize', handleResize)
+      vv.removeEventListener('scroll', handleResize)
+    }
+  }, [])
 
   function set(key, val) { setForm(f => ({ ...f, [key]: val })) }
 
@@ -124,6 +142,7 @@ function LogSheet({ onClose, onSave, lastEntry }) {
     <>
       <div className="fixed inset-0 bg-black/60 z-[54]" onClick={onClose} />
       <form
+        ref={formRef}
         onSubmit={handleSave}
         className="fixed bottom-0 left-0 right-0 z-[55] bg-surface rounded-t-2xl shadow-2xl flex flex-col"
         style={{ maxHeight: '88vh' }}
@@ -229,7 +248,7 @@ function LogSheet({ onClose, onSave, lastEntry }) {
         </div>
 
         {/* Save button — always visible at bottom */}
-        <div className="flex-shrink-0 px-4 pt-3 pb-8 border-t border-surface2">
+        <div className="flex-shrink-0 px-4 pt-3 border-t border-surface2" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 1rem)' }}>
           <button
             type="submit"
             disabled={saving}
@@ -517,19 +536,9 @@ export default function BodyMetrics() {
       <div className="px-4 pt-4 space-y-4 pb-6">
 
         {/* Header */}
-        <div className="flex items-start justify-between">
-          <div>
-            <h1 className="font-display text-2xl font-bold text-text-primary">Body Metrics</h1>
-            <p className="text-text-secondary text-sm mt-0.5">Track your body composition</p>
-          </div>
-          <button
-            onClick={() => setShowLog(true)}
-            className="w-9 h-9 rounded-xl bg-accent flex items-center justify-center active:scale-95 transition-transform flex-shrink-0 mt-1"
-          >
-            <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-            </svg>
-          </button>
+        <div>
+          <h1 className="font-display text-2xl font-bold text-text-primary">Body Metrics</h1>
+          <p className="text-text-secondary text-sm mt-0.5">Track your body composition</p>
         </div>
 
         {/* Weight history chart */}
