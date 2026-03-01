@@ -352,6 +352,28 @@ export default function Muscles() {
     setSessions(prev => prev.filter(s => s.exerciseId !== exerciseId))
   }
 
+  // ── Weekly set target computations (hooks must run unconditionally) ──
+  const weekStartStr = format(startOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd')
+  const weekEndStr   = format(endOfWeek(new Date(),   { weekStartsOn: 1 }), 'yyyy-MM-dd')
+  const weekLabel    = `${format(new Date(weekStartStr + 'T12:00:00'), 'MMM d')} – ${format(new Date(weekEndStr + 'T12:00:00'), 'MMM d')}`
+
+  const weeklySets = useMemo(() => {
+    const ws = sessions.filter(s => s.date >= weekStartStr && s.date <= weekEndStr)
+    return computeWeekSets(ws)
+  }, [sessions, weekStartStr, weekEndStr])
+
+  const history = useMemo(() => {
+    return Array.from({ length: 4 }, (_, i) => {
+      const ws  = format(startOfWeek(subWeeks(new Date(), i + 1), { weekStartsOn: 1 }), 'yyyy-MM-dd')
+      const we  = format(endOfWeek(subWeeks(new Date(),   i + 1), { weekStartsOn: 1 }), 'yyyy-MM-dd')
+      const wl  = format(new Date(ws + 'T12:00:00'), 'MMM d')
+      const wSessions = sessions.filter(s => s.date >= ws && s.date <= we)
+      const wSets = computeWeekSets(wSessions)
+      const wTotal = PPL.reduce((s, g) => s + g.muscles.reduce((ms, m) => ms + (wSets[g.id]?.[m.id] || 0), 0), 0)
+      return { label: wl, pct: wTotal / TOTAL_TARGET }
+    }).reverse()
+  }, [sessions])
+
   // ── Detail view (/muscles/:groupId) ──────────────────────
   if (groupId) {
     const meta = GROUPS_META.find(g => g.id.toLowerCase() === groupId.toLowerCase())
@@ -429,32 +451,10 @@ export default function Muscles() {
   }
 
   // ── Main view: Weekly Set Targets ─────────────────────────
-  const weekStartStr = format(startOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd')
-  const weekEndStr   = format(endOfWeek(new Date(),   { weekStartsOn: 1 }), 'yyyy-MM-dd')
-  const weekLabel    = `${format(new Date(weekStartStr + 'T12:00:00'), 'MMM d')} – ${format(new Date(weekEndStr + 'T12:00:00'), 'MMM d')}`
-
-  const weeklySets = useMemo(() => {
-    const ws = sessions.filter(s => s.date >= weekStartStr && s.date <= weekEndStr)
-    return computeWeekSets(ws)
-  }, [sessions, weekStartStr, weekEndStr])
-
   const totalActual = PPL.reduce((s, g) =>
     s + g.muscles.reduce((ms, m) => ms + (weeklySets[g.id]?.[m.id] || 0), 0), 0)
   const overallPct  = totalActual / TOTAL_TARGET
   const overallDisp = Math.round(overallPct * 100)
-
-  // History: last 4 weeks
-  const history = useMemo(() => {
-    return Array.from({ length: 4 }, (_, i) => {
-      const ws  = format(startOfWeek(subWeeks(new Date(), i + 1), { weekStartsOn: 1 }), 'yyyy-MM-dd')
-      const we  = format(endOfWeek(subWeeks(new Date(),   i + 1), { weekStartsOn: 1 }), 'yyyy-MM-dd')
-      const wl  = format(new Date(ws + 'T12:00:00'), 'MMM d')
-      const wSessions = sessions.filter(s => s.date >= ws && s.date <= we)
-      const wSets = computeWeekSets(wSessions)
-      const wTotal = PPL.reduce((s, g) => s + g.muscles.reduce((ms, m) => ms + (wSets[g.id]?.[m.id] || 0), 0), 0)
-      return { label: wl, pct: wTotal / TOTAL_TARGET }
-    }).reverse()
-  }, [sessions])
 
   return (
     <PageWrapper showHeader>
