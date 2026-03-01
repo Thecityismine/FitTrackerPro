@@ -369,7 +369,7 @@ function RoutineDetail({ routine, onClose, onAddExercise, onRemoveExercise, onDe
             exercises.map((ex, i) => (
               <div key={ex.id} className="card flex items-center gap-3 py-3">
                 <div className="w-8 h-8 rounded-lg bg-accent/20 flex items-center justify-center flex-shrink-0">
-                  <span className="text-accent text-xs font-bold font-display">{i + 1}</span>
+                  <span className="text-white text-xs font-bold font-display">{i + 1}</span>
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-text-primary text-sm font-semibold truncate">{ex.name}</p>
@@ -378,7 +378,7 @@ function RoutineDetail({ routine, onClose, onAddExercise, onRemoveExercise, onDe
                 <div className="flex items-center gap-2 flex-shrink-0">
                   <button
                     onClick={() => navigate(`/workout/${ex.id}`, { state: { exercise: ex, routine } })}
-                    className="text-xs text-accent font-semibold px-3 py-1.5 rounded-lg bg-accent/10 active:scale-95 transition-transform"
+                    className="text-xs text-accent-green font-semibold px-3 py-1.5 rounded-lg bg-accent-green/10 active:scale-95 transition-transform"
                   >
                     Log
                   </button>

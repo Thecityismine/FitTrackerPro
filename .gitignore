@@ -36,3 +36,12 @@ lerna-debug.log*
 
 .vercel
 .env*.local
+
+# Claude Code settings (may contain API keys)
+.claude/
+
+# Local data / docs
+Firebase API.txt
+FitTrack_Pro_Blueprint.docx
+"Notion workout Log.csv"
+Notion\ workout\ Log.csv

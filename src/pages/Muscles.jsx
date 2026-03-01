@@ -122,9 +122,9 @@ function toSlug(name) {
 
 const GROUPS_META = [
   { id: 'Abs',       label: 'Abs',       icon: '/icons/abs.png' },
-  { id: 'Biceps',    label: 'Biceps',    icon: '/icons/biceps.png' },
+  { id: 'Biceps',    label: 'Biceps',    icon: '/icons/arm.png' },
   { id: 'Triceps',   label: 'Triceps',   icon: '/icons/triceps.png' },
-  { id: 'Shoulders', label: 'Shoulders', icon: '/icons/shoulders.png' },
+  { id: 'Shoulders', label: 'Shoulders', icon: '/icons/shoulder.png' },
   { id: 'Chest',     label: 'Chest',     icon: '/icons/chest.png' },
   { id: 'Back',      label: 'Back',      icon: '/icons/back.png' },
   { id: 'Legs',      label: 'Legs',      icon: '/icons/legs.png' },
@@ -539,17 +539,17 @@ export default function Muscles() {
         {/* Browse exercises by muscle group */}
         <div>
           <p className="section-title">Browse Exercises</p>
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-2 gap-2">
             {GROUPS_META.map(g => (
               <button
                 key={g.id}
                 onClick={() => navigate(`/muscles/${g.id.toLowerCase()}`)}
-                className="rounded-2xl border border-surface2 bg-surface py-4 flex flex-col items-center gap-2 active:scale-95 transition-transform"
+                className="rounded-2xl border border-surface2 bg-surface px-4 py-4 flex items-center gap-3 active:scale-95 transition-transform"
               >
-                <div className="w-11 h-11 rounded-xl bg-white p-1.5 flex items-center justify-center">
+                <div className="w-11 h-11 rounded-xl bg-white p-1.5 flex items-center justify-center flex-shrink-0">
                   <img src={g.icon} alt={g.label} className="w-full h-full object-contain" />
                 </div>
-                <p className="text-xs font-semibold leading-none text-white">{g.label}</p>
+                <p className="text-sm font-semibold text-white">{g.label}</p>
               </button>
             ))}
           </div>
