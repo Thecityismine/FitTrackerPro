@@ -54,6 +54,21 @@ function NewRoutineSheet({ onClose, onSave }) {
   )
 }
 
+// ─── Infer muscle group from exercise name (fallback) ─────
+function inferMuscleGroup(name) {
+  const n = (name || '').toLowerCase()
+  if (/\b(cardio|walking|walk|run|running|jog|jogging|bike|cycling|elliptical|swim|swimming|treadmill|stair|hiit)\b/.test(n)) return 'Cardio'
+  if (/\b(abs|core|crunch|plank|sit.?up|abdominal)\b/.test(n)) return 'Abs'
+  if (/\b(tricep|triceps|pushdown|skull)\b/.test(n)) return 'Triceps'
+  if (/\b(bicep|biceps|curl)\b/.test(n)) return 'Biceps'
+  if (/\b(shoulder|delt|delts|lateral raise|overhead press)\b/.test(n)) return 'Shoulders'
+  if (/\b(chest|pec|pecs|bench|fly|flye)\b/.test(n)) return 'Chest'
+  if (/\b(back|lat|lats|row|rows|pulldown|chin|deadlift|rhomboid|trap|traps|rear delt)\b/.test(n)) return 'Back'
+  if (/\b(glute|glutes|hip thrust|glute bridge)\b/.test(n)) return 'Glutes'
+  if (/\b(leg|legs|quad|quads|hamstring|hamstrings|squat|lunge|calf|calves|leg press|extension)\b/.test(n)) return 'Legs'
+  return ''
+}
+
 // ─── Add Exercise Sheet (Library Picker) ──────────────────
 function AddExerciseSheet({ onClose, onAdd, existingIds = [] }) {
   const { user } = useAuth()
@@ -73,7 +88,8 @@ function AddExerciseSheet({ onClose, onAdd, existingIds = [] }) {
         const { exerciseId, exerciseName, muscleGroup } = d.data()
         if (exerciseId && !seen.has(exerciseId)) {
           seen.add(exerciseId)
-          data.push({ id: exerciseId, name: exerciseName || exerciseId, muscleGroup: muscleGroup || '' })
+          const resolvedGroup = muscleGroup || inferMuscleGroup(exerciseName || exerciseId)
+          data.push({ id: exerciseId, name: exerciseName || exerciseId, muscleGroup: resolvedGroup })
         }
       })
       data.sort((a, b) => a.name.localeCompare(b.name))
