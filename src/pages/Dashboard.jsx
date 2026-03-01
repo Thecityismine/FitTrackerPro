@@ -2,11 +2,12 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { getDocs } from 'firebase/firestore'
-import { differenceInDays, parseISO, startOfWeek, format } from 'date-fns'
+import { differenceInDays, parseISO, startOfWeek, endOfWeek, format } from 'date-fns'
 import {
   AreaChart, Area, XAxis, Tooltip, ResponsiveContainer,
 } from 'recharts'
 import PageWrapper from '../components/layout/PageWrapper'
+import HexRing from '../components/HexRing'
 import { useAuth } from '../context/AuthContext'
 import { sessionsCol } from '../firebase/collections'
 
@@ -32,6 +33,56 @@ function getBodyPart(muscleGroup, exerciseName) {
     if (bp.match.some((k) => new RegExp(`\\b${k}`).test(searchStr))) return bp.key
   }
   return null
+}
+
+// ─── PPL weekly sets (for Dashboard card) ───────────────────
+const PPL_DASH = [
+  { id: 'push', label: 'Push', color: '#8B7332', targetTotal: 27,
+    muscles: [{ id: 'chest' }, { id: 'shoulders' }, { id: 'triceps' }] },
+  { id: 'pull', label: 'Pull', color: '#8B1A2B', targetTotal: 15,
+    muscles: [{ id: 'back' }, { id: 'biceps' }] },
+  { id: 'legs', label: 'Legs', color: '#1F4D3A', targetTotal: 21,
+    muscles: [{ id: 'quads' }, { id: 'hamstrings' }, { id: 'glutes' }] },
+]
+const PPL_TOTAL = 63
+
+const PPL_MAP_DASH = {
+  chest: 'push/chest', pec: 'push/chest', pecs: 'push/chest', bench: 'push/chest',
+  shoulder: 'push/shoulders', shoulders: 'push/shoulders', delt: 'push/shoulders', delts: 'push/shoulders',
+  tricep: 'push/triceps', triceps: 'push/triceps',
+  back: 'pull/back', lats: 'pull/back', lat: 'pull/back', rhomboid: 'pull/back',
+  traps: 'pull/back', trap: 'pull/back',
+  bicep: 'pull/biceps', biceps: 'pull/biceps', arms: 'pull/biceps', forearm: 'pull/biceps', forearms: 'pull/biceps',
+  legs: 'legs/quads', leg: 'legs/quads', quads: 'legs/quads', quad: 'legs/quads',
+  squat: 'legs/quads', hamstrings: 'legs/hamstrings', hamstring: 'legs/hamstrings',
+  glutes: 'legs/glutes', glute: 'legs/glutes', hip: 'legs/glutes',
+}
+const EX_KW_DASH = [
+  [/\brow\b/, 'pull/back'], [/\bpulldown\b/, 'pull/back'], [/\bchin\b/, 'pull/back'],
+  [/\bdeadlift\b/, 'pull/back'], [/\bcurl\b/, 'pull/biceps'],
+  [/\bpushdown\b/, 'push/triceps'], [/\bskull\b/, 'push/triceps'],
+  [/\blunge\b/, 'legs/quads'], [/\bleg press\b/, 'legs/quads'],
+  [/\bhip thrust\b/, 'legs/glutes'], [/\bglute bridge\b/, 'legs/glutes'],
+]
+function getPplCat(muscleGroup, exerciseName) {
+  const mg = (muscleGroup || '').trim().toLowerCase()
+  if (PPL_MAP_DASH[mg]) return PPL_MAP_DASH[mg]
+  const search = `${mg} ${(exerciseName || '').toLowerCase()}`
+  for (const [re, val] of EX_KW_DASH) if (re.test(search)) return val
+  for (const [key, val] of Object.entries(PPL_MAP_DASH)) {
+    if (new RegExp(`\\b${key}\\b`).test(search)) return val
+  }
+  return null
+}
+function computeDashSets(weekSessions) {
+  const counts = { push: { chest: 0, shoulders: 0, triceps: 0 }, pull: { back: 0, biceps: 0 }, legs: { quads: 0, hamstrings: 0, glutes: 0 } }
+  for (const s of weekSessions) {
+    const cat = getPplCat(s.muscleGroup, s.exerciseName)
+    if (!cat) continue
+    const [gId, mId] = cat.split('/')
+    counts[gId][mId] = (counts[gId][mId] || 0) + (s.sets || []).length
+  }
+  return counts
 }
 
 // ─── Chart Tooltip ──────────────────────────────────────────
@@ -126,6 +177,14 @@ export default function Dashboard() {
   const maxVol = chartData.length ? Math.max(...chartData.map((d) => d.vol)) : 0
   const thisWeekKey = format(startOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd')
   const thisWeekVol = weeklyMap[thisWeekKey] || 0
+
+  // Weekly Set Targets (PPL)
+  const weekEndStr = format(endOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd')
+  const thisWeekSessions = sessions.filter(s => s.date >= thisWeekKey && s.date <= weekEndStr)
+  const weekSets = computeDashSets(thisWeekSessions)
+  const weekTotal = PPL_DASH.reduce((s, g) =>
+    s + g.muscles.reduce((ms, m) => ms + (weekSets[g.id]?.[m.id] || 0), 0), 0)
+  const weekPct = Math.min(weekTotal / PPL_TOTAL, 1)
 
   // Last session exercises (most recent date's unique exercises)
   const lastSessions = lastDate ? sessions.filter((s) => s.date === lastDate) : []
@@ -294,6 +353,67 @@ export default function Dashboard() {
               })}
             </div>
           </div>
+        )}
+
+        {/* Weekly Set Targets card */}
+        {!loading && (
+          <button
+            onClick={() => navigate('/muscles')}
+            className="card w-full text-left active:scale-[0.98] transition-transform"
+          >
+            <div className="flex items-center gap-4">
+              {/* Hex ring */}
+              <div className="relative flex-shrink-0">
+                <HexRing
+                  segments={PPL_DASH.map(g => ({
+                    pct: Math.min(
+                      g.muscles.reduce((s, m) => s + (weekSets[g.id]?.[m.id] || 0), 0) / g.targetTotal,
+                      1
+                    ),
+                    color: g.color,
+                  }))}
+                  size={80}
+                  strokeWidth={8}
+                />
+                <div className="absolute inset-0 flex flex-col items-center justify-center">
+                  <p className="font-display text-base font-bold text-text-primary leading-none">
+                    {Math.round(weekPct * 100)}%
+                  </p>
+                </div>
+              </div>
+
+              {/* PPL rows */}
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="section-title mb-0">Weekly Set Targets</p>
+                  <svg className="w-4 h-4 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                  </svg>
+                </div>
+                <div className="space-y-1">
+                  {PPL_DASH.map(g => {
+                    const actual = g.muscles.reduce((s, m) => s + (weekSets[g.id]?.[m.id] || 0), 0)
+                    const done = actual >= g.targetTotal
+                    return (
+                      <div key={g.id} className="flex items-center gap-2">
+                        <div className="w-2 h-2 rounded-sm flex-shrink-0" style={{ backgroundColor: g.color }} />
+                        <p className="text-text-secondary text-xs w-8">{g.label}</p>
+                        <div className="flex-1 h-1.5 bg-surface2 rounded-full overflow-hidden">
+                          <div
+                            className="h-full rounded-full transition-all duration-700"
+                            style={{ width: `${Math.min(actual / g.targetTotal, 1) * 100}%`, backgroundColor: g.color }}
+                          />
+                        </div>
+                        <p className={`text-xs font-mono flex-shrink-0 ${done ? 'text-accent-green font-bold' : 'text-text-secondary'}`}>
+                          {actual}/{g.targetTotal}
+                        </p>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            </div>
+          </button>
         )}
 
         {/* Weekly Volume Chart */}
