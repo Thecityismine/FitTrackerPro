@@ -121,15 +121,15 @@ function toSlug(name) {
 }
 
 const GROUPS_META = [
-  { id: 'Abs',       label: 'Abs',       emoji: '🔥', color: 'bg-orange-500/20 border-orange-500/30', text: 'text-orange-400' },
-  { id: 'Biceps',    label: 'Biceps',    emoji: '💪', color: 'bg-blue-500/20 border-blue-500/30',    text: 'text-blue-400' },
-  { id: 'Triceps',   label: 'Triceps',   emoji: '⚡', color: 'bg-yellow-500/20 border-yellow-500/30', text: 'text-yellow-400' },
-  { id: 'Shoulders', label: 'Shoulders', emoji: '🏔️', color: 'bg-teal-500/20 border-teal-500/30',   text: 'text-teal-400' },
-  { id: 'Chest',     label: 'Chest',     emoji: '🛡️', color: 'bg-red-500/20 border-red-500/30',      text: 'text-red-400' },
-  { id: 'Back',      label: 'Back',      emoji: '🏋️', color: 'bg-indigo-500/20 border-indigo-500/30', text: 'text-indigo-400' },
-  { id: 'Legs',      label: 'Legs',      emoji: '🦵', color: 'bg-green-500/20 border-green-500/30',  text: 'text-green-400' },
-  { id: 'Glutes',    label: 'Glutes',    emoji: '🎖️', color: 'bg-pink-500/20 border-pink-500/30',    text: 'text-pink-400' },
-  { id: 'Cardio',    label: 'Cardio',    emoji: '❤️', color: 'bg-rose-500/20 border-rose-500/30',    text: 'text-rose-400' },
+  { id: 'Abs',       label: 'Abs',       icon: '/icons/abs.png' },
+  { id: 'Biceps',    label: 'Biceps',    icon: '/icons/biceps.png' },
+  { id: 'Triceps',   label: 'Triceps',   icon: '/icons/triceps.png' },
+  { id: 'Shoulders', label: 'Shoulders', icon: '/icons/shoulders.png' },
+  { id: 'Chest',     label: 'Chest',     icon: '/icons/chest.png' },
+  { id: 'Back',      label: 'Back',      icon: '/icons/back.png' },
+  { id: 'Legs',      label: 'Legs',      icon: '/icons/legs.png' },
+  { id: 'Glutes',    label: 'Glutes',    icon: '/icons/glutes.png' },
+  { id: 'Cardio',    label: 'Cardio',    icon: '/icons/cardio.png' },
 ]
 
 // ─── Exercise Card (detail view) ──────────────────────────
@@ -399,8 +399,9 @@ export default function Muscles() {
               </svg>
             </button>
             <div className="flex-1 min-w-0">
-              <h1 className="font-display text-2xl font-bold text-text-primary">
-                {meta?.emoji} {groupLabel}
+              <h1 className="font-display text-2xl font-bold text-text-primary flex items-center gap-2">
+                {meta?.icon && <img src={meta.icon} alt="" className="w-7 h-7 object-contain" style={{ filter: 'brightness(0) invert(1)' }} />}
+                {groupLabel}
               </h1>
               {!loading && <p className="text-text-secondary text-sm">{exercises.length} exercise{exercises.length !== 1 ? 's' : ''}</p>}
             </div>
@@ -539,10 +540,10 @@ export default function Muscles() {
               <button
                 key={g.id}
                 onClick={() => navigate(`/muscles/${g.id.toLowerCase()}`)}
-                className={`rounded-2xl border py-4 flex flex-col items-center gap-2 active:scale-95 transition-transform ${g.color}`}
+                className="rounded-2xl border border-surface2 bg-surface2 py-4 flex flex-col items-center gap-2 active:scale-95 transition-transform"
               >
-                <span className="text-2xl leading-none">{g.emoji}</span>
-                <p className={`text-xs font-semibold leading-none ${g.text}`}>{g.label}</p>
+                <img src={g.icon} alt={g.label} className="w-9 h-9 object-contain" style={{ filter: 'brightness(0) invert(1)' }} />
+                <p className="text-xs font-semibold leading-none text-white">{g.label}</p>
               </button>
             ))}
           </div>
