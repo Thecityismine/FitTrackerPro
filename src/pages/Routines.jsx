@@ -114,21 +114,23 @@ function AddExerciseSheet({ onClose, onAdd, existingIds = [] }) {
 
   useEffect(() => {
     if (!user?.uid) return
-    getDocs(sessionsCol(user.uid)).then((snap) => {
-      const seen = new Set()
-      const data = []
-      snap.docs.forEach((d) => {
-        const { exerciseId, exerciseName, muscleGroup } = d.data()
-        if (exerciseId && !seen.has(exerciseId)) {
-          seen.add(exerciseId)
-          const resolvedGroup = muscleGroup || inferMuscleGroup(exerciseName || exerciseId)
-          data.push({ id: exerciseId, name: exerciseName || exerciseId, muscleGroup: resolvedGroup })
-        }
+    getDocs(sessionsCol(user.uid))
+      .then((snap) => {
+        const seen = new Set()
+        const data = []
+        snap.docs.forEach((d) => {
+          const { exerciseId, exerciseName, muscleGroup } = d.data()
+          if (exerciseId && !seen.has(exerciseId)) {
+            seen.add(exerciseId)
+            const resolvedGroup = muscleGroup || inferMuscleGroup(exerciseName || exerciseId)
+            data.push({ id: exerciseId, name: exerciseName || exerciseId, muscleGroup: resolvedGroup })
+          }
+        })
+        data.sort((a, b) => a.name.localeCompare(b.name))
+        setLibrary(data)
+        setLoading(false)
       })
-      data.sort((a, b) => a.name.localeCompare(b.name))
-      setLibrary(data)
-      setLoading(false)
-    })
+      .catch(() => setLoading(false))
   }, [user?.uid])
 
   const groups = ['All', ...[...new Set(library.map((e) => e.muscleGroup))].sort()]

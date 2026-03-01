@@ -1,5 +1,5 @@
 // src/pages/Profile.jsx
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { updateProfile } from 'firebase/auth'
 import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage'
@@ -26,8 +26,12 @@ export default function Profile() {
   const [uploadingPhoto, setUploadingPhoto] = useState(false)
   const [uploadingQr, setUploadingQr]       = useState(false)
   const [uploadError, setUploadError]       = useState(null)
-  const photoInputRef = useRef(null)
-  const qrInputRef    = useRef(null)
+  const photoInputRef  = useRef(null)
+  const qrInputRef     = useRef(null)
+  const savedTimerRef  = useRef(null)
+
+  // Clean up the "Saved" badge timer on unmount
+  useEffect(() => () => clearTimeout(savedTimerRef.current), [])
 
   async function uploadFile(file, path) {
     const sRef = storageRef(storage, path)
@@ -44,8 +48,7 @@ export default function Profile() {
       const url = await uploadFile(file, `users/${user.uid}/profile`)
       await updateProfile(auth.currentUser, { photoURL: url })
       await updateUserProfile({ photoURL: url })
-    } catch (err) {
-      console.error('Photo upload failed:', err)
+    } catch {
       setUploadError('Photo upload failed. Make sure Firebase Storage is enabled.')
     } finally {
       setUploadingPhoto(false)
@@ -60,8 +63,7 @@ export default function Profile() {
     try {
       const url = await uploadFile(file, `users/${user.uid}/gymQr`)
       await updateUserProfile({ gymQrUrl: url })
-    } catch (err) {
-      console.error('QR upload failed:', err)
+    } catch {
       setUploadError('QR upload failed. Make sure Firebase Storage is enabled.')
     } finally {
       setUploadingQr(false)
@@ -77,7 +79,7 @@ export default function Profile() {
         await updateProfile(auth.currentUser, { displayName: trimmedName })
       }
       setSaved(true)
-      setTimeout(() => setSaved(false), 2500)
+      savedTimerRef.current = setTimeout(() => setSaved(false), 2500)
     } finally {
       setSaving(false)
     }

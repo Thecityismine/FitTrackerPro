@@ -136,7 +136,6 @@ export default function Dashboard() {
         setLoading(false)
       })
       .catch((err) => {
-        console.error('Dashboard load error:', err)
         setLoadError(err?.message || 'Unknown error')
         setLoading(false)
       })

@@ -24,9 +24,7 @@ export function AuthProvider({ children }) {
       setUser(firebaseUser)
       setLoading(false)           // unblock UI immediately — don't wait for Firestore
       if (firebaseUser) {
-        loadProfile(firebaseUser.uid).catch((e) => {
-          console.error('loadProfile error:', e)
-        })
+        loadProfile(firebaseUser.uid).catch(() => {})
       } else {
         setProfile(null)
       }

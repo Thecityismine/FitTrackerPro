@@ -182,10 +182,9 @@ export default function ImportPage() {
       }
       setStatus('done')
     } catch (err) {
-      console.error('Import error:', err)
       setErrorMsg(err.code === 'permission-denied'
         ? 'Permission denied — make sure you are logged in.'
-        : err.message || 'Unknown error. Check console for details.')
+        : err.message || 'Unknown error. Please try again.')
       setStatus('error')
     }
   }

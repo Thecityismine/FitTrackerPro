@@ -129,36 +129,41 @@ export default function WorkoutPage() {
     setPastSessionsData([])
     setSessionId(null)
     setLoading(true)
-    getDocs(query(sessionsCol(user.uid), where('exerciseId', '==', exerciseId))).then((snap) => {
-      const all = snap.docs
-        .map((d) => ({ id: d.id, ...d.data() }))
-        .sort((a, b) => (a.date < b.date ? -1 : 1))
+    getDocs(query(sessionsCol(user.uid), where('exerciseId', '==', exerciseId)))
+      .then((snap) => {
+        const all = snap.docs
+          .map((d) => ({ id: d.id, ...d.data() }))
+          .sort((a, b) => (a.date < b.date ? -1 : 1))
 
-      const todaySession = all.find((s) => s.date === TODAY)
-      if (todaySession) {
-        setSessionId(todaySession.id)
-        setSets(todaySession.sets || [])
-      }
+        const todaySession = all.find((s) => s.date === TODAY)
+        if (todaySession) {
+          setSessionId(todaySession.id)
+          setSets(todaySession.sets || [])
+        }
 
-      const pastSessions = all.filter((s) => s.date !== TODAY)
+        const pastSessions = all.filter((s) => s.date !== TODAY)
 
-      // Chart data (last 8)
-      const pastHistory = pastSessions
-        .slice(-8)
-        .map((s) => ({ date: s.date.slice(5), volume: s.totalVolume || 0 }))
-      setHistory(pastHistory)
+        // Chart data (last 8)
+        const pastHistory = pastSessions
+          .slice(-8)
+          .map((s) => ({ date: s.date.slice(5), volume: s.totalVolume || 0 }))
+        setHistory(pastHistory)
 
-      // Last 3 past sessions for swipe cards (newest first)
-      setPastSessionsData([...pastSessions].reverse().slice(0, 3))
+        // Last 3 past sessions for swipe cards (newest first)
+        setPastSessionsData([...pastSessions].reverse().slice(0, 3))
 
-      // Default weight for new sets
-      const lastPast = pastSessions.at(-1)
-      const lastWeight = (lastPast?.sets || []).reduce((m, s) => Math.max(m, s.weight || 0), 0)
-      setLastHistoricalWeight(lastWeight)
+        // Default weight for new sets
+        const lastPast = pastSessions.at(-1)
+        const lastWeight = (lastPast?.sets || []).reduce((m, s) => Math.max(m, s.weight || 0), 0)
+        setLastHistoricalWeight(lastWeight)
 
-      setLoading(false)
-    })
+        setLoading(false)
+      })
+      .catch(() => setLoading(false))
   }, [user, exerciseId])
+
+  // ── Cancel pending saves on unmount ─────────────────────
+  useEffect(() => () => clearTimeout(saveTimeoutRef.current), [])
 
   // ── Carousel scroll tracker ──────────────────────────────
   function handleCarouselScroll() {
@@ -184,26 +189,29 @@ export default function WorkoutPage() {
     // Never create a new session doc for an empty workout
     if (currentSets.length === 0 && !sessionIdRef.current) return
     setSaving(true)
-    const totalVolume = currentSets.reduce((sum, s) => sum + (s.reps || 0) * (s.weight || 0), 0)
-    const payload = {
-      exerciseId,
-      exerciseName: exercise.name,
-      muscleGroup: exercise.muscleGroup || '',
-      routineId: routine?.id || '',
-      routineName: routine?.name || '',
-      date: TODAY,
-      sets: currentSets,
-      totalVolume,
-      updatedAt: serverTimestamp(),
+    try {
+      const totalVolume = currentSets.reduce((sum, s) => sum + (s.reps || 0) * (s.weight || 0), 0)
+      const payload = {
+        exerciseId,
+        exerciseName: exercise.name,
+        muscleGroup: exercise.muscleGroup || '',
+        routineId: routine?.id || '',
+        routineName: routine?.name || '',
+        date: TODAY,
+        sets: currentSets,
+        totalVolume,
+        updatedAt: serverTimestamp(),
+      }
+      const currentId = sessionIdRef.current
+      if (currentId) {
+        await updateDoc(sessionDoc(user.uid, currentId), payload)
+      } else {
+        const ref = await addDoc(sessionsCol(user.uid), { ...payload, createdAt: serverTimestamp() })
+        setSessionId(ref.id)
+      }
+    } finally {
+      setSaving(false)
     }
-    const currentId = sessionIdRef.current
-    if (currentId) {
-      await updateDoc(sessionDoc(user.uid, currentId), payload)
-    } else {
-      const ref = await addDoc(sessionsCol(user.uid), { ...payload, createdAt: serverTimestamp() })
-      setSessionId(ref.id)
-    }
-    setSaving(false)
   }
 
   function scheduleSave(updatedSets) {

@@ -344,12 +344,16 @@ export default function Muscles() {
 
   async function handleDeleteExercise(exerciseId, exerciseName) {
     if (!window.confirm(`Delete "${exerciseName}" and all its sessions? This cannot be undone.`)) return
-    const snap = await getDocs(query(sessionsCol(user.uid), where('exerciseId', '==', exerciseId)))
-    if (snap.empty) return
-    const batch = writeBatch(db)
-    snap.docs.forEach(d => batch.delete(d.ref))
-    await batch.commit()
-    setSessions(prev => prev.filter(s => s.exerciseId !== exerciseId))
+    try {
+      const snap = await getDocs(query(sessionsCol(user.uid), where('exerciseId', '==', exerciseId)))
+      if (snap.empty) return
+      const batch = writeBatch(db)
+      snap.docs.forEach(d => batch.delete(d.ref))
+      await batch.commit()
+      setSessions(prev => prev.filter(s => s.exerciseId !== exerciseId))
+    } catch {
+      alert('Could not delete exercise. Please try again.')
+    }
   }
 
   // ── Weekly set target computations (hooks must run unconditionally) ──
