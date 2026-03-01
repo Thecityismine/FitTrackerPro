@@ -73,15 +73,19 @@ function PastSetRow({ set, index, isCardio }) {
 }
 
 // ─── Chart Tooltip ─────────────────────────────────────────
-function ChartTooltip({ active, payload, label }) {
+function ChartTooltip({ active, payload, label, isCardio }) {
   if (!active || !payload?.length) return null
   return (
     <div className="bg-surface border border-surface2 rounded-xl px-3 py-2 text-xs shadow-lg">
       <p className="text-text-secondary mb-0.5">{label}</p>
-      <p className="text-accent font-bold font-mono">{Number(payload[0].value).toLocaleString()} lbs</p>
+      <p className="text-accent font-bold font-mono">
+        {Number(payload[0].value).toLocaleString()} {isCardio ? 'min' : 'lbs'}
+      </p>
     </div>
   )
 }
+
+const CARDIO_RE = /\b(cardio|walking|walk|run|running|jog|jogging|bike|cycling|cycle|elliptical|swim|swimming|rowing|treadmill|stair|hiit)\b/i
 
 // ─── Main Page ─────────────────────────────────────────────
 export default function WorkoutPage() {
@@ -97,7 +101,7 @@ export default function WorkoutPage() {
     muscleGroup: '',
   }
   const routine = state?.routine ?? null
-  const isCardio = exercise.muscleGroup?.toLowerCase() === 'cardio'
+  const isCardio = CARDIO_RE.test(exercise.muscleGroup || '') || CARDIO_RE.test(exercise.name || '')
 
   const [sets, setSets] = useState([])
   const [sessionId, setSessionId] = useState(null)
@@ -300,10 +304,10 @@ export default function WorkoutPage() {
         <div className="mx-4 mb-3 flex-shrink-0">
           <div className="card p-3">
             <div className="flex items-center justify-between mb-1">
-              <p className="section-title mb-0">Volume History</p>
+              <p className="section-title mb-0">{isCardio ? 'Duration History' : 'Volume History'}</p>
               {bestWeight > 0 && (
                 <p className="text-text-secondary text-sm">
-                  Best: <span className="text-accent-green font-semibold">{bestWeight} lbs</span>
+                  Best: <span className="text-accent-green font-semibold">{bestWeight} {isCardio ? 'min' : 'lbs'}</span>
                 </p>
               )}
             </div>
@@ -322,7 +326,7 @@ export default function WorkoutPage() {
                     axisLine={false}
                     tickLine={false}
                   />
-                  <Tooltip content={<ChartTooltip />} />
+                  <Tooltip content={(props) => <ChartTooltip {...props} isCardio={isCardio} />} />
                   <Area
                     type="monotone"
                     dataKey="volume"
