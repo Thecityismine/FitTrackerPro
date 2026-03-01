@@ -749,9 +749,7 @@ Notes: weight/boneMass/fatFreeBodyWeight/muscleMassLbs are in lbs; bodyFat/bodyW
                 delta={delta('skeletalMuscle')} lowerIsBetter={false} />
               <MetricCard label="Subcut. Fat" value={latest?.subcutaneousFat} unit="%"
                 delta={delta('subcutaneousFat')} lowerIsBetter={true} />
-              <MetricCard label="Bone Mass" value={latest?.boneMass} unit="lb"
-                delta={delta('boneMass')} lowerIsBetter={false} />
-              <MetricCard label="Fat-Free Wt" value={latest?.fatFreeBodyWeight} unit="lb"
+<MetricCard label="Fat-Free Wt" value={latest?.fatFreeBodyWeight} unit="lb"
                 delta={delta('fatFreeBodyWeight')} lowerIsBetter={false} />
               <MetricCard label="BMR" value={latest?.bmr} unit="kcal"
                 delta={delta('bmr')} lowerIsBetter={false} />
