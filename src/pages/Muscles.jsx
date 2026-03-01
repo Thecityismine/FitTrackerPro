@@ -531,6 +531,23 @@ export default function Muscles() {
           </div>
         )}
 
+        {/* Browse exercises by muscle group */}
+        <div>
+          <p className="section-title">Browse Exercises</p>
+          <div className="grid grid-cols-3 gap-2">
+            {GROUPS_META.map(g => (
+              <button
+                key={g.id}
+                onClick={() => navigate(`/muscles/${g.id.toLowerCase()}`)}
+                className={`rounded-2xl border py-4 flex flex-col items-center gap-2 active:scale-95 transition-transform ${g.color}`}
+              >
+                <span className="text-2xl leading-none">{g.emoji}</span>
+                <p className={`text-xs font-semibold leading-none ${g.text}`}>{g.label}</p>
+              </button>
+            ))}
+          </div>
+        </div>
+
       </div>
     </PageWrapper>
   )
