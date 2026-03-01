@@ -1,5 +1,20 @@
 // src/pages/Routines.jsx
 import { useState, useEffect, useRef } from 'react'
+
+const MUSCLE_ICONS = {
+  abs:       '/icons/abs.png',
+  biceps:    '/icons/arm.png',
+  triceps:   '/icons/triceps.png',
+  shoulders: '/icons/shoulder.png',
+  chest:     '/icons/chest.png',
+  back:      '/icons/back.png',
+  legs:      '/icons/legs.png',
+  glutes:    '/icons/glutes.png',
+  cardio:    '/icons/cardio.png',
+}
+function muscleIcon(muscleGroup) {
+  return MUSCLE_ICONS[(muscleGroup || '').toLowerCase()] || null
+}
 import { useNavigate, useLocation } from 'react-router-dom'
 import {
   addDoc, deleteDoc, updateDoc, onSnapshot, getDocs,
@@ -368,8 +383,11 @@ function RoutineDetail({ routine, onClose, onAddExercise, onRemoveExercise, onDe
           ) : (
             exercises.map((ex, i) => (
               <div key={ex.id} className="card flex items-center gap-3 py-3">
-                <div className="w-8 h-8 rounded-lg bg-accent/20 flex items-center justify-center flex-shrink-0">
-                  <span className="text-white text-xs font-bold font-display">{i + 1}</span>
+                <div className="w-10 h-10 rounded-xl bg-surface2 flex items-center justify-center flex-shrink-0 overflow-hidden">
+                  {muscleIcon(ex.muscleGroup)
+                    ? <img src={muscleIcon(ex.muscleGroup)} alt={ex.muscleGroup} className="w-7 h-7 object-contain" />
+                    : <span className="text-white text-xs font-bold font-display">{i + 1}</span>
+                  }
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-text-primary text-sm font-semibold truncate">{ex.name}</p>
