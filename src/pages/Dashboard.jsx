@@ -292,39 +292,37 @@ export default function Dashboard() {
               <p className="text-text-secondary text-xs">{lastDate?.slice(5).replace('-', '/')}</p>
             </div>
 
-            {/* Exercise list — full width */}
-            <div className="space-y-1.5 mb-4">
-              {lastExercises.slice(0, 5).map((ex, i) => (
-                <div key={i} className="flex items-center gap-2">
-                  <div className="w-1.5 h-1.5 rounded-full bg-accent flex-shrink-0" />
-                  <span className="text-text-primary text-sm truncate">{ex}</span>
-                </div>
-              ))}
-              {lastExercises.length > 5 && (
-                <p className="text-text-secondary text-xs pl-3.5">+{lastExercises.length - 5} more</p>
-              )}
-            </div>
-
-            {/* Volume ring — bottom center */}
-            <div className="flex justify-center pt-1 border-t border-surface2">
-              <div className="flex flex-col items-center gap-1 pt-3">
-                <div className="relative w-20 h-20">
-                  <svg className="w-20 h-20 -rotate-90" viewBox="0 0 120 120">
-                    <circle cx="60" cy="60" r="50" fill="none" stroke="currentColor" strokeWidth="10" className="text-accent-green/15" />
-                    <circle
-                      cx="60" cy="60" r="50" fill="none"
-                      stroke="currentColor" strokeWidth="10"
-                      strokeLinecap="round"
-                      strokeDasharray={`${Math.min((thisWeekVol / (maxVol || 1)) * 314, 314)} 314`}
-                      className="text-accent-green transition-all duration-700"
-                    />
-                  </svg>
-                  <div className="absolute inset-0 flex flex-col items-center justify-center">
-                    <p className="font-display text-base font-bold text-text-primary leading-tight">
-                      {thisWeekVol >= 1000 ? `${Math.round(thisWeekVol / 1000)}k` : thisWeekVol || '—'}
-                    </p>
-                    <p className="text-text-secondary text-[9px]">lbs/week</p>
+            {/* Exercise list + volume ring bottom-aligned */}
+            <div className="flex items-end gap-3">
+              <div className="flex-1 min-w-0 space-y-1.5">
+                {lastExercises.slice(0, 5).map((ex, i) => (
+                  <div key={i} className="flex items-center gap-2">
+                    <div className="w-1.5 h-1.5 rounded-full bg-accent flex-shrink-0" />
+                    <span className="text-text-primary text-sm truncate">{ex}</span>
                   </div>
+                ))}
+                {lastExercises.length > 5 && (
+                  <p className="text-text-secondary text-xs pl-3.5">+{lastExercises.length - 5} more</p>
+                )}
+              </div>
+
+              {/* Volume ring — bottom-right */}
+              <div className="relative w-20 h-20 flex-shrink-0">
+                <svg className="w-20 h-20 -rotate-90" viewBox="0 0 120 120">
+                  <circle cx="60" cy="60" r="50" fill="none" stroke="currentColor" strokeWidth="10" className="text-accent-green/15" />
+                  <circle
+                    cx="60" cy="60" r="50" fill="none"
+                    stroke="currentColor" strokeWidth="10"
+                    strokeLinecap="round"
+                    strokeDasharray={`${Math.min((thisWeekVol / (maxVol || 1)) * 314, 314)} 314`}
+                    className="text-accent-green transition-all duration-700"
+                  />
+                </svg>
+                <div className="absolute inset-0 flex flex-col items-center justify-center">
+                  <p className="font-display text-base font-bold text-text-primary leading-tight">
+                    {thisWeekVol >= 1000 ? `${Math.round(thisWeekVol / 1000)}k` : thisWeekVol || '—'}
+                  </p>
+                  <p className="text-text-secondary text-[9px]">lbs/week</p>
                 </div>
               </div>
             </div>
