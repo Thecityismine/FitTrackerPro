@@ -37,7 +37,7 @@ function AppRoutes() {
   const { user } = useAuth()
 
   return (
-    <Suspense fallback={<PageLoader />}>
+    <Suspense key={user?.uid ?? 'anon'} fallback={<PageLoader />}>
       <Routes>
         {/* Public */}
         <Route path="/login" element={user ? <Navigate to="/" replace /> : <Login />} />
