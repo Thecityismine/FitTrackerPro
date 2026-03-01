@@ -262,7 +262,7 @@ function RoutineDetail({ routine, onClose, onAddExercise, onRemoveExercise, onDe
 
   return (
     <>
-      <div className="fixed inset-0 z-[55] flex flex-col bg-bg animate-fade-in">
+      <div className="fixed inset-x-0 top-0 bottom-16 z-[55] flex flex-col bg-bg animate-fade-in">
 
         {/* Header */}
         <div className="flex items-center gap-3 px-4 pt-4 pb-2 flex-shrink-0 border-b border-surface2">
@@ -381,21 +381,13 @@ function RoutineDetail({ routine, onClose, onAddExercise, onRemoveExercise, onDe
         </div>
 
         {/* Footer */}
-        <div className="px-4 pt-3 pb-8 flex gap-2 flex-shrink-0 border-t border-surface2">
-          <button onClick={() => setShowAddExercise(true)} className="btn-secondary flex-1">
+        <div className="px-4 pt-3 pb-4 flex-shrink-0 border-t border-surface2">
+          <button onClick={() => setShowAddExercise(true)} className="btn-secondary w-full">
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
             </svg>
             Add Exercise
           </button>
-          {exercises.length > 0 && (
-            <button
-              onClick={() => navigate(`/workout/${exercises[0].id}`, { state: { exercise: exercises[0], routine } })}
-              className="btn-primary flex-1"
-            >
-              Start Workout
-            </button>
-          )}
         </div>
       </div>
 
