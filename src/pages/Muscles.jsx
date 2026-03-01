@@ -401,9 +401,7 @@ export default function Muscles() {
             <div className="flex-1 min-w-0">
               <h1 className="font-display text-2xl font-bold text-text-primary flex items-center gap-2">
                 {meta?.icon && (
-                  <div className="w-8 h-8 rounded-lg bg-white p-1 flex items-center justify-center flex-shrink-0">
-                    <img src={meta.icon} alt="" className="w-full h-full object-contain" />
-                  </div>
+                  <img src={meta.icon} alt="" className="w-8 h-8 object-contain flex-shrink-0" />
                 )}
                 {groupLabel}
               </h1>
@@ -539,19 +537,31 @@ export default function Muscles() {
         {/* Browse exercises by muscle group */}
         <div>
           <p className="section-title">Browse Exercises</p>
-          <div className="grid grid-cols-2 gap-2">
-            {GROUPS_META.map(g => (
-              <button
-                key={g.id}
-                onClick={() => navigate(`/muscles/${g.id.toLowerCase()}`)}
-                className="rounded-2xl border border-surface2 bg-surface px-4 py-4 flex items-center gap-3 active:scale-95 transition-transform"
-              >
-                <div className="w-11 h-11 rounded-xl bg-white p-1.5 flex items-center justify-center flex-shrink-0">
-                  <img src={g.icon} alt={g.label} className="w-full h-full object-contain" />
-                </div>
-                <p className="text-sm font-semibold text-white">{g.label}</p>
-              </button>
-            ))}
+          <div className="grid grid-cols-2 gap-3">
+            {GROUPS_META.map(g => {
+              const gSessions = sessions.filter(s => s.muscleGroup?.toLowerCase() === g.id.toLowerCase())
+              const uniqueExercises = new Set(gSessions.map(s => s.exerciseId)).size
+              const lastDate = gSessions.map(s => s.date).sort().at(-1)
+              const days = lastDate ? daysAgo(lastDate) : null
+              return (
+                <button
+                  key={g.id}
+                  onClick={() => navigate(`/muscles/${g.id.toLowerCase()}`)}
+                  className="rounded-2xl border border-surface2 bg-surface p-4 relative overflow-hidden flex flex-col justify-end active:scale-95 transition-transform"
+                  style={{ minHeight: '130px' }}
+                >
+                  <img src={g.icon} alt="" className="absolute right-2 top-2 w-24 h-24 object-contain opacity-90" />
+                  <div className="relative z-10 text-left">
+                    <p className="text-base font-bold text-white leading-tight">{g.label}</p>
+                    <p className="text-text-secondary text-xs mt-0.5">
+                      {uniqueExercises > 0
+                        ? `${uniqueExercises} exercise${uniqueExercises !== 1 ? 's' : ''}${days !== null ? ` · ${lastDoneLabel(days)}` : ''}`
+                        : 'No exercises yet'}
+                    </p>
+                  </div>
+                </button>
+              )
+            })}
           </div>
         </div>
 
