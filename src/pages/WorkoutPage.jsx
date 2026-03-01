@@ -168,6 +168,16 @@ export default function WorkoutPage() {
     setActivePage(page)
   }
 
+  // ── Auto-scroll to today's card (last position) on load ──
+  useEffect(() => {
+    if (loading) return
+    const el = carouselRef.current
+    if (!el || pastSessionsData.length === 0) return
+    requestAnimationFrame(() => {
+      el.scrollTo({ left: pastSessionsData.length * el.clientWidth, behavior: 'instant' })
+    })
+  }, [loading, pastSessionsData.length])
+
   // ── Persist sets to Firestore ────────────────────────────
   async function persistSets(currentSets) {
     if (!user || !exerciseId) return
@@ -368,17 +378,70 @@ export default function WorkoutPage() {
             className="flex-1 flex overflow-x-auto snap-x snap-mandatory scrollbar-none"
           >
 
-            {/* ── Today's card ──────────────────────────── */}
+            {/* ── Past session cards (read-only) — LEFT of today ── */}
+            {[...pastSessionsData].reverse().map((session) => {
+              const sessionSets = session.sets || []
+              const sessionVol = session.totalVolume || 0
+              const dateLabel = format(parseISO(session.date), 'EEEE, MMM d')
+              return (
+                <div key={session.id} className="flex-shrink-0 w-full overflow-y-auto px-4 pb-2">
+                  <div className="card">
+                    <div className="flex items-center justify-between mb-3">
+                      <p className="text-text-secondary text-xs font-semibold">{dateLabel}</p>
+                      <span className="text-[10px] text-text-secondary bg-surface2 px-2 py-0.5 rounded-lg">
+                        Previous
+                      </span>
+                    </div>
+
+                    {/* Column headers */}
+                    <div className="grid grid-cols-[28px_1fr_1fr_1fr] gap-2 pb-2 border-b border-surface2 mb-1">
+                      {['#', 'Reps', isCardio ? 'Min' : 'Lbs', isCardio ? 'Time' : 'Vol'].map((h, i) => (
+                        <span key={i} className="text-text-secondary text-sm font-semibold text-center">{h}</span>
+                      ))}
+                    </div>
+
+                    {sessionSets.length === 0 ? (
+                      <div className="py-6 text-center">
+                        <p className="text-text-secondary text-sm">No sets recorded</p>
+                      </div>
+                    ) : (
+                      [...sessionSets].reverse().map((set, i) => (
+                        <PastSetRow
+                          key={set.id || i}
+                          set={set}
+                          index={sessionSets.length - 1 - i}
+                          isCardio={isCardio}
+                        />
+                      ))
+                    )}
+
+                    {/* Total */}
+                    <div className="flex justify-end mt-3 pt-2.5 border-t border-surface2">
+                      <div className="text-right">
+                        <p className="text-text-secondary text-xs">{isCardio ? 'Total Time' : 'Total Volume'}</p>
+                        <p className="font-display font-bold text-text-secondary text-lg leading-tight">
+                          {isCardio
+                            ? (sessionVol > 0 ? `${sessionVol} min` : '—')
+                            : (sessionVol > 0 ? `${sessionVol.toLocaleString()} lbs` : '—')}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+
+            {/* ── Today's card — RIGHTMOST ──────────────────── */}
             <div className="flex-shrink-0 w-full overflow-y-auto px-4 pb-2">
               <div className="card">
                 <div className="flex items-center justify-between mb-3">
                   <p className="text-text-secondary text-xs font-semibold">{TODAY_DISPLAY}</p>
-                  {pastSessionsData.length > 0 && activePage === 0 && (
+                  {pastSessionsData.length > 0 && activePage === totalPages - 1 && (
                     <p className="text-text-secondary text-[10px] flex items-center gap-1">
-                      swipe for history
                       <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
                       </svg>
+                      history
                     </p>
                   )}
                 </div>
@@ -435,58 +498,6 @@ export default function WorkoutPage() {
               </div>
             </div>
 
-            {/* ── Past session cards (read-only) ───────────── */}
-            {pastSessionsData.map((session) => {
-              const sessionSets = session.sets || []
-              const sessionVol = session.totalVolume || 0
-              const dateLabel = format(parseISO(session.date), 'EEEE, MMM d')
-              return (
-                <div key={session.id} className="flex-shrink-0 w-full overflow-y-auto px-4 pb-2">
-                  <div className="card">
-                    <div className="flex items-center justify-between mb-3">
-                      <p className="text-text-secondary text-xs font-semibold">{dateLabel}</p>
-                      <span className="text-[10px] text-text-secondary bg-surface2 px-2 py-0.5 rounded-lg">
-                        Previous
-                      </span>
-                    </div>
-
-                    {/* Column headers */}
-                    <div className="grid grid-cols-[28px_1fr_1fr_1fr] gap-2 pb-2 border-b border-surface2 mb-1">
-                      {['#', 'Reps', isCardio ? 'Min' : 'Lbs', isCardio ? 'Time' : 'Vol'].map((h, i) => (
-                        <span key={i} className="text-text-secondary text-sm font-semibold text-center">{h}</span>
-                      ))}
-                    </div>
-
-                    {sessionSets.length === 0 ? (
-                      <div className="py-6 text-center">
-                        <p className="text-text-secondary text-sm">No sets recorded</p>
-                      </div>
-                    ) : (
-                      [...sessionSets].reverse().map((set, i) => (
-                        <PastSetRow
-                          key={set.id || i}
-                          set={set}
-                          index={sessionSets.length - 1 - i}
-                          isCardio={isCardio}
-                        />
-                      ))
-                    )}
-
-                    {/* Total */}
-                    <div className="flex justify-end mt-3 pt-2.5 border-t border-surface2">
-                      <div className="text-right">
-                        <p className="text-text-secondary text-xs">{isCardio ? 'Total Time' : 'Total Volume'}</p>
-                        <p className="font-display font-bold text-text-secondary text-lg leading-tight">
-                          {isCardio
-                            ? (sessionVol > 0 ? `${sessionVol} min` : '—')
-                            : (sessionVol > 0 ? `${sessionVol.toLocaleString()} lbs` : '—')}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )
-            })}
           </div>
 
           {/* Page dot indicators */}
