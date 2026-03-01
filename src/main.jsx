@@ -4,11 +4,13 @@ import ReactDOM from 'react-dom/client'
 import App from './App.jsx'
 import './index.css'
 
-// When a new service worker takes control, reload the page so the
-// fresh JS bundles are loaded instead of the stale cached versions.
+// Reload only when a *new* SW takes over an existing one (app update),
+// not on the initial install — which caused the double-load on first open.
 if ('serviceWorker' in navigator) {
+  let hadController = !!navigator.serviceWorker.controller
   navigator.serviceWorker.addEventListener('controllerchange', () => {
-    window.location.reload()
+    if (hadController) window.location.reload()
+    hadController = true
   })
 }
 
