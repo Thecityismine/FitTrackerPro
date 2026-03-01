@@ -168,7 +168,7 @@ export default function Dashboard() {
   const weeklyMap = {}
   activeSessions.forEach((s) => {
     if (!s.date) return
-    const weekKey = format(startOfWeek(parseISO(s.date), { weekStartsOn: 1 }), 'yyyy-MM-dd')
+    const weekKey = format(startOfWeek(parseISO(s.date), { weekStartsOn: 0 }), 'yyyy-MM-dd')
     weeklyMap[weekKey] = (weeklyMap[weekKey] || 0) + (s.totalVolume || 0)
   })
   const chartData = Object.entries(weeklyMap)
@@ -177,11 +177,11 @@ export default function Dashboard() {
     .map(([key, vol]) => ({ week: key.slice(5).replace('-', '/'), vol }))
 
   const maxVol = chartData.length ? Math.max(...chartData.map((d) => d.vol)) : 0
-  const thisWeekKey = format(startOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd')
+  const thisWeekKey = format(startOfWeek(new Date(), { weekStartsOn: 0 }), 'yyyy-MM-dd')
   const thisWeekVol = weeklyMap[thisWeekKey] || 0
 
   // Weekly Set Targets (PPL)
-  const weekEndStr = format(endOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd')
+  const weekEndStr = format(endOfWeek(new Date(), { weekStartsOn: 0 }), 'yyyy-MM-dd')
   const thisWeekSessions = activeSessions.filter(s => s.date >= thisWeekKey && s.date <= weekEndStr)
   const weekSets = computeDashSets(thisWeekSessions)
   const weekTotal = PPL_DASH.reduce((s, g) =>

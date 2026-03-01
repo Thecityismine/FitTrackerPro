@@ -122,6 +122,13 @@ export default function WorkoutPage() {
   // ── Load today's session + past history ─────────────────
   useEffect(() => {
     if (!user || !exerciseId) return
+    // Reset all per-exercise state immediately so the previous exercise's data
+    // doesn't linger while the new exercise's data loads
+    setSets([])
+    setHistory([])
+    setPastSessionsData([])
+    setSessionId(null)
+    setLoading(true)
     getDocs(query(sessionsCol(user.uid), where('exerciseId', '==', exerciseId))).then((snap) => {
       const all = snap.docs
         .map((d) => ({ id: d.id, ...d.data() }))
@@ -409,7 +416,7 @@ export default function WorkoutPage() {
                 <div className="flex items-center justify-between mt-3 pt-2.5 border-t border-surface2">
                   <button
                     onClick={addSet}
-                    className="text-white text-sm font-semibold flex items-center gap-1.5 active:scale-95 transition-transform"
+                    className="text-accent-green text-sm font-semibold flex items-center gap-1.5 active:scale-95 transition-transform"
                   >
                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
@@ -500,7 +507,7 @@ export default function WorkoutPage() {
         </div>
 
         {/* ── Footer: Rest Timer + Finish ─────────────────── */}
-        <div className="px-4 pb-8 pt-3 flex gap-2 items-center flex-shrink-0 border-t border-surface2">
+        <div className="px-4 pt-3 flex gap-2 items-center flex-shrink-0 border-t border-surface2" style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 0.75rem)' }}>
           <div className="flex items-center gap-2 bg-surface border border-surface2 rounded-xl px-3 py-2.5 flex-1">
             <svg className="w-4 h-4 text-text-secondary flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
