@@ -364,8 +364,8 @@ export default function Muscles() {
 
   const history = useMemo(() => {
     return Array.from({ length: 4 }, (_, i) => {
-      const ws  = format(startOfWeek(subWeeks(new Date(), i + 1), { weekStartsOn: 1 }), 'yyyy-MM-dd')
-      const we  = format(endOfWeek(subWeeks(new Date(),   i + 1), { weekStartsOn: 1 }), 'yyyy-MM-dd')
+      const ws  = format(startOfWeek(subWeeks(new Date(), i + 1), { weekStartsOn: 0 }), 'yyyy-MM-dd')
+      const we  = format(endOfWeek(subWeeks(new Date(),   i + 1), { weekStartsOn: 0 }), 'yyyy-MM-dd')
       const wl  = format(new Date(we + 'T12:00:00'), 'MMM d')
       const wSessions = sessions.filter(s => s.date >= ws && s.date <= we)
       const wSets = computeWeekSets(wSessions)
