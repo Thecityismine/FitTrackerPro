@@ -1,5 +1,5 @@
 // src/context/AuthContext.jsx
-import { createContext, useContext, useEffect, useState } from 'react'
+import { createContext, useContext, useEffect, useRef, useState } from 'react'
 import {
   onAuthStateChanged,
   signInWithPopup,
@@ -18,9 +18,24 @@ export function AuthProvider({ children }) {
   const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
 
+  // Track the UID that was active when the listener was last evaluated
+  const activeUidRef = useRef(undefined)
+
   // Listen to Firebase Auth state
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (firebaseUser) => {
+      const prevUid = activeUidRef.current
+      const nextUid = firebaseUser?.uid ?? null
+      activeUidRef.current = nextUid
+
+      // If a DIFFERENT user session is being restored mid-session (e.g. cached
+      // auth from a previous account on this device), force a full page reload
+      // so no stale Firestore data or React state bleeds into the new session.
+      if (prevUid !== undefined && prevUid !== null && nextUid && prevUid !== nextUid) {
+        window.location.reload()
+        return
+      }
+
       setUser(firebaseUser)
       setLoading(false)           // unblock UI immediately — don't wait for Firestore
       if (firebaseUser) {
@@ -93,7 +108,9 @@ export function AuthProvider({ children }) {
 
   async function logout() {
     await signOut(auth)
-    setProfile(null)
+    // Full page reload clears Firebase SDK memory cache, React state, and any
+    // module-level data — ensures the next login starts from a clean slate.
+    window.location.replace('/login')
   }
 
   async function updateUserProfile(updates) {
