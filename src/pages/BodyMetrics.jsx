@@ -145,7 +145,7 @@ function LogSheet({ onClose, onSave, lastEntry }) {
         ref={formRef}
         onSubmit={handleSave}
         className="fixed bottom-0 left-0 right-0 z-[55] bg-surface rounded-t-2xl shadow-2xl flex flex-col"
-        style={{ maxHeight: '88vh' }}
+        style={{ maxHeight: '90dvh' }}
       >
         {/* Drag handle + title — fixed at top */}
         <div className="flex-shrink-0 px-4 pt-5 pb-3">
@@ -153,8 +153,8 @@ function LogSheet({ onClose, onSave, lastEntry }) {
           <h2 className="font-display text-lg font-bold text-text-primary">Log Today's Metrics</h2>
         </div>
 
-        {/* Scrollable fields */}
-        <div className="flex-1 overflow-y-auto px-4 pb-2 space-y-4">
+        {/* Scrollable fields + sticky save button */}
+        <div className="flex-1 overflow-y-auto px-4 space-y-4">
           {/* Weight */}
           <div>
             <label className="text-text-secondary text-xs font-semibold block mb-1">WEIGHT (lbs)</label>
@@ -245,17 +245,18 @@ function LogSheet({ onClose, onSave, lastEntry }) {
               </button>
             )}
           </div>
-        </div>
 
-        {/* Save button — always visible at bottom */}
-        <div className="flex-shrink-0 px-4 pt-3 border-t border-surface2" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 1rem)' }}>
-          <button
-            type="submit"
-            disabled={saving}
-            className="btn-primary w-full disabled:opacity-50"
-          >
-            {saving ? 'Saving…' : 'Save Metrics'}
-          </button>
+          {/* Save button — sticky at bottom of scroll area so it's always reachable */}
+          <div className="sticky bottom-0 -mx-4 px-4 pt-3 bg-surface border-t border-surface2"
+            style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 1rem)' }}>
+            <button
+              type="submit"
+              disabled={saving}
+              className="btn-primary w-full disabled:opacity-50"
+            >
+              {saving ? 'Saving…' : 'Save Metrics'}
+            </button>
+          </div>
         </div>
       </form>
     </>
