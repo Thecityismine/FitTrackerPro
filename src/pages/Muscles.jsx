@@ -400,7 +400,11 @@ export default function Muscles() {
             </button>
             <div className="flex-1 min-w-0">
               <h1 className="font-display text-2xl font-bold text-text-primary flex items-center gap-2">
-                {meta?.icon && <img src={meta.icon} alt="" className="w-7 h-7 object-contain" style={{ filter: 'brightness(0) invert(1)' }} />}
+                {meta?.icon && (
+                  <div className="w-8 h-8 rounded-lg bg-white p-1 flex items-center justify-center flex-shrink-0">
+                    <img src={meta.icon} alt="" className="w-full h-full object-contain" />
+                  </div>
+                )}
                 {groupLabel}
               </h1>
               {!loading && <p className="text-text-secondary text-sm">{exercises.length} exercise{exercises.length !== 1 ? 's' : ''}</p>}
@@ -540,9 +544,11 @@ export default function Muscles() {
               <button
                 key={g.id}
                 onClick={() => navigate(`/muscles/${g.id.toLowerCase()}`)}
-                className="rounded-2xl border border-surface2 bg-surface2 py-4 flex flex-col items-center gap-2 active:scale-95 transition-transform"
+                className="rounded-2xl border border-surface2 bg-surface py-4 flex flex-col items-center gap-2 active:scale-95 transition-transform"
               >
-                <img src={g.icon} alt={g.label} className="w-9 h-9 object-contain" style={{ filter: 'brightness(0) invert(1)' }} />
+                <div className="w-11 h-11 rounded-xl bg-white p-1.5 flex items-center justify-center">
+                  <img src={g.icon} alt={g.label} className="w-full h-full object-contain" />
+                </div>
                 <p className="text-xs font-semibold leading-none text-white">{g.label}</p>
               </button>
             ))}
