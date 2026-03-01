@@ -12,8 +12,26 @@ const MUSCLE_ICONS = {
   glutes:    '/icons/glutes.png',
   cardio:    '/icons/cardio.png',
 }
-function muscleIcon(muscleGroup) {
-  return MUSCLE_ICONS[(muscleGroup || '').toLowerCase()] || null
+const NAME_KEYWORDS = [
+  { re: /\bcalf\b|\bcalves\b/,                                   group: 'legs'      },
+  { re: /\brow\b|\bpulldown\b|\bpull.down\b|\bdeadlift\b|\blat\b|\bchin.up\b|\bpull.up\b/, group: 'back' },
+  { re: /\bcurl\b/,                                              group: 'biceps'    },
+  { re: /\bpushdown\b|\bskull\b|\btricep/,                       group: 'triceps'   },
+  { re: /\bbench\b|\bfly\b|\bflye\b|\bpec\b/,                   group: 'chest'     },
+  { re: /\blateral\b|\bfront raise\b|\bupright\b|\bdelt\b/,      group: 'shoulders' },
+  { re: /\bsquat\b|\bleg press\b|\blunge\b|\bleg ext\b|\bhack\b|\bcalf/, group: 'legs' },
+  { re: /\bglute\b|\bhip thrust\b|\bglute bridge\b/,             group: 'glutes'    },
+  { re: /\bcrunch\b|\bplank\b|\bcore\b|\bab\b/,                  group: 'abs'       },
+  { re: /\btreadmill\b|\bcardio\b|\bbike\b|\brun\b/,             group: 'cardio'    },
+]
+function muscleIcon(muscleGroup, exerciseName) {
+  const byGroup = MUSCLE_ICONS[(muscleGroup || '').toLowerCase()]
+  if (byGroup) return byGroup
+  const name = (exerciseName || '').toLowerCase()
+  for (const kw of NAME_KEYWORDS) {
+    if (kw.re.test(name)) return MUSCLE_ICONS[kw.group]
+  }
+  return null
 }
 import { useNavigate, useLocation } from 'react-router-dom'
 import {
@@ -383,10 +401,10 @@ function RoutineDetail({ routine, onClose, onAddExercise, onRemoveExercise, onDe
           ) : (
             exercises.map((ex, i) => (
               <div key={ex.id} className="card flex items-center gap-3 py-3">
-                <div className="w-10 h-10 rounded-xl bg-surface2 flex items-center justify-center flex-shrink-0 overflow-hidden">
-                  {muscleIcon(ex.muscleGroup)
-                    ? <img src={muscleIcon(ex.muscleGroup)} alt={ex.muscleGroup} className="w-7 h-7 object-contain" />
-                    : <span className="text-white text-xs font-bold font-display">{i + 1}</span>
+                <div className="w-12 h-12 flex items-center justify-center flex-shrink-0">
+                  {muscleIcon(ex.muscleGroup, ex.name)
+                    ? <img src={muscleIcon(ex.muscleGroup, ex.name)} alt={ex.muscleGroup || ex.name} className="w-11 h-11 object-contain" />
+                    : <span className="text-white text-sm font-bold font-display">{i + 1}</span>
                   }
                 </div>
                 <div className="flex-1 min-w-0">
