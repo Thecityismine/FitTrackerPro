@@ -305,6 +305,8 @@ function LogSheet({ onClose, onSave, lastEntry, prefillData }) {
 
 // ── Progress Photo Card ────────────────────────────────────
 function ProgressPhotoCard({ entries }) {
+  const [expanded, setExpanded] = useState(null) // null | { src, label }
+
   const now = new Date()
   const thisMonthStart = format(startOfMonth(now), 'yyyy-MM-dd')
   const lastMonthStart = format(startOfMonth(subMonths(now, 1)), 'yyyy-MM-dd')
@@ -316,33 +318,67 @@ function ProgressPhotoCard({ entries }) {
   if (!thisMonthPhoto && !lastMonthPhoto) return null
 
   return (
-    <div className="card">
-      <p className="section-title mb-3">Progress Photos</p>
-      <div className="grid grid-cols-2 gap-2">
-        {/* Last Month — LEFT */}
-        <div>
-          <p className="text-text-secondary text-xs font-semibold mb-1 text-center">Last Month</p>
-          {lastMonthPhoto ? (
-            <img src={lastMonthPhoto} alt="Last month" className="w-full h-40 object-cover rounded-xl" />
-          ) : (
-            <div className="w-full h-40 bg-surface2 rounded-xl flex items-center justify-center">
-              <p className="text-text-secondary text-xs text-center px-2">No photo last month</p>
-            </div>
-          )}
+    <>
+      <div className="card">
+        <p className="section-title mb-3">Progress Photos</p>
+        <div className="grid grid-cols-2 gap-2">
+          {/* Last Month — LEFT */}
+          <div>
+            <p className="text-text-secondary text-xs font-semibold mb-1 text-center">Last Month</p>
+            {lastMonthPhoto ? (
+              <button onClick={() => setExpanded({ src: lastMonthPhoto, label: 'Last Month' })}
+                className="w-full active:scale-95 transition-transform">
+                <img src={lastMonthPhoto} alt="Last month" className="w-full h-40 object-cover rounded-xl" />
+              </button>
+            ) : (
+              <div className="w-full h-40 bg-surface2 rounded-xl flex items-center justify-center">
+                <p className="text-text-secondary text-xs text-center px-2">No photo last month</p>
+              </div>
+            )}
+          </div>
+          {/* This Month — RIGHT */}
+          <div>
+            <p className="text-text-secondary text-xs font-semibold mb-1 text-center">This Month</p>
+            {thisMonthPhoto ? (
+              <button onClick={() => setExpanded({ src: thisMonthPhoto, label: 'This Month' })}
+                className="w-full active:scale-95 transition-transform">
+                <img src={thisMonthPhoto} alt="This month" className="w-full h-40 object-cover rounded-xl" />
+              </button>
+            ) : (
+              <div className="w-full h-40 bg-surface2 rounded-xl flex items-center justify-center">
+                <p className="text-text-secondary text-xs text-center px-2">Add a photo when logging</p>
+              </div>
+            )}
+          </div>
         </div>
-        {/* This Month — RIGHT */}
-        <div>
-          <p className="text-text-secondary text-xs font-semibold mb-1 text-center">This Month</p>
-          {thisMonthPhoto ? (
-            <img src={thisMonthPhoto} alt="This month" className="w-full h-40 object-cover rounded-xl" />
-          ) : (
-            <div className="w-full h-40 bg-surface2 rounded-xl flex items-center justify-center">
-              <p className="text-text-secondary text-xs text-center px-2">Add a photo when logging</p>
-            </div>
-          )}
-        </div>
+        <p className="text-text-secondary text-xs text-center mt-2">Tap a photo to expand</p>
       </div>
-    </div>
+
+      {/* Lightbox */}
+      {expanded && (
+        <div
+          className="fixed inset-0 z-[60] bg-black/90 flex flex-col items-center justify-center"
+          onClick={() => setExpanded(null)}
+        >
+          <div className="flex items-center justify-between w-full px-4 pb-3 flex-shrink-0"
+            onClick={e => e.stopPropagation()}>
+            <p className="text-white font-semibold">{expanded.label}</p>
+            <button onClick={() => setExpanded(null)}
+              className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center active:scale-95 transition-transform">
+              <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+          <img
+            src={expanded.src}
+            alt={expanded.label}
+            className="max-w-full max-h-[80dvh] object-contain rounded-2xl px-4"
+            onClick={e => e.stopPropagation()}
+          />
+        </div>
+      )}
+    </>
   )
 }
 
