@@ -22,6 +22,7 @@ export default function Profile() {
   const [pushTarget, setPushTarget] = useState(profile?.weeklyTargets?.push ?? 27)
   const [pullTarget, setPullTarget] = useState(profile?.weeklyTargets?.pull ?? 15)
   const [legsTarget, setLegsTarget] = useState(profile?.weeklyTargets?.legs ?? 21)
+  const [workoutGoal, setWorkoutGoal] = useState(profile?.weeklyWorkoutGoal ?? 3)
   const [saving, setSaving]       = useState(false)
   const [saved, setSaved]         = useState(false)
 
@@ -86,6 +87,7 @@ export default function Profile() {
           pull: Number(pullTarget) || 15,
           legs: Number(legsTarget) || 21,
         },
+        weeklyWorkoutGoal: Number(workoutGoal) || 3,
       })
       if (auth.currentUser) {
         await updateProfile(auth.currentUser, { displayName: trimmedName })
@@ -258,8 +260,30 @@ export default function Profile() {
                 </div>
               </div>
             ))}
+            <div>
+              <label className="label">Workout Days per Week</label>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => setWorkoutGoal(v => Math.max(1, Number(v) - 1))}
+                  className="w-9 h-9 rounded-xl bg-surface2 flex items-center justify-center text-text-primary font-bold active:scale-95 transition-transform flex-shrink-0"
+                >−</button>
+                <input
+                  type="number"
+                  min="1"
+                  max="7"
+                  className="input text-center flex-1"
+                  value={workoutGoal}
+                  onChange={e => setWorkoutGoal(e.target.value)}
+                />
+                <button
+                  onClick={() => setWorkoutGoal(v => Math.min(7, Number(v) + 1))}
+                  className="w-9 h-9 rounded-xl bg-surface2 flex items-center justify-center text-text-primary font-bold active:scale-95 transition-transform flex-shrink-0"
+                >+</button>
+              </div>
+              <p className="text-text-secondary text-xs mt-1">Shown as X / {Number(workoutGoal) || 3} days on the Log tab</p>
+            </div>
             <p className="text-text-secondary text-xs">
-              Total: <span className="text-text-primary font-semibold">{(Number(pushTarget) || 0) + (Number(pullTarget) || 0) + (Number(legsTarget) || 0)} sets/week</span>
+              Sets total: <span className="text-text-primary font-semibold">{(Number(pushTarget) || 0) + (Number(pullTarget) || 0) + (Number(legsTarget) || 0)} sets/week</span>
             </p>
           </div>
         </div>

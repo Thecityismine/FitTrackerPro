@@ -15,7 +15,7 @@ const TODAY = format(new Date(), 'yyyy-MM-dd')
 const TODAY_DISPLAY = format(new Date(), 'EEE, MMM d')
 
 export default function CalendarLog() {
-  const { user } = useAuth()
+  const { user, profile } = useAuth()
   const navigate = useNavigate()
 
   const [sessions, setSessions] = useState([])
@@ -74,7 +74,7 @@ export default function CalendarLog() {
     () => Object.keys(grouped).filter((d) => d >= weekStartStr && d <= weekEndStr).length,
     [grouped, weekStartStr, weekEndStr]
   )
-  const WEEKLY_GOAL = 3
+  const WEEKLY_GOAL = profile?.weeklyWorkoutGoal ?? 3
 
   // Which dates to show in the list
   const listDates = useMemo(() => {
@@ -247,7 +247,7 @@ export default function CalendarLog() {
                   const isExpanded = expandedKey === key
                   const exerciseCount = group.exercises.length
                   const routineTotal = group.routineId ? (routineMap[group.routineId]?.exercises?.length ?? null) : null
-                  const isAllCardio = group.exercises.every(e => e.muscleGroup === 'Cardio')
+                  const isAllCardio = group.exercises.every(e => e.muscleGroup?.toLowerCase() === 'cardio')
 
                   return (
                     <div key={key} className="card overflow-hidden">
@@ -286,7 +286,7 @@ export default function CalendarLog() {
                       {isExpanded && (
                         <div className="mt-3 pt-3 border-t border-surface2 space-y-1">
                           {group.exercises.map((ex) => {
-                            const isCardio = ex.muscleGroup === 'Cardio'
+                            const isCardio = ex.muscleGroup?.toLowerCase() === 'cardio'
                             const bestWeight = (ex.sets || []).reduce(
                               (m, s) => Math.max(m, s.weight || 0), 0
                             )
