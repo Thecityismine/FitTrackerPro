@@ -1,6 +1,6 @@
 // src/pages/Routines.jsx
 import { useState, useEffect, useRef, useMemo } from 'react'
-import { format, parseISO, subDays } from 'date-fns'
+import { format, parseISO } from 'date-fns'
 
 const MUSCLE_ICONS = {
   abs:       '/icons/abs.png',
@@ -530,14 +530,7 @@ export default function Routines() {
     const lastSessions = byDate[lastDate]
     const lastRoutine = lastSessions.find((s) => s.routineName)?.routineName || 'Free Workout'
     const lastVolume = lastSessions.reduce((sum, s) => sum + (s.totalVolume || 0), 0)
-    const zones = [...new Set(lastSessions.map((s) => s.muscleGroup).filter(Boolean))]
-    let streak = 0
-    let checkDate = lastDate
-    while (byDate[checkDate]) {
-      streak++
-      checkDate = format(subDays(parseISO(checkDate), 1), 'yyyy-MM-dd')
-    }
-    return { lastDate, lastRoutine, lastVolume, zones, streak }
+    return { lastDate, lastRoutine, lastVolume }
   }, [sessions])
 
   useEffect(() => {
@@ -646,30 +639,6 @@ export default function Routines() {
                   )}
                 </div>
 
-                {/* Body zones */}
-                <div className="bg-surface2 rounded-xl p-3">
-                  <p className="text-text-secondary text-xs mb-2">Body Zones</p>
-                  <div className="flex flex-wrap gap-1">
-                    {metrics.zones.slice(0, 3).map((z) => (
-                      <span key={z} className="text-xs bg-accent/20 text-accent px-2 py-0.5 rounded-full font-semibold">
-                        {z}
-                      </span>
-                    ))}
-                    {metrics.zones.length > 3 && (
-                      <span className="text-xs text-text-secondary self-center">+{metrics.zones.length - 3}</span>
-                    )}
-                    {metrics.zones.length === 0 && (
-                      <span className="text-text-secondary text-xs">—</span>
-                    )}
-                  </div>
-                </div>
-
-                {/* Streak */}
-                <div className="bg-surface2 rounded-xl p-3">
-                  <p className="text-text-secondary text-xs mb-1">Streak</p>
-                  <p className="text-accent font-mono font-bold text-2xl leading-none">{metrics.streak}</p>
-                  <p className="text-text-secondary text-xs mt-1">day{metrics.streak !== 1 ? 's' : ''} in a row</p>
-                </div>
 
               </div>
             </div>
