@@ -273,7 +273,7 @@ export default function WorkoutPage() {
   const totalPages = 1 + pastSessionsData.length
 
   return (
-    <PageWrapper showHeader={false} className="!pb-0">
+    <PageWrapper showHeader={false} className="!pb-16">
       <div className="flex flex-col h-full">
 
         {/* ── Header ─────────────────────────────────────── */}
