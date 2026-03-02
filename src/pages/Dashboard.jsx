@@ -1,5 +1,5 @@
 // src/pages/Dashboard.jsx
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { getDocs } from 'firebase/firestore'
 import { differenceInDays, parseISO, startOfWeek, endOfWeek, format } from 'date-fns'
@@ -123,6 +123,14 @@ export default function Dashboard() {
   const [loadError, setLoadError] = useState(null)
   const [chartPeriod, setChartPeriod] = useState('weekly')
 
+  // PPL config — targets driven by user profile (falls back to defaults)
+  const pplConfig = useMemo(() => [
+    { ...PPL_DASH[0], targetTotal: profile?.weeklyTargets?.push ?? 27 },
+    { ...PPL_DASH[1], targetTotal: profile?.weeklyTargets?.pull ?? 15 },
+    { ...PPL_DASH[2], targetTotal: profile?.weeklyTargets?.legs ?? 21 },
+  ], [profile?.weeklyTargets?.push, profile?.weeklyTargets?.pull, profile?.weeklyTargets?.legs])
+  const pplTotal = pplConfig.reduce((s, g) => s + g.targetTotal, 0)
+
   // Refetch on every navigation to this page so deletions are reflected immediately
   useEffect(() => {
     if (!user?.uid) return
@@ -206,9 +214,9 @@ export default function Dashboard() {
   const weekEndStr = format(endOfWeek(new Date(), { weekStartsOn: 0 }), 'yyyy-MM-dd')
   const thisWeekSessions = activeSessions.filter(s => s.date >= thisWeekKey && s.date <= weekEndStr)
   const weekSets = computeDashSets(thisWeekSessions)
-  const weekTotal = PPL_DASH.reduce((s, g) =>
+  const weekTotal = pplConfig.reduce((s, g) =>
     s + g.muscles.reduce((ms, m) => ms + (weekSets[g.id]?.[m.id] || 0), 0), 0)
-  const weekPct = Math.min(weekTotal / PPL_TOTAL, 1)
+  const weekPct = Math.min(weekTotal / pplTotal, 1)
 
   // Last session exercises (most recent date's unique exercises, with actual sets)
   const lastSessions = lastDate ? activeSessions.filter((s) => s.date === lastDate) : []
@@ -388,7 +396,7 @@ export default function Dashboard() {
               {/* Hex ring */}
               <div className="relative flex-shrink-0">
                 <HexRing
-                  segments={PPL_DASH.map(g => ({
+                  segments={pplConfig.map(g => ({
                     pct: Math.min(
                       g.muscles.reduce((s, m) => s + (weekSets[g.id]?.[m.id] || 0), 0) / g.targetTotal,
                       1
@@ -414,7 +422,7 @@ export default function Dashboard() {
                   </svg>
                 </div>
                 <div className="space-y-1">
-                  {PPL_DASH.map(g => {
+                  {pplConfig.map(g => {
                     const actual = g.muscles.reduce((s, m) => s + (weekSets[g.id]?.[m.id] || 0), 0)
                     const done = actual >= g.targetTotal
                     return (

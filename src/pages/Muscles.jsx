@@ -323,13 +323,21 @@ function HistoryHex({ pct, label, color }) {
 export default function Muscles() {
   const { groupId } = useParams()
   const navigate    = useNavigate()
-  const { user }    = useAuth()
+  const { user, profile } = useAuth()
 
   const [sessions, setSessions] = useState([])
   const [loading, setLoading]   = useState(true)
   const [expandedId, setExpandedId] = useState(null)
   const [showAdd, setShowAdd]   = useState(false)
   const [editMode, setEditMode] = useState(false)
+
+  // PPL config — targets driven by user profile (falls back to PPL defaults)
+  const pplConfig = useMemo(() => [
+    { ...PPL[0], targetTotal: profile?.weeklyTargets?.push ?? PPL[0].targetTotal },
+    { ...PPL[1], targetTotal: profile?.weeklyTargets?.pull ?? PPL[1].targetTotal },
+    { ...PPL[2], targetTotal: profile?.weeklyTargets?.legs ?? PPL[2].targetTotal },
+  ], [profile?.weeklyTargets?.push, profile?.weeklyTargets?.pull, profile?.weeklyTargets?.legs])
+  const totalTarget = pplConfig.reduce((s, g) => s + g.targetTotal, 0)
 
   useEffect(() => {
     if (!user?.uid) return
@@ -357,8 +365,8 @@ export default function Muscles() {
   }
 
   // ── Weekly set target computations (hooks must run unconditionally) ──
-  const weekStartStr = format(startOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd')
-  const weekEndStr   = format(endOfWeek(new Date(),   { weekStartsOn: 1 }), 'yyyy-MM-dd')
+  const weekStartStr = format(startOfWeek(new Date(), { weekStartsOn: 0 }), 'yyyy-MM-dd')
+  const weekEndStr   = format(endOfWeek(new Date(),   { weekStartsOn: 0 }), 'yyyy-MM-dd')
   const weekLabel    = `${format(new Date(weekStartStr + 'T12:00:00'), 'MMM d')} – ${format(new Date(weekEndStr + 'T12:00:00'), 'MMM d')}`
 
   const weeklySets = useMemo(() => {
@@ -373,10 +381,10 @@ export default function Muscles() {
       const wl  = format(new Date(we + 'T12:00:00'), 'MMM d')
       const wSessions = sessions.filter(s => s.date >= ws && s.date <= we)
       const wSets = computeWeekSets(wSessions)
-      const wTotal = PPL.reduce((s, g) => s + g.muscles.reduce((ms, m) => ms + (wSets[g.id]?.[m.id] || 0), 0), 0)
-      return { label: wl, pct: wTotal / TOTAL_TARGET }
+      const wTotal = pplConfig.reduce((s, g) => s + g.muscles.reduce((ms, m) => ms + (wSets[g.id]?.[m.id] || 0), 0), 0)
+      return { label: wl, pct: wTotal / totalTarget }
     }).reverse()
-  }, [sessions])
+  }, [sessions, pplConfig, totalTarget])
 
   // ── Detail view (/muscles/:groupId) ──────────────────────
   if (groupId) {
@@ -458,9 +466,9 @@ export default function Muscles() {
   }
 
   // ── Main view: Weekly Set Targets ─────────────────────────
-  const totalActual = PPL.reduce((s, g) =>
+  const totalActual = pplConfig.reduce((s, g) =>
     s + g.muscles.reduce((ms, m) => ms + (weeklySets[g.id]?.[m.id] || 0), 0), 0)
-  const overallPct  = totalActual / TOTAL_TARGET
+  const overallPct  = totalActual / totalTarget
   const overallDisp = Math.round(overallPct * 100)
 
   return (
@@ -478,7 +486,7 @@ export default function Muscles() {
           <div className="flex flex-col items-center py-2">
             <div className="relative">
               <HexRing
-                segments={PPL.map(g => ({
+                segments={pplConfig.map(g => ({
                   pct: Math.min(
                     g.muscles.reduce((s, m) => s + (weeklySets[g.id]?.[m.id] || 0), 0) / g.targetTotal,
                     1
@@ -490,13 +498,13 @@ export default function Muscles() {
               />
               <div className="absolute inset-0 flex flex-col items-center justify-center">
                 <p className="font-display text-4xl font-bold text-text-primary leading-tight">{overallDisp}%</p>
-                <p className="text-text-secondary text-xs">{totalActual} / {TOTAL_TARGET} sets</p>
+                <p className="text-text-secondary text-xs">{totalActual} / {totalTarget} sets</p>
               </div>
             </div>
 
             {/* Color legend */}
             <div className="flex gap-4 mt-3">
-              {PPL.map(g => (
+              {pplConfig.map(g => (
                 <div key={g.id} className="flex items-center gap-1.5">
                   <div className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: g.color }} />
                   <p className="text-text-secondary text-xs">{g.id === 'push' ? 'Push' : g.id === 'pull' ? 'Pull' : 'Legs'}</p>
@@ -515,7 +523,7 @@ export default function Muscles() {
 
         {/* Group rows */}
         <div className="space-y-2">
-          {PPL.map(group => (
+          {pplConfig.map(group => (
             <GroupRow
               key={group.id}
               group={group}

@@ -19,6 +19,9 @@ export default function Profile() {
   const [name, setName]           = useState(displayName)
   const [height, setHeight]       = useState(profile?.heightIn || '')
   const [weightUnit, setWeightUnit] = useState(profile?.weightUnit || 'lbs')
+  const [pushTarget, setPushTarget] = useState(profile?.weeklyTargets?.push ?? 27)
+  const [pullTarget, setPullTarget] = useState(profile?.weeklyTargets?.pull ?? 15)
+  const [legsTarget, setLegsTarget] = useState(profile?.weeklyTargets?.legs ?? 21)
   const [saving, setSaving]       = useState(false)
   const [saved, setSaved]         = useState(false)
 
@@ -74,7 +77,16 @@ export default function Profile() {
     setSaving(true)
     try {
       const trimmedName = name.trim() || displayName
-      await updateUserProfile({ displayName: trimmedName, heightIn: height, weightUnit })
+      await updateUserProfile({
+        displayName: trimmedName,
+        heightIn: height,
+        weightUnit,
+        weeklyTargets: {
+          push: Number(pushTarget) || 27,
+          pull: Number(pullTarget) || 15,
+          legs: Number(legsTarget) || 21,
+        },
+      })
       if (auth.currentUser) {
         await updateProfile(auth.currentUser, { displayName: trimmedName })
       }
@@ -209,6 +221,46 @@ export default function Profile() {
             >
               {saving ? 'Saving…' : saved ? '✓ Saved' : 'Save Changes'}
             </button>
+          </div>
+        </div>
+
+        {/* ── Weekly Set Targets ─────────────────────────────── */}
+        <div>
+          <p className="section-title">Weekly Set Targets</p>
+          <div className="card space-y-4">
+            <p className="text-text-secondary text-xs">
+              Set your weekly volume goals for each movement pattern. These targets appear on your Dashboard and Muscles tab.
+            </p>
+            {[
+              { label: 'Push (Chest · Shoulders · Triceps)', value: pushTarget, set: setPushTarget },
+              { label: 'Pull (Back · Biceps)', value: pullTarget, set: setPullTarget },
+              { label: 'Legs (Quads · Hamstrings · Glutes)', value: legsTarget, set: setLegsTarget },
+            ].map(({ label, value, set }) => (
+              <div key={label}>
+                <label className="label">{label}</label>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => set(v => Math.max(1, Number(v) - 1))}
+                    className="w-9 h-9 rounded-xl bg-surface2 flex items-center justify-center text-text-primary font-bold active:scale-95 transition-transform flex-shrink-0"
+                  >−</button>
+                  <input
+                    type="number"
+                    min="1"
+                    max="99"
+                    className="input text-center flex-1"
+                    value={value}
+                    onChange={e => set(e.target.value)}
+                  />
+                  <button
+                    onClick={() => set(v => Math.min(99, Number(v) + 1))}
+                    className="w-9 h-9 rounded-xl bg-surface2 flex items-center justify-center text-text-primary font-bold active:scale-95 transition-transform flex-shrink-0"
+                  >+</button>
+                </div>
+              </div>
+            ))}
+            <p className="text-text-secondary text-xs">
+              Total: <span className="text-text-primary font-semibold">{(Number(pushTarget) || 0) + (Number(pullTarget) || 0) + (Number(legsTarget) || 0)} sets/week</span>
+            </p>
           </div>
         </div>
 

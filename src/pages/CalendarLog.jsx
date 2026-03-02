@@ -9,7 +9,7 @@ import {
 import { getDocs } from 'firebase/firestore'
 import PageWrapper from '../components/layout/PageWrapper'
 import { useAuth } from '../context/AuthContext'
-import { sessionsCol } from '../firebase/collections'
+import { sessionsCol, routinesCol } from '../firebase/collections'
 
 const TODAY = format(new Date(), 'yyyy-MM-dd')
 const TODAY_DISPLAY = format(new Date(), 'EEE, MMM d')
@@ -19,6 +19,7 @@ export default function CalendarLog() {
   const navigate = useNavigate()
 
   const [sessions, setSessions] = useState([])
+  const [routineMap, setRoutineMap] = useState({}) // routineId → { exercises: [] }
   const [loading, setLoading] = useState(true)
   const [currentMonth, setCurrentMonth] = useState(new Date())
   const [selectedDate, setSelectedDate] = useState(null)
@@ -28,9 +29,15 @@ export default function CalendarLog() {
   useEffect(() => {
     if (!user?.uid) return
     user.getIdToken()
-      .then(() => getDocs(sessionsCol(user.uid)))
-      .then((snap) => {
-        setSessions(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
+      .then(() => Promise.all([
+        getDocs(sessionsCol(user.uid)),
+        getDocs(routinesCol(user.uid)),
+      ]))
+      .then(([sessSnap, routSnap]) => {
+        setSessions(sessSnap.docs.map((d) => ({ id: d.id, ...d.data() })))
+        const rMap = {}
+        routSnap.docs.forEach(d => { rMap[d.id] = d.data() })
+        setRoutineMap(rMap)
         setLoading(false)
       })
       .catch(() => setLoading(false))
@@ -42,14 +49,14 @@ export default function CalendarLog() {
     [sessions]
   )
 
-  // Group: date → routineName → { routineName, exercises[], totalVolume }
+  // Group: date → routineName → { routineName, routineId, exercises[], totalVolume }
   const grouped = useMemo(() => {
     const map = {}
     for (const s of sessions) {
       if (!s.date) continue
       if (!map[s.date]) map[s.date] = {}
       const key = s.routineName || 'Free Workout'
-      if (!map[s.date][key]) map[s.date][key] = { routineName: key, exercises: [], totalVolume: 0 }
+      if (!map[s.date][key]) map[s.date][key] = { routineName: key, routineId: s.routineId || null, exercises: [], totalVolume: 0 }
       map[s.date][key].exercises.push(s)
       map[s.date][key].totalVolume += s.totalVolume || 0
     }
@@ -158,8 +165,8 @@ export default function CalendarLog() {
                   }`}
                 >
                   <span>{day.getDate()}</span>
-                  {hasWorkout && !isToday && !isSelected && (
-                    <div className="w-1 h-1 rounded-full bg-accent-green mt-0.5" />
+                  {hasWorkout && !isSelected && (
+                    <div className={`w-1 h-1 rounded-full mt-0.5 ${isToday ? 'bg-white/80' : 'bg-accent-green'}`} />
                   )}
                 </button>
               )
@@ -239,6 +246,7 @@ export default function CalendarLog() {
                   const key = `${date}-${group.routineName}`
                   const isExpanded = expandedKey === key
                   const exerciseCount = group.exercises.length
+                  const routineTotal = group.routineId ? (routineMap[group.routineId]?.exercises?.length ?? null) : null
 
                   return (
                     <div key={key} className="card overflow-hidden">
@@ -250,7 +258,7 @@ export default function CalendarLog() {
                         <div className="min-w-0 flex-1">
                           <p className="text-text-primary font-semibold text-sm">{group.routineName}</p>
                           <p className="text-text-secondary text-xs mt-0.5">
-                            {format(parseISO(date), 'MMM d')} · {exerciseCount} exercise{exerciseCount !== 1 ? 's' : ''}
+                            {format(parseISO(date), 'MMM d')} · {routineTotal && exerciseCount < routineTotal ? `${exerciseCount} of ${routineTotal}` : exerciseCount} exercise{(routineTotal && exerciseCount < routineTotal ? routineTotal : exerciseCount) !== 1 ? 's' : ''}
                           </p>
                         </div>
                         <div className="flex items-center gap-2 flex-shrink-0 ml-3">
