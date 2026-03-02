@@ -247,6 +247,7 @@ export default function CalendarLog() {
                   const isExpanded = expandedKey === key
                   const exerciseCount = group.exercises.length
                   const routineTotal = group.routineId ? (routineMap[group.routineId]?.exercises?.length ?? null) : null
+                  const isAllCardio = group.exercises.every(e => e.muscleGroup === 'Cardio')
 
                   return (
                     <div key={key} className="card overflow-hidden">
@@ -262,7 +263,7 @@ export default function CalendarLog() {
                           </p>
                         </div>
                         <div className="flex items-center gap-2 flex-shrink-0 ml-3">
-                          {group.totalVolume > 0 && (
+                          {group.totalVolume > 0 && !isAllCardio && (
                             <div className="text-right">
                               <p className="text-accent-green font-mono text-sm font-bold">
                                 {group.totalVolume >= 1000
@@ -285,6 +286,7 @@ export default function CalendarLog() {
                       {isExpanded && (
                         <div className="mt-3 pt-3 border-t border-surface2 space-y-1">
                           {group.exercises.map((ex) => {
+                            const isCardio = ex.muscleGroup === 'Cardio'
                             const bestWeight = (ex.sets || []).reduce(
                               (m, s) => Math.max(m, s.weight || 0), 0
                             )
@@ -311,20 +313,30 @@ export default function CalendarLog() {
                                   <p className="text-text-primary text-sm truncate">{ex.exerciseName}</p>
                                 </div>
                                 <div className="flex items-center gap-3 flex-shrink-0 ml-2">
-                                  <p className="text-text-secondary text-xs">
-                                    {setCount} set{setCount !== 1 ? 's' : ''}
-                                  </p>
-                                  {bestWeight > 0 && (
-                                    <p className="text-accent font-mono text-xs font-semibold">
-                                      {bestWeight} lbs
-                                    </p>
-                                  )}
-                                  {totalVol > 0 && (
-                                    <p className="text-text-secondary text-xs font-mono">
-                                      {totalVol >= 1000
-                                        ? `${(totalVol / 1000).toFixed(1)}k`
-                                        : totalVol.toLocaleString()}
-                                    </p>
+                                  {isCardio ? (
+                                    bestWeight > 0 && (
+                                      <p className="text-accent font-mono text-xs font-semibold">
+                                        {bestWeight} min
+                                      </p>
+                                    )
+                                  ) : (
+                                    <>
+                                      <p className="text-text-secondary text-xs">
+                                        {setCount} set{setCount !== 1 ? 's' : ''}
+                                      </p>
+                                      {bestWeight > 0 && (
+                                        <p className="text-accent font-mono text-xs font-semibold">
+                                          {bestWeight} lbs
+                                        </p>
+                                      )}
+                                      {totalVol > 0 && (
+                                        <p className="text-text-secondary text-xs font-mono">
+                                          {totalVol >= 1000
+                                            ? `${(totalVol / 1000).toFixed(1)}k`
+                                            : totalVol.toLocaleString()}
+                                        </p>
+                                      )}
+                                    </>
                                   )}
                                   <svg className="w-3.5 h-3.5 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                                     <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
