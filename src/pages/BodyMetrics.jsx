@@ -684,8 +684,8 @@ Notes: weight/boneMass/fatFreeBodyWeight/muscleMassLbs are in lbs; bodyFat/bodyW
   }
 
   return (
-    <PageWrapper showHeader={false}>
-      <div className="px-4 pt-4 space-y-4 pb-6">
+    <PageWrapper>
+      <div className="px-4 pt-2 space-y-4 pb-6">
 
         {/* Header */}
         <div>
