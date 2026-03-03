@@ -76,6 +76,25 @@ function MetricCard({ label, value, unit, delta, lowerIsBetter, note }) {
   )
 }
 
+// ── Big Metric Card (hero stats) ───────────────────────────
+function BigMetricCard({ label, value, unit, delta, lowerIsBetter, note }) {
+  return (
+    <div className="bg-surface rounded-2xl p-4 border border-surface2">
+      <p className="text-text-secondary text-xs leading-tight mb-2">{label}</p>
+      <div className="flex items-baseline gap-1 flex-wrap">
+        <span className={`font-display text-3xl font-bold leading-none ${value != null ? 'text-white' : 'text-surface2'}`}>
+          {value != null ? value : '—'}
+        </span>
+        {unit && value != null && <span className="text-text-secondary text-sm">{unit}</span>}
+      </div>
+      <div className="flex items-center gap-1.5 mt-1.5 min-h-[16px]">
+        {delta != null && value != null && <TrendArrow delta={delta} lowerIsBetter={lowerIsBetter} />}
+        {note && value != null && <p className="text-text-secondary text-xs">{note}</p>}
+      </div>
+    </div>
+  )
+}
+
 // ── Log Metrics Dialog ─────────────────────────────────────
 function LogSheet({ onClose, onSave, lastEntry, prefillData }) {
   const photoInputRef = useRef(null)
@@ -544,6 +563,7 @@ export default function BodyMetrics() {
   const [loading, setLoading] = useState(true)
   const [showLog, setShowLog] = useState(false)
   const [prefillData, setPrefillData] = useState(null)
+  const [showAll, setShowAll] = useState(false)
   const [scanning, setScanning] = useState(false)
   const scanInputRef = useRef(null)
 
@@ -759,41 +779,67 @@ Notes: weight/boneMass/fatFreeBodyWeight/muscleMassLbs are in lbs; bodyFat/bodyW
           </button>
         </div>
 
-        {/* Metric cards grid */}
+        {/* Metric cards */}
         <div>
           <p className="section-title">Body Profile</p>
           {loading ? (
-            <div className="grid grid-cols-3 gap-2">
-              {[...Array(12)].map((_, i) => <div key={i} className="rounded-2xl h-16 animate-pulse bg-surface2" />)}
+            <div className="space-y-2">
+              <div className="grid grid-cols-3 gap-2">
+                {[...Array(3)].map((_, i) => <div key={i} className="rounded-2xl h-24 animate-pulse bg-surface2" />)}
+              </div>
+              <div className="rounded-xl h-10 animate-pulse bg-surface2" />
             </div>
           ) : (
-            <div className="grid grid-cols-3 gap-2">
-              <MetricCard label="Weight" value={latest?.weight} unit="lb"
-                delta={delta('weight')} lowerIsBetter={false} />
-              <MetricCard label="Body Fat" value={latest?.bodyFat} unit="%"
-                delta={delta('bodyFat')} lowerIsBetter={true} />
-              <MetricCard label="BMI" value={latest?.bmi}
-                delta={delta('bmi')} lowerIsBetter={true}
-                note={latest?.bmi ? bmiLabel(latest.bmi) : null} />
-              <MetricCard label="Muscle Mass" value={latest?.muscleMassLbs} unit="lb"
-                delta={delta('muscleMassLbs')} lowerIsBetter={false} />
-              <MetricCard label="Visceral Fat" value={latest?.visceralFat}
-                delta={delta('visceralFat')} lowerIsBetter={true} />
-              <MetricCard label="Body Water" value={latest?.bodyWater} unit="%"
-                delta={delta('bodyWater')} lowerIsBetter={false} />
-              <MetricCard label="Skeletal Muscle" value={latest?.skeletalMuscle} unit="%"
-                delta={delta('skeletalMuscle')} lowerIsBetter={false} />
-              <MetricCard label="Subcut. Fat" value={latest?.subcutaneousFat} unit="%"
-                delta={delta('subcutaneousFat')} lowerIsBetter={true} />
-<MetricCard label="Fat-Free Wt" value={latest?.fatFreeBodyWeight} unit="lb"
-                delta={delta('fatFreeBodyWeight')} lowerIsBetter={false} />
-              <MetricCard label="BMR" value={latest?.bmr} unit="kcal"
-                delta={delta('bmr')} lowerIsBetter={false} />
-              <MetricCard label="Protein" value={latest?.protein} unit="%"
-                delta={delta('protein')} lowerIsBetter={false} />
-              <MetricCard label="Metabolic Age" value={latest?.metabolicAge} unit="yr"
-                delta={delta('metabolicAge')} lowerIsBetter={true} />
-            </div>
+            <>
+              {/* Hero metrics — always visible */}
+              <div className="grid grid-cols-3 gap-2 mb-2">
+                <BigMetricCard label="Weight" value={latest?.weight} unit="lb"
+                  delta={delta('weight')} lowerIsBetter={false} />
+                <BigMetricCard label="Body Fat" value={latest?.bodyFat} unit="%"
+                  delta={delta('bodyFat')} lowerIsBetter={true} />
+                <BigMetricCard label="BMI" value={latest?.bmi}
+                  delta={delta('bmi')} lowerIsBetter={true}
+                  note={latest?.bmi ? bmiLabel(latest.bmi) : null} />
+              </div>
+
+              {/* Expand toggle */}
+              <button
+                onClick={() => setShowAll(s => !s)}
+                className="w-full flex items-center justify-between px-4 py-3 rounded-xl bg-surface2 text-sm font-semibold text-text-secondary active:bg-border transition-colors"
+              >
+                <span>{showAll ? 'Hide metrics' : 'More metrics'}</span>
+                <svg
+                  className={`w-4 h-4 transition-transform duration-200 ${showAll ? 'rotate-180' : ''}`}
+                  fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+
+              {/* Collapsible rest */}
+              {showAll && (
+                <div className="grid grid-cols-3 gap-2 mt-2">
+                  <MetricCard label="Muscle Mass" value={latest?.muscleMassLbs} unit="lb"
+                    delta={delta('muscleMassLbs')} lowerIsBetter={false} />
+                  <MetricCard label="Visceral Fat" value={latest?.visceralFat}
+                    delta={delta('visceralFat')} lowerIsBetter={true} />
+                  <MetricCard label="Body Water" value={latest?.bodyWater} unit="%"
+                    delta={delta('bodyWater')} lowerIsBetter={false} />
+                  <MetricCard label="Skeletal Muscle" value={latest?.skeletalMuscle} unit="%"
+                    delta={delta('skeletalMuscle')} lowerIsBetter={false} />
+                  <MetricCard label="Subcut. Fat" value={latest?.subcutaneousFat} unit="%"
+                    delta={delta('subcutaneousFat')} lowerIsBetter={true} />
+                  <MetricCard label="Fat-Free Wt" value={latest?.fatFreeBodyWeight} unit="lb"
+                    delta={delta('fatFreeBodyWeight')} lowerIsBetter={false} />
+                  <MetricCard label="BMR" value={latest?.bmr} unit="kcal"
+                    delta={delta('bmr')} lowerIsBetter={false} />
+                  <MetricCard label="Protein" value={latest?.protein} unit="%"
+                    delta={delta('protein')} lowerIsBetter={false} />
+                  <MetricCard label="Metabolic Age" value={latest?.metabolicAge} unit="yr"
+                    delta={delta('metabolicAge')} lowerIsBetter={true} />
+                </div>
+              )}
+            </>
           )}
         </div>
 
