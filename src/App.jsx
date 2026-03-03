@@ -25,11 +25,32 @@ function PageLoader() {
   )
 }
 
+const OWNER_UID = 'KMmKMVmTLvWGIWaOQ3z33R3l99C3'
+
+function PrivateScreen() {
+  const { logout, user } = useAuth()
+  return (
+    <div className="min-h-dvh bg-bg flex flex-col items-center justify-center px-8 text-center gap-6">
+      <div className="w-16 h-16 rounded-2xl bg-accent/10 flex items-center justify-center">
+        <svg className="w-8 h-8 text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+        </svg>
+      </div>
+      <div>
+        <h1 className="font-display text-2xl font-bold text-text-primary mb-2">Private App</h1>
+        <p className="text-text-secondary text-sm">This app is private. You're signed in as <span className="text-text-primary">{user?.email}</span>.</p>
+      </div>
+      <button onClick={logout} className="btn-secondary px-6">Sign Out</button>
+    </div>
+  )
+}
+
 // Route guard — redirects to login if not authenticated
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth()
   if (loading) return <PageLoader />
   if (!user) return <Navigate to="/login" replace />
+  if (user.uid !== OWNER_UID) return <PrivateScreen />
   return children
 }
 
