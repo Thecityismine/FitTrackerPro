@@ -60,37 +60,19 @@ function TrendArrow({ delta, lowerIsBetter = false }) {
 }
 
 // ── Metric Card ────────────────────────────────────────────
-function MetricCard({ label, value, unit, delta, lowerIsBetter, note }) {
+function MetricCard({ label, value, unit, delta, lowerIsBetter, note, valueColor }) {
+  const color = value != null ? (valueColor || 'text-white') : 'text-surface2'
   return (
-    <div className="bg-surface rounded-2xl p-3 border border-surface2">
+    <div className="bg-surface2 rounded-2xl p-3">
       <p className="text-text-secondary text-xs leading-tight mb-1.5">{label}</p>
       <div className="flex items-baseline gap-1 flex-wrap">
-        <span className={`font-display text-xl font-bold ${value != null ? 'text-white' : 'text-surface2'}`}>
+        <span className={`font-display text-xl font-bold ${color}`}>
           {value != null ? value : '—'}
         </span>
         {unit && value != null && <span className="text-text-secondary text-xs">{unit}</span>}
         {delta != null && value != null && <TrendArrow delta={delta} lowerIsBetter={lowerIsBetter} />}
       </div>
       {note && value != null && <p className="text-text-secondary text-xs mt-0.5">{note}</p>}
-    </div>
-  )
-}
-
-// ── Big Metric Card (hero stats) ───────────────────────────
-function BigMetricCard({ label, value, unit, delta, lowerIsBetter, note }) {
-  return (
-    <div className="bg-surface rounded-2xl p-4 border border-surface2">
-      <p className="text-text-secondary text-xs leading-tight mb-2">{label}</p>
-      <div className="flex items-baseline gap-1 flex-wrap">
-        <span className={`font-display text-3xl font-bold leading-none ${value != null ? 'text-white' : 'text-surface2'}`}>
-          {value != null ? value : '—'}
-        </span>
-        {unit && value != null && <span className="text-text-secondary text-sm">{unit}</span>}
-      </div>
-      <div className="flex items-center gap-1.5 mt-1.5 min-h-[16px]">
-        {delta != null && value != null && <TrendArrow delta={delta} lowerIsBetter={lowerIsBetter} />}
-        {note && value != null && <p className="text-text-secondary text-xs">{note}</p>}
-      </div>
     </div>
   )
 }
@@ -779,66 +761,54 @@ Notes: weight/boneMass/fatFreeBodyWeight/muscleMassLbs are in lbs; bodyFat/bodyW
           </button>
         </div>
 
-        {/* Metric cards */}
-        <div>
-          <p className="section-title">Body Profile</p>
+        {/* Metric cards — single collapsible card */}
+        <div className="card">
+          <p className="section-title mb-3">Body Profile</p>
           {loading ? (
-            <div className="space-y-2">
-              <div className="grid grid-cols-3 gap-2">
-                {[...Array(3)].map((_, i) => <div key={i} className="rounded-2xl h-24 animate-pulse bg-surface2" />)}
-              </div>
-              <div className="rounded-xl h-10 animate-pulse bg-surface2" />
+            <div className="grid grid-cols-3 gap-2">
+              {[...Array(3)].map((_, i) => <div key={i} className="rounded-2xl h-16 animate-pulse bg-surface2" />)}
             </div>
           ) : (
             <>
-              {/* Hero metrics — always visible */}
-              <div className="grid grid-cols-3 gap-2 mb-2">
-                <BigMetricCard label="Weight" value={latest?.weight} unit="lb"
-                  delta={delta('weight')} lowerIsBetter={false} />
-                <BigMetricCard label="Body Fat" value={latest?.bodyFat} unit="%"
+              <div className="grid grid-cols-3 gap-2">
+                <MetricCard label="Weight" value={latest?.weight} unit="lb"
+                  delta={delta('weight')} lowerIsBetter={false} valueColor="text-accent-green" />
+                <MetricCard label="Body Fat" value={latest?.bodyFat} unit="%"
                   delta={delta('bodyFat')} lowerIsBetter={true} />
-                <BigMetricCard label="BMI" value={latest?.bmi}
+                <MetricCard label="BMI" value={latest?.bmi}
                   delta={delta('bmi')} lowerIsBetter={true}
                   note={latest?.bmi ? bmiLabel(latest.bmi) : null} />
+
+                {showAll && (
+                  <>
+                    <MetricCard label="Muscle Mass" value={latest?.muscleMassLbs} unit="lb"
+                      delta={delta('muscleMassLbs')} lowerIsBetter={false} />
+                    <MetricCard label="Visceral Fat" value={latest?.visceralFat}
+                      delta={delta('visceralFat')} lowerIsBetter={true} />
+                    <MetricCard label="Body Water" value={latest?.bodyWater} unit="%"
+                      delta={delta('bodyWater')} lowerIsBetter={false} />
+                    <MetricCard label="Skeletal Muscle" value={latest?.skeletalMuscle} unit="%"
+                      delta={delta('skeletalMuscle')} lowerIsBetter={false} />
+                    <MetricCard label="Subcut. Fat" value={latest?.subcutaneousFat} unit="%"
+                      delta={delta('subcutaneousFat')} lowerIsBetter={true} />
+                    <MetricCard label="Fat-Free Wt" value={latest?.fatFreeBodyWeight} unit="lb"
+                      delta={delta('fatFreeBodyWeight')} lowerIsBetter={false} />
+                    <MetricCard label="BMR" value={latest?.bmr} unit="kcal"
+                      delta={delta('bmr')} lowerIsBetter={false} />
+                    <MetricCard label="Protein" value={latest?.protein} unit="%"
+                      delta={delta('protein')} lowerIsBetter={false} />
+                    <MetricCard label="Metabolic Age" value={latest?.metabolicAge} unit="yr"
+                      delta={delta('metabolicAge')} lowerIsBetter={true} />
+                  </>
+                )}
               </div>
 
-              {/* Expand toggle */}
               <button
                 onClick={() => setShowAll(s => !s)}
-                className="w-full flex items-center justify-between px-4 py-3 rounded-xl bg-surface2 text-sm font-semibold text-text-secondary active:bg-border transition-colors"
+                className="mt-3 text-accent text-xs font-semibold active:opacity-70 transition-opacity"
               >
-                <span>{showAll ? 'Hide metrics' : 'More metrics'}</span>
-                <svg
-                  className={`w-4 h-4 transition-transform duration-200 ${showAll ? 'rotate-180' : ''}`}
-                  fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-                </svg>
+                {showAll ? 'Show less' : 'Show more'}
               </button>
-
-              {/* Collapsible rest */}
-              {showAll && (
-                <div className="grid grid-cols-3 gap-2 mt-2">
-                  <MetricCard label="Muscle Mass" value={latest?.muscleMassLbs} unit="lb"
-                    delta={delta('muscleMassLbs')} lowerIsBetter={false} />
-                  <MetricCard label="Visceral Fat" value={latest?.visceralFat}
-                    delta={delta('visceralFat')} lowerIsBetter={true} />
-                  <MetricCard label="Body Water" value={latest?.bodyWater} unit="%"
-                    delta={delta('bodyWater')} lowerIsBetter={false} />
-                  <MetricCard label="Skeletal Muscle" value={latest?.skeletalMuscle} unit="%"
-                    delta={delta('skeletalMuscle')} lowerIsBetter={false} />
-                  <MetricCard label="Subcut. Fat" value={latest?.subcutaneousFat} unit="%"
-                    delta={delta('subcutaneousFat')} lowerIsBetter={true} />
-                  <MetricCard label="Fat-Free Wt" value={latest?.fatFreeBodyWeight} unit="lb"
-                    delta={delta('fatFreeBodyWeight')} lowerIsBetter={false} />
-                  <MetricCard label="BMR" value={latest?.bmr} unit="kcal"
-                    delta={delta('bmr')} lowerIsBetter={false} />
-                  <MetricCard label="Protein" value={latest?.protein} unit="%"
-                    delta={delta('protein')} lowerIsBetter={false} />
-                  <MetricCard label="Metabolic Age" value={latest?.metabolicAge} unit="yr"
-                    delta={delta('metabolicAge')} lowerIsBetter={true} />
-                </div>
-              )}
             </>
           )}
         </div>
