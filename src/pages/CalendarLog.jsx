@@ -100,8 +100,8 @@ export default function CalendarLog() {
   }
 
   return (
-    <PageWrapper showHeader={false}>
-      <div className="px-4 pt-4 space-y-4 pb-6">
+    <PageWrapper>
+      <div className="px-4 pt-2 space-y-4 pb-6">
 
         {/* ── Page header ─────────────────────────────────── */}
         <div className="flex items-start justify-between">
