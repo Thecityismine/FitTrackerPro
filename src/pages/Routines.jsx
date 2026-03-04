@@ -470,12 +470,7 @@ function RoutineDetail({ routine, onClose, onAddExercise, onRemoveExercise, onDe
                   {/* Left: name + session info (top) / PR (bottom) */}
                   <div className="flex-1 min-w-0 flex flex-col justify-between">
                     <div>
-                      <p className="text-text-primary text-sm font-semibold truncate">
-                        {ex.name}
-                        {ex.muscleGroup && (
-                          <span className="text-text-secondary font-normal"> · {ex.muscleGroup}</span>
-                        )}
-                      </p>
+                      <p className="text-text-primary text-sm font-semibold truncate">{ex.name}</p>
                       {stats.count > 0 && (
                         <p className="text-text-secondary text-xs mt-1">
                           {stats.count} session{stats.count !== 1 ? 's' : ''} · {stats.daysAgoStr}
