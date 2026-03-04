@@ -4,15 +4,26 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import { TimerProvider } from './context/TimerContext'
 
-const Login       = lazy(() => import('./pages/Login'))
-const Dashboard   = lazy(() => import('./pages/Dashboard'))
-const Routines    = lazy(() => import('./pages/Routines'))
-const BodyMetrics = lazy(() => import('./pages/BodyMetrics'))
-const Muscles     = lazy(() => import('./pages/Muscles'))
-const CalendarLog = lazy(() => import('./pages/CalendarLog'))
-const WorkoutPage = lazy(() => import('./pages/WorkoutPage'))
-const Profile     = lazy(() => import('./pages/Profile'))
-const ImportPage  = lazy(() => import('./pages/ImportPage'))
+// If a lazy chunk fails to load (stale URL after a new deploy), reload the page
+// so the SW serves fresh assets instead of showing a blank screen.
+function lazyWithReload(factory) {
+  return lazy(() =>
+    factory().catch(() => {
+      window.location.reload()
+      return new Promise(() => {})
+    })
+  )
+}
+
+const Login       = lazyWithReload(() => import('./pages/Login'))
+const Dashboard   = lazyWithReload(() => import('./pages/Dashboard'))
+const Routines    = lazyWithReload(() => import('./pages/Routines'))
+const BodyMetrics = lazyWithReload(() => import('./pages/BodyMetrics'))
+const Muscles     = lazyWithReload(() => import('./pages/Muscles'))
+const CalendarLog = lazyWithReload(() => import('./pages/CalendarLog'))
+const WorkoutPage = lazyWithReload(() => import('./pages/WorkoutPage'))
+const Profile     = lazyWithReload(() => import('./pages/Profile'))
+const ImportPage  = lazyWithReload(() => import('./pages/ImportPage'))
 
 function PageLoader() {
   return (
