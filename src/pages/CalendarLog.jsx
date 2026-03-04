@@ -106,7 +106,6 @@ export default function CalendarLog() {
         {/* ── Page header ─────────────────────────────────── */}
         <div className="flex items-start justify-between">
           <div>
-            <p className="text-text-secondary text-sm">{TODAY_DISPLAY}</p>
             <h1 className="font-display text-2xl font-bold text-text-primary">
               {format(currentMonth, 'MMMM yyyy')}
             </h1>

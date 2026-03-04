@@ -133,7 +133,7 @@ const GROUPS_META = [
 ]
 
 // ─── Exercise Card (detail view) ──────────────────────────
-function ExerciseCard({ exerciseName, sessions, onClick, editMode, onDelete, type = 'weight' }) {
+function ExerciseCard({ exerciseName, sessions, onClick, editMode, onDelete, onEdit, type = 'weight' }) {
   const isTime   = type === 'time'
   const count    = sessions.length
   const lastDate = sessions.map(s => s.date).sort().at(-1)
@@ -145,12 +145,20 @@ function ExerciseCard({ exerciseName, sessions, onClick, editMode, onDelete, typ
   return (
     <div className="card flex items-center gap-3 text-left w-full">
       {editMode && (
-        <button onClick={onDelete}
-          className="w-7 h-7 rounded-full bg-accent-red flex items-center justify-center flex-shrink-0 active:scale-90 transition-transform">
-          <svg className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-          </svg>
-        </button>
+        <div className="flex flex-col gap-1.5 flex-shrink-0">
+          <button onClick={onDelete}
+            className="w-7 h-7 rounded-full bg-accent-red flex items-center justify-center active:scale-90 transition-transform">
+            <svg className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+          <button onClick={onEdit}
+            className="w-7 h-7 rounded-full bg-surface2 flex items-center justify-center active:scale-90 transition-transform">
+            <svg className="w-3.5 h-3.5 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z" />
+            </svg>
+          </button>
+        </div>
       )}
       <button onClick={editMode ? undefined : onClick}
         className="flex items-center gap-3 flex-1 min-w-0 text-left active:scale-95 transition-transform">
@@ -340,6 +348,7 @@ export default function Muscles() {
   const [expandedId, setExpandedId] = useState(null)
   const [showAdd, setShowAdd]   = useState(false)
   const [editMode, setEditMode] = useState(false)
+  const [editingExercise, setEditingExercise] = useState(null) // { exerciseId, exerciseName, type }
 
   // PPL config — targets driven by user profile (falls back to PPL defaults)
   const pplConfig = useMemo(() => [
@@ -368,13 +377,24 @@ export default function Muscles() {
     if (!window.confirm(`Delete "${exerciseName}" and all its sessions? This cannot be undone.`)) return
     try {
       const snap = await getDocs(query(sessionsCol(user.uid), where('exerciseId', '==', exerciseId)))
-      if (snap.empty) return
       const batch = writeBatch(db)
       snap.docs.forEach(d => batch.delete(d.ref))
+      batch.delete(exerciseDoc(user.uid, exerciseId))
       await batch.commit()
       setSessions(prev => prev.filter(s => s.exerciseId !== exerciseId))
+      setSavedExercises(prev => prev.filter(e => e.id !== exerciseId))
     } catch {
       alert('Could not delete exercise. Please try again.')
+    }
+  }
+
+  async function handleEditExerciseType(exerciseId, newType) {
+    try {
+      await setDoc(exerciseDoc(user.uid, exerciseId), { type: newType }, { merge: true })
+      setSavedExercises(prev => prev.map(e => e.id === exerciseId ? { ...e, type: newType } : e))
+      setEditingExercise(null)
+    } catch {
+      alert('Could not update exercise. Please try again.')
     }
   }
 
@@ -470,7 +490,8 @@ export default function Muscles() {
                   editMode={editMode}
                   type={ex.type}
                   onClick={() => navigate(`/workout/${ex.exerciseId}`, { state: { exercise: { id: ex.exerciseId, name: ex.exerciseName, muscleGroup: groupLabel, type: ex.type } } })}
-                  onDelete={() => handleDeleteExercise(ex.exerciseId, ex.exerciseName)} />
+                  onDelete={() => handleDeleteExercise(ex.exerciseId, ex.exerciseName)}
+                  onEdit={() => setEditingExercise({ exerciseId: ex.exerciseId, exerciseName: ex.exerciseName, type: ex.type })} />
               ))}
             </div>
           )}
@@ -485,6 +506,40 @@ export default function Muscles() {
               setSavedExercises(prev => [...prev.filter(e => e.id !== slug), { ...entry, createdAt: null }])
               setShowAdd(false)
             }} />
+        )}
+
+        {editingExercise && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center px-6" style={{ paddingBottom: '30vh' }}>
+            <div className="absolute inset-0 bg-black/60" onClick={() => setEditingExercise(null)} />
+            <div className="relative w-full bg-surface rounded-2xl shadow-2xl p-5 flex flex-col gap-4">
+              <div>
+                <h2 className="font-display text-lg font-bold text-text-primary">Edit Exercise</h2>
+                <p className="text-text-secondary text-sm mt-0.5 truncate">{editingExercise.exerciseName}</p>
+              </div>
+              <div>
+                <p className="text-text-secondary text-xs mb-2">Tracking type</p>
+                <div className="flex gap-2">
+                  {[{ value: 'weight', label: 'Lbs', sub: 'weight-based' }, { value: 'time', label: 'Min', sub: 'time-based' }].map(opt => (
+                    <button key={opt.value} type="button"
+                      onClick={() => setEditingExercise(prev => ({ ...prev, type: opt.value }))}
+                      className={`flex-1 py-2.5 rounded-xl text-sm font-semibold border transition-colors ${
+                        editingExercise.type === opt.value
+                          ? 'bg-accent border-accent text-white'
+                          : 'bg-surface2 border-surface2 text-text-secondary'
+                      }`}>
+                      {opt.label}
+                      <span className="block text-xs font-normal opacity-70">{opt.sub}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="flex gap-3">
+                <button onClick={() => setEditingExercise(null)} className="btn-secondary flex-1">Cancel</button>
+                <button onClick={() => handleEditExerciseType(editingExercise.exerciseId, editingExercise.type)}
+                  className="btn-primary flex-1">Save</button>
+              </div>
+            </div>
+          </div>
         )}
       </PageWrapper>
     )
