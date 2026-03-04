@@ -195,7 +195,7 @@ function AddExerciseSheet({ group, onClose, onAdd }) {
   useEffect(() => {
     const vv = window.visualViewport
     if (!vv) return
-    const update = () => setKbOffset(Math.max(0, window.innerHeight - vv.height - vv.offsetTop))
+    const update = () => setKbOffset(Math.max(0, window.innerHeight - vv.height))
     vv.addEventListener('resize', update)
     vv.addEventListener('scroll', update)
     return () => { vv.removeEventListener('resize', update); vv.removeEventListener('scroll', update) }
@@ -211,7 +211,7 @@ function AddExerciseSheet({ group, onClose, onAdd }) {
       <div className="fixed inset-0 bg-black/50 z-[60]" onClick={onClose} />
       <form onSubmit={handleSubmit}
         className="fixed left-0 right-0 z-[70] bg-surface rounded-t-2xl shadow-2xl flex flex-col"
-        style={{ maxHeight: '80vh', bottom: kbOffset }}>
+        style={{ maxHeight: kbOffset > 0 ? `calc(100vh - ${kbOffset}px - 16px)` : '80vh', bottom: kbOffset }}>
         <div className="flex-shrink-0 px-4 pt-5 pb-4">
           <div className="w-10 h-1 bg-surface2 rounded-full mx-auto mb-4" />
           <h2 className="font-display text-lg font-bold text-text-primary mb-1">Add Exercise</h2>
