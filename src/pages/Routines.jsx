@@ -499,6 +499,20 @@ function RoutineDetail({ routine, onClose, onAddExercise, onRemoveExercise, onDe
           )}
         </div>
 
+        {/* Dot legend */}
+        <div className="px-4 pt-3 pb-1 flex items-center gap-4 flex-wrap">
+          {[
+            { color: 'bg-accent-green',        label: 'Ready to train' },
+            { color: 'bg-orange-400',           label: 'Recovery day' },
+            { color: 'bg-red-500',              label: 'Trained today' },
+          ].map(({ color, label }) => (
+            <div key={label} className="flex items-center gap-1.5">
+              <span className={`w-2 h-2 rounded-full flex-shrink-0 ${color}`} />
+              <span className="text-text-secondary text-xs">{label}</span>
+            </div>
+          ))}
+        </div>
+
         {/* Footer */}
         <div className="px-4 pt-3 pb-4 flex-shrink-0 border-t border-surface2">
           <button onClick={() => setShowAddExercise(true)} className="btn-secondary w-full">
