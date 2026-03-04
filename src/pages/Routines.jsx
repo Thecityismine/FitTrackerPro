@@ -451,7 +451,7 @@ function RoutineDetail({ routine, onClose, onAddExercise, onRemoveExercise, onDe
                 <button
                   key={ex.id}
                   onClick={() => !editMode && navigate(`/workout/${ex.id}`, { state: { exercise: ex, routine } })}
-                  className={`card w-full flex items-center gap-3 py-4 pr-3 text-left overflow-hidden relative ${
+                  className={`card w-full flex items-stretch gap-3 py-4 pr-3 text-left overflow-hidden relative ${
                     editMode ? 'cursor-default' : 'active:scale-[0.98] transition-transform'
                   }`}
                 >
@@ -459,7 +459,7 @@ function RoutineDetail({ routine, onClose, onAddExercise, onRemoveExercise, onDe
                   {editMode && (
                     <button
                       onClick={(e) => { e.stopPropagation(); onRemoveExercise(routine.id, ex) }}
-                      className="w-7 h-7 rounded-full bg-accent-red/20 border border-accent-red/40 flex items-center justify-center active:scale-95 transition-transform flex-shrink-0"
+                      className="w-7 h-7 rounded-full bg-accent-red/20 border border-accent-red/40 flex items-center justify-center active:scale-95 transition-transform flex-shrink-0 self-center"
                     >
                       <svg className="w-3.5 h-3.5 text-accent-red" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 12h-15" />
@@ -467,21 +467,23 @@ function RoutineDetail({ routine, onClose, onAddExercise, onRemoveExercise, onDe
                     </button>
                   )}
 
-                  {/* Left: name + session info + PR */}
-                  <div className="flex-1 min-w-0">
-                    <p className="text-text-primary text-sm font-semibold truncate">
-                      {ex.name}
-                      {ex.muscleGroup && (
-                        <span className="text-text-secondary font-normal"> · {ex.muscleGroup}</span>
-                      )}
-                    </p>
-                    {stats.count > 0 && (
-                      <p className="text-text-secondary text-xs mt-1">
-                        {stats.count} session{stats.count !== 1 ? 's' : ''} · {stats.daysAgoStr}
+                  {/* Left: name + session info (top) / PR (bottom) */}
+                  <div className="flex-1 min-w-0 flex flex-col justify-between">
+                    <div>
+                      <p className="text-text-primary text-sm font-semibold truncate">
+                        {ex.name}
+                        {ex.muscleGroup && (
+                          <span className="text-text-secondary font-normal"> · {ex.muscleGroup}</span>
+                        )}
                       </p>
-                    )}
+                      {stats.count > 0 && (
+                        <p className="text-text-secondary text-xs mt-1">
+                          {stats.count} session{stats.count !== 1 ? 's' : ''} · {stats.daysAgoStr}
+                        </p>
+                      )}
+                    </div>
                     {stats.pr != null && (
-                      <p className="text-accent-green text-xs font-semibold mt-2">{stats.pr} lbs PR</p>
+                      <p className="text-accent-green text-xs font-semibold">{stats.pr} lbs PR</p>
                     )}
                   </div>
 
@@ -490,7 +492,7 @@ function RoutineDetail({ routine, onClose, onAddExercise, onRemoveExercise, onDe
                     <img
                       src={muscleIcon(ex.muscleGroup, ex.name)}
                       alt={ex.muscleGroup || ex.name}
-                      className="w-20 h-20 object-contain opacity-80 flex-shrink-0"
+                      className="w-20 h-20 object-contain opacity-80 flex-shrink-0 self-center"
                     />
                   )}
 
