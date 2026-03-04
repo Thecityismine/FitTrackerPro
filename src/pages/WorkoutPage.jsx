@@ -101,7 +101,7 @@ export default function WorkoutPage() {
     muscleGroup: '',
   }
   const routine = state?.routine ?? null
-  const isCardio = CARDIO_RE.test(exercise.muscleGroup || '') || CARDIO_RE.test(exercise.name || '')
+  const isCardio = exercise.type === 'time' || CARDIO_RE.test(exercise.muscleGroup || '') || CARDIO_RE.test(exercise.name || '')
 
   const [sets, setSets] = useState([])
   const [sessionId, setSessionId] = useState(null)

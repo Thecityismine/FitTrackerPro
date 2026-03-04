@@ -133,14 +133,14 @@ const GROUPS_META = [
 ]
 
 // ─── Exercise Card (detail view) ──────────────────────────
-function ExerciseCard({ exerciseName, sessions, onClick, editMode, onDelete }) {
+function ExerciseCard({ exerciseName, sessions, onClick, editMode, onDelete, type = 'weight' }) {
+  const isTime   = type === 'time'
   const count    = sessions.length
   const lastDate = sessions.map(s => s.date).sort().at(-1)
   const days     = daysAgo(lastDate)
-  const pr       = sessions.reduce((max, s) =>
+  // For time exercises weight stores minutes; for weight exercises weight stores lbs
+  const best     = sessions.reduce((max, s) =>
     Math.max(max, ...(s.sets || []).map(st => st.weight || 0)), 0)
-  const maxTime  = sessions.reduce((max, s) =>
-    Math.max(max, ...(s.sets || []).map(st => st.time || 0)), 0)
 
   return (
     <div className="card flex items-center gap-3 text-left w-full">
@@ -161,16 +161,10 @@ function ExerciseCard({ exerciseName, sessions, onClick, editMode, onDelete }) {
             {days !== null ? ` · ${lastDoneLabel(days)}` : ''}
           </p>
         </div>
-        {!editMode && pr > 0 && (
+        {!editMode && best > 0 && (
           <div className="flex-shrink-0 text-right">
-            <p className="text-accent-green font-bold text-base font-mono">{pr}</p>
-            <p className="text-white text-xs">lbs PR</p>
-          </div>
-        )}
-        {!editMode && pr === 0 && maxTime > 0 && (
-          <div className="flex-shrink-0 text-right">
-            <p className="text-accent-green font-bold text-sm font-mono">{Math.round(maxTime / 60)}m</p>
-            <p className="text-text-secondary text-[10px]">best</p>
+            <p className="text-accent-green font-bold text-base font-mono">{best}{isTime ? 'm' : ''}</p>
+            <p className="text-white text-xs">{isTime ? 'min PR' : 'lbs PR'}</p>
           </div>
         )}
         {!editMode && (
@@ -186,6 +180,7 @@ function ExerciseCard({ exerciseName, sessions, onClick, editMode, onDelete }) {
 // ─── Add Exercise Sheet ────────────────────────────────────
 function AddExerciseSheet({ group, onClose, onAdd }) {
   const [name, setName] = useState('')
+  const [type, setType] = useState('weight') // 'weight' | 'time'
   const inputRef = useRef(null)
   useEffect(() => {
     const t = setTimeout(() => inputRef.current?.focus(), 80)
@@ -195,7 +190,7 @@ function AddExerciseSheet({ group, onClose, onAdd }) {
     e.preventDefault()
     const trimmed = name.trim()
     if (!trimmed) return
-    onAdd(trimmed)
+    onAdd(trimmed, type)
   }
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center px-6" style={{ paddingBottom: '30vh' }}>
@@ -209,11 +204,25 @@ function AddExerciseSheet({ group, onClose, onAdd }) {
         <input ref={inputRef} type="text" value={name} onChange={e => setName(e.target.value)}
           placeholder="e.g. Preacher Curl"
           className="w-full bg-surface2 rounded-xl px-4 py-3 text-text-primary text-sm placeholder-text-secondary focus:outline-none focus:ring-2 focus:ring-accent" />
+        {/* Lbs / Min toggle */}
+        <div>
+          <p className="text-text-secondary text-xs mb-2">Tracking type</p>
+          <div className="flex gap-2">
+            {[{ value: 'weight', label: 'Lbs', sub: 'weight-based' }, { value: 'time', label: 'Min', sub: 'time-based' }].map(opt => (
+              <button key={opt.value} type="button" onClick={() => setType(opt.value)}
+                className={`flex-1 py-2.5 rounded-xl text-sm font-semibold border transition-colors ${
+                  type === opt.value
+                    ? 'bg-accent border-accent text-white'
+                    : 'bg-surface2 border-surface2 text-text-secondary'
+                }`}>
+                {opt.label}
+                <span className="block text-xs font-normal opacity-70">{opt.sub}</span>
+              </button>
+            ))}
+          </div>
+        </div>
         <div className="flex gap-3">
-          <button type="button" onClick={onClose}
-            className="btn-secondary flex-1">
-            Cancel
-          </button>
+          <button type="button" onClick={onClose} className="btn-secondary flex-1">Cancel</button>
           <button type="submit" disabled={!name.trim()}
             className="btn-primary flex-1 disabled:opacity-40 disabled:cursor-not-allowed">
             Save
@@ -403,10 +412,13 @@ export default function Muscles() {
       }
       byExercise[s.exerciseId].sessions.push(s)
     }
-    const firestoreExercises = Object.values(byExercise).sort((a, b) => b.sessions.length - a.sessions.length)
+    const savedMap = Object.fromEntries(savedExercises.map(e => [e.id, e]))
+    const firestoreExercises = Object.values(byExercise)
+      .sort((a, b) => b.sessions.length - a.sessions.length)
+      .map(ex => ({ ...ex, type: savedMap[ex.exerciseId]?.type || 'weight' }))
     const extras = savedExercises
       .filter(e => e.muscleGroup?.toLowerCase() === groupId.toLowerCase() && !byExercise[e.id])
-      .map(e => ({ exerciseId: e.id, exerciseName: e.name, sessions: [] }))
+      .map(e => ({ exerciseId: e.id, exerciseName: e.name, sessions: [], type: e.type || 'weight' }))
     const exercises = [...firestoreExercises, ...extras]
 
     return (
@@ -456,7 +468,8 @@ export default function Muscles() {
               {exercises.map(ex => (
                 <ExerciseCard key={ex.exerciseId} {...ex}
                   editMode={editMode}
-                  onClick={() => navigate(`/workout/${ex.exerciseId}`)}
+                  type={ex.type}
+                  onClick={() => navigate(`/workout/${ex.exerciseId}`, { state: { exercise: { id: ex.exerciseId, name: ex.exerciseName, muscleGroup: groupLabel, type: ex.type } } })}
                   onDelete={() => handleDeleteExercise(ex.exerciseId, ex.exerciseName)} />
               ))}
             </div>
@@ -465,9 +478,9 @@ export default function Muscles() {
 
         {showAdd && meta && (
           <AddExerciseSheet group={meta} onClose={() => setShowAdd(false)}
-            onAdd={async exerciseName => {
+            onAdd={async (exerciseName, exerciseType) => {
               const slug = toSlug(exerciseName)
-              const entry = { id: slug, name: exerciseName, muscleGroup: meta.label, createdAt: serverTimestamp() }
+              const entry = { id: slug, name: exerciseName, muscleGroup: meta.label, type: exerciseType, createdAt: serverTimestamp() }
               await setDoc(exerciseDoc(user.uid, slug), entry)
               setSavedExercises(prev => [...prev.filter(e => e.id !== slug), { ...entry, createdAt: null }])
               setShowAdd(false)
