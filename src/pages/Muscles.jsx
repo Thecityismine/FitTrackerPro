@@ -1,7 +1,7 @@
 // src/pages/Muscles.jsx
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { getDocs, query, where, writeBatch } from 'firebase/firestore'
+import { getDocs, setDoc, query, where, writeBatch, serverTimestamp } from 'firebase/firestore'
 import {
   format, differenceInDays, parseISO,
   startOfWeek, endOfWeek, subWeeks,
@@ -9,7 +9,7 @@ import {
 import PageWrapper from '../components/layout/PageWrapper'
 import HexRing from '../components/HexRing'
 import { useAuth } from '../context/AuthContext'
-import { sessionsCol } from '../firebase/collections'
+import { sessionsCol, exercisesCol, exerciseDoc } from '../firebase/collections'
 import { db } from '../firebase/config'
 
 // ─── Push / Pull / Legs config ────────────────────────────
@@ -326,11 +326,11 @@ export default function Muscles() {
   const { user, profile } = useAuth()
 
   const [sessions, setSessions] = useState([])
+  const [savedExercises, setSavedExercises] = useState([])
   const [loading, setLoading]   = useState(true)
   const [expandedId, setExpandedId] = useState(null)
   const [showAdd, setShowAdd]   = useState(false)
   const [editMode, setEditMode] = useState(false)
-  const [localExercises, setLocalExercises] = useState([])
 
   // PPL config — targets driven by user profile (falls back to PPL defaults)
   const pplConfig = useMemo(() => [
@@ -343,9 +343,13 @@ export default function Muscles() {
   useEffect(() => {
     if (!user?.uid) return
     user.getIdToken()
-      .then(() => getDocs(sessionsCol(user.uid)))
-      .then(snap => {
-        setSessions(snap.docs.map(d => ({ id: d.id, ...d.data() })))
+      .then(() => Promise.all([
+        getDocs(sessionsCol(user.uid)),
+        getDocs(exercisesCol(user.uid)),
+      ]))
+      .then(([sessSnap, exSnap]) => {
+        setSessions(sessSnap.docs.map(d => ({ id: d.id, ...d.data() })))
+        setSavedExercises(exSnap.docs.map(d => d.data()))
         setLoading(false)
       })
       .catch(() => setLoading(false))
@@ -400,10 +404,10 @@ export default function Muscles() {
       byExercise[s.exerciseId].sessions.push(s)
     }
     const firestoreExercises = Object.values(byExercise).sort((a, b) => b.sessions.length - a.sessions.length)
-    const newLocals = localExercises
-      .filter(le => le.groupId === groupId && !byExercise[le.exerciseId])
-      .map(le => ({ exerciseId: le.exerciseId, exerciseName: le.exerciseName, sessions: [] }))
-    const exercises = [...firestoreExercises, ...newLocals]
+    const extras = savedExercises
+      .filter(e => e.muscleGroup?.toLowerCase() === groupId.toLowerCase() && !byExercise[e.id])
+      .map(e => ({ exerciseId: e.id, exerciseName: e.name, sessions: [] }))
+    const exercises = [...firestoreExercises, ...extras]
 
     return (
       <PageWrapper showHeader={false}>
@@ -461,9 +465,11 @@ export default function Muscles() {
 
         {showAdd && meta && (
           <AddExerciseSheet group={meta} onClose={() => setShowAdd(false)}
-            onAdd={exerciseName => {
+            onAdd={async exerciseName => {
               const slug = toSlug(exerciseName)
-              setLocalExercises(prev => [...prev, { exerciseId: slug, exerciseName, groupId }])
+              const entry = { id: slug, name: exerciseName, muscleGroup: meta.label, createdAt: serverTimestamp() }
+              await setDoc(exerciseDoc(user.uid, slug), entry)
+              setSavedExercises(prev => [...prev.filter(e => e.id !== slug), { ...entry, createdAt: null }])
               setShowAdd(false)
             }} />
         )}
