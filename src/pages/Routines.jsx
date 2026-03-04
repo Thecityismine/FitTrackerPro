@@ -313,13 +313,15 @@ function RoutineDetail({ routine, onClose, onAddExercise, onRemoveExercise, onDe
         }
       }
       let daysAgoStr = null
+      let dotColor = 'bg-text-secondary/20'
       if (lastDate) {
         const todayMs = new Date().setHours(0, 0, 0, 0)
         const lastMs = parseISO(lastDate).setHours(0, 0, 0, 0)
         const diff = Math.round((todayMs - lastMs) / 86400000)
         daysAgoStr = diff === 0 ? 'today' : diff === 1 ? 'yesterday' : `${diff}d ago`
+        dotColor = diff === 0 ? 'bg-red-500' : diff === 1 ? 'bg-orange-400' : 'bg-accent-green'
       }
-      result[ex.id] = { count, daysAgoStr, pr }
+      result[ex.id] = { count, daysAgoStr, pr, dotColor }
     }
     return result
   }, [exercises, sessions])
@@ -449,7 +451,7 @@ function RoutineDetail({ routine, onClose, onAddExercise, onRemoveExercise, onDe
                 <button
                   key={ex.id}
                   onClick={() => !editMode && navigate(`/workout/${ex.id}`, { state: { exercise: ex, routine } })}
-                  className={`card w-full flex items-center gap-3 py-4 pr-3 text-left overflow-hidden ${
+                  className={`card w-full flex items-center gap-3 py-4 pr-3 text-left overflow-hidden relative ${
                     editMode ? 'cursor-default' : 'active:scale-[0.98] transition-transform'
                   }`}
                 >
@@ -470,12 +472,12 @@ function RoutineDetail({ routine, onClose, onAddExercise, onRemoveExercise, onDe
                     <p className="text-text-primary text-sm font-semibold truncate">{ex.name}</p>
                     <p className="text-text-secondary text-xs">{ex.muscleGroup}</p>
                     {stats.count > 0 && (
-                      <p className="text-text-secondary text-xs mt-0.5">
+                      <p className="text-text-secondary text-xs mt-1">
                         {stats.count} session{stats.count !== 1 ? 's' : ''} · {stats.daysAgoStr}
                       </p>
                     )}
                     {stats.pr != null && (
-                      <p className="text-accent-green text-xs font-semibold mt-1">{stats.pr} lbs PR</p>
+                      <p className="text-accent-green text-xs font-semibold mt-2">{stats.pr} lbs PR</p>
                     )}
                   </div>
 
@@ -487,6 +489,9 @@ function RoutineDetail({ routine, onClose, onAddExercise, onRemoveExercise, onDe
                       className="w-20 h-20 object-contain opacity-80 flex-shrink-0"
                     />
                   )}
+
+                  {/* Status dot — bottom-right corner */}
+                  <span className={`absolute bottom-2.5 right-2.5 w-2.5 h-2.5 rounded-full ${stats.dotColor}`} />
                 </button>
               )
             })
