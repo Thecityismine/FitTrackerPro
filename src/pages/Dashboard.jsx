@@ -283,11 +283,26 @@ export default function Dashboard() {
       <div className="px-4 pt-2 space-y-4">
 
         {/* Greeting */}
-        <div>
-          <h1 className="font-display text-2xl font-bold text-text-primary">
-            Hey, {firstName} 👋
-          </h1>
-          <p className="text-text-secondary text-sm mt-0.5">Here's your fitness overview</p>
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h1 className="font-display text-2xl font-bold text-text-primary">
+              Hey, {firstName} 👋
+            </h1>
+            <p className="text-text-secondary text-sm mt-0.5">Here's your fitness overview</p>
+          </div>
+          <button
+            onClick={() => navigate('/routines')}
+            className={`flex-shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold active:scale-95 transition-transform mt-1 ${
+              daysSince === 0
+                ? 'bg-surface2 text-text-secondary'
+                : 'bg-accent-green text-white shadow-lg shadow-accent-green/25'
+            }`}
+          >
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.348a1.125 1.125 0 010 1.971l-11.54 6.347a1.125 1.125 0 01-1.667-.985V5.653z" />
+            </svg>
+            {daysSince === 0 ? 'Continue' : 'Start Workout'}
+          </button>
         </div>
 
         {/* Last Workout + Streak */}
