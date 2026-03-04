@@ -282,16 +282,47 @@ function DeleteConfirm({ routineName, onCancel, onConfirm }) {
 }
 
 // ─── Routine Detail (full-screen overlay) ─────────────────
-function RoutineDetail({ routine, onClose, onAddExercise, onRemoveExercise, onDeleteRoutine, onRenameRoutine }) {
+function RoutineDetail({ routine, onClose, onAddExercise, onRemoveExercise, onDeleteRoutine, onRenameRoutine, sessions = [] }) {
   const navigate = useNavigate()
   const [showAddExercise, setShowAddExercise] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [renaming, setRenaming] = useState(false)
   const [newName, setNewName] = useState(routine.name)
   const [saving, setSaving] = useState(false)
+  const [editMode, setEditMode] = useState(false)
 
   const exercises = routine.exercises || []
   const existingIds = exercises.map((ex) => ex.id)
+
+  // Per-exercise stats derived from sessions
+  const exerciseStats = useMemo(() => {
+    const result = {}
+    for (const ex of exercises) {
+      const exSessions = sessions.filter((s) => s.exerciseId === ex.id)
+      const count = exSessions.length
+      let lastDate = null
+      let pr = null
+      const isCardio = (ex.muscleGroup || '').toLowerCase() === 'cardio'
+      for (const s of exSessions) {
+        if (!lastDate || s.date > lastDate) lastDate = s.date
+        if (!isCardio && Array.isArray(s.sets)) {
+          for (const set of s.sets) {
+            const w = parseFloat(set.weight)
+            if (!isNaN(w) && w > 0 && (pr === null || w > pr)) pr = w
+          }
+        }
+      }
+      let daysAgoStr = null
+      if (lastDate) {
+        const todayMs = new Date().setHours(0, 0, 0, 0)
+        const lastMs = parseISO(lastDate).setHours(0, 0, 0, 0)
+        const diff = Math.round((todayMs - lastMs) / 86400000)
+        daysAgoStr = diff === 0 ? 'today' : diff === 1 ? 'yesterday' : `${diff}d ago`
+      }
+      result[ex.id] = { count, daysAgoStr, pr }
+    }
+    return result
+  }, [exercises, sessions])
 
   async function handleDelete() {
     await onDeleteRoutine(routine.id)
@@ -375,14 +406,24 @@ function RoutineDetail({ routine, onClose, onAddExercise, onRemoveExercise, onDe
           )}
 
           {!renaming && (
-            <button
-              onClick={() => setConfirmDelete(true)}
-              className="w-9 h-9 rounded-xl bg-surface2 flex items-center justify-center active:scale-95 transition-transform flex-shrink-0"
-            >
-              <svg className="w-4 h-4 text-accent-red" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
-              </svg>
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setEditMode((m) => !m)}
+                className={`text-sm font-semibold px-3 py-1.5 rounded-lg transition-colors flex-shrink-0 ${
+                  editMode ? 'bg-accent text-white' : 'bg-surface2 text-text-secondary'
+                }`}
+              >
+                {editMode ? 'Done' : 'Edit'}
+              </button>
+              <button
+                onClick={() => setConfirmDelete(true)}
+                className="w-9 h-9 rounded-xl bg-surface2 flex items-center justify-center active:scale-95 transition-transform flex-shrink-0"
+              >
+                <svg className="w-4 h-4 text-accent-red" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
+                </svg>
+              </button>
+            </div>
           )}
         </div>
 
@@ -402,45 +443,53 @@ function RoutineDetail({ routine, onClose, onAddExercise, onRemoveExercise, onDe
               <p className="text-text-secondary text-sm mt-1">Tap here to add your first exercise</p>
             </button>
           ) : (
-            exercises.map((ex, i) => (
-              <button
-                key={ex.id}
-                onClick={() => navigate(`/workout/${ex.id}`, { state: { exercise: ex, routine } })}
-                className="card w-full flex items-center gap-3 py-4 pr-3 active:scale-[0.98] transition-transform text-left overflow-hidden relative"
-              >
-                {/* Left: number + name + muscle group */}
-                <div className="flex items-center gap-3 flex-1 min-w-0">
-                  <div className="w-7 h-7 rounded-full bg-surface2 flex items-center justify-center flex-shrink-0">
-                    <span className="text-text-secondary text-xs font-bold font-display">{i + 1}</span>
-                  </div>
-                  <div className="min-w-0">
+            exercises.map((ex) => {
+              const stats = exerciseStats[ex.id] || {}
+              return (
+                <button
+                  key={ex.id}
+                  onClick={() => !editMode && navigate(`/workout/${ex.id}`, { state: { exercise: ex, routine } })}
+                  className={`card w-full flex items-center gap-3 py-4 pr-3 text-left overflow-hidden ${
+                    editMode ? 'cursor-default' : 'active:scale-[0.98] transition-transform'
+                  }`}
+                >
+                  {/* Edit mode: red minus on left */}
+                  {editMode && (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); onRemoveExercise(routine.id, ex) }}
+                      className="w-7 h-7 rounded-full bg-accent-red/20 border border-accent-red/40 flex items-center justify-center active:scale-95 transition-transform flex-shrink-0"
+                    >
+                      <svg className="w-3.5 h-3.5 text-accent-red" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 12h-15" />
+                      </svg>
+                    </button>
+                  )}
+
+                  {/* Left: name + session info + PR */}
+                  <div className="flex-1 min-w-0">
                     <p className="text-text-primary text-sm font-semibold truncate">{ex.name}</p>
                     <p className="text-text-secondary text-xs">{ex.muscleGroup}</p>
+                    {stats.count > 0 && (
+                      <p className="text-text-secondary text-xs mt-0.5">
+                        {stats.count} session{stats.count !== 1 ? 's' : ''} · {stats.daysAgoStr}
+                      </p>
+                    )}
+                    {stats.pr != null && (
+                      <p className="text-accent-green text-xs font-semibold mt-1">{stats.pr} lbs PR</p>
+                    )}
                   </div>
-                </div>
 
-                {/* Right: muscle line art */}
-                <div className="flex items-center gap-2 flex-shrink-0">
+                  {/* Right: muscle line art */}
                   {muscleIcon(ex.muscleGroup, ex.name) && (
                     <img
                       src={muscleIcon(ex.muscleGroup, ex.name)}
                       alt={ex.muscleGroup || ex.name}
-                      className="w-16 h-16 object-contain opacity-80"
+                      className="w-20 h-20 object-contain opacity-80 flex-shrink-0"
                     />
                   )}
-
-                  {/* Delete button */}
-                  <button
-                    onClick={(e) => { e.stopPropagation(); onRemoveExercise(routine.id, ex) }}
-                    className="w-7 h-7 rounded-lg bg-surface2 flex items-center justify-center active:scale-95 transition-transform flex-shrink-0"
-                  >
-                    <svg className="w-3.5 h-3.5 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
-                </div>
-              </button>
-            ))
+                </button>
+              )
+            })
           )}
         </div>
 
@@ -688,6 +737,7 @@ export default function Routines() {
       {selectedRoutine && (
         <RoutineDetail
           routine={selectedRoutine}
+          sessions={sessions}
           onClose={() => setSelectedRoutine(null)}
           onAddExercise={addExercise}
           onRemoveExercise={removeExercise}
