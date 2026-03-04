@@ -403,34 +403,43 @@ function RoutineDetail({ routine, onClose, onAddExercise, onRemoveExercise, onDe
             </button>
           ) : (
             exercises.map((ex, i) => (
-              <div key={ex.id} className="card flex items-center gap-3 py-3">
-                <div className="w-12 h-12 flex items-center justify-center flex-shrink-0">
-                  {muscleIcon(ex.muscleGroup, ex.name)
-                    ? <img src={muscleIcon(ex.muscleGroup, ex.name)} alt={ex.muscleGroup || ex.name} className="w-11 h-11 object-contain" />
-                    : <span className="text-white text-sm font-bold font-display">{i + 1}</span>
-                  }
+              <button
+                key={ex.id}
+                onClick={() => navigate(`/workout/${ex.id}`, { state: { exercise: ex, routine } })}
+                className="card w-full flex items-center gap-3 py-4 pr-3 active:scale-[0.98] transition-transform text-left overflow-hidden relative"
+              >
+                {/* Left: number + name + muscle group */}
+                <div className="flex items-center gap-3 flex-1 min-w-0">
+                  <div className="w-7 h-7 rounded-full bg-surface2 flex items-center justify-center flex-shrink-0">
+                    <span className="text-text-secondary text-xs font-bold font-display">{i + 1}</span>
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-text-primary text-sm font-semibold truncate">{ex.name}</p>
+                    <p className="text-text-secondary text-xs">{ex.muscleGroup}</p>
+                  </div>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-text-primary text-sm font-semibold truncate">{ex.name}</p>
-                  <p className="text-text-secondary text-xs">{ex.muscleGroup}</p>
-                </div>
+
+                {/* Right: muscle line art */}
                 <div className="flex items-center gap-2 flex-shrink-0">
+                  {muscleIcon(ex.muscleGroup, ex.name) && (
+                    <img
+                      src={muscleIcon(ex.muscleGroup, ex.name)}
+                      alt={ex.muscleGroup || ex.name}
+                      className="w-16 h-16 object-contain opacity-80"
+                    />
+                  )}
+
+                  {/* Delete button */}
                   <button
-                    onClick={() => navigate(`/workout/${ex.id}`, { state: { exercise: ex, routine } })}
-                    className="text-xs text-accent-green font-semibold px-3 py-1.5 rounded-lg bg-accent-green/10 active:scale-95 transition-transform"
-                  >
-                    Log
-                  </button>
-                  <button
-                    onClick={() => onRemoveExercise(routine.id, ex)}
-                    className="w-7 h-7 rounded-lg bg-surface2 flex items-center justify-center active:scale-95 transition-transform"
+                    onClick={(e) => { e.stopPropagation(); onRemoveExercise(routine.id, ex) }}
+                    className="w-7 h-7 rounded-lg bg-surface2 flex items-center justify-center active:scale-95 transition-transform flex-shrink-0"
                   >
                     <svg className="w-3.5 h-3.5 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                     </svg>
                   </button>
                 </div>
-              </div>
+              </button>
             ))
           )}
         </div>
