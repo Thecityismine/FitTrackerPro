@@ -186,10 +186,19 @@ function ExerciseCard({ exerciseName, sessions, onClick, editMode, onDelete }) {
 // ─── Add Exercise Sheet ────────────────────────────────────
 function AddExerciseSheet({ group, onClose, onAdd }) {
   const [name, setName] = useState('')
+  const [kbOffset, setKbOffset] = useState(0)
   const inputRef = useRef(null)
   useEffect(() => {
     const t = setTimeout(() => inputRef.current?.focus(), 80)
     return () => clearTimeout(t)
+  }, [])
+  useEffect(() => {
+    const vv = window.visualViewport
+    if (!vv) return
+    const update = () => setKbOffset(Math.max(0, window.innerHeight - vv.height - vv.offsetTop))
+    vv.addEventListener('resize', update)
+    vv.addEventListener('scroll', update)
+    return () => { vv.removeEventListener('resize', update); vv.removeEventListener('scroll', update) }
   }, [])
   function handleSubmit(e) {
     e.preventDefault()
@@ -201,8 +210,8 @@ function AddExerciseSheet({ group, onClose, onAdd }) {
     <>
       <div className="fixed inset-0 bg-black/50 z-40" onClick={onClose} />
       <form onSubmit={handleSubmit}
-        className="fixed bottom-0 left-0 right-0 z-50 bg-surface rounded-t-2xl shadow-2xl flex flex-col"
-        style={{ maxHeight: '80vh' }}>
+        className="fixed left-0 right-0 z-50 bg-surface rounded-t-2xl shadow-2xl flex flex-col"
+        style={{ maxHeight: '80vh', bottom: kbOffset }}>
         <div className="flex-shrink-0 px-4 pt-5 pb-4">
           <div className="w-10 h-1 bg-surface2 rounded-full mx-auto mb-4" />
           <h2 className="font-display text-lg font-bold text-text-primary mb-1">Add Exercise</h2>
@@ -213,7 +222,7 @@ function AddExerciseSheet({ group, onClose, onAdd }) {
             placeholder="e.g. Preacher Curl"
             className="w-full bg-surface2 rounded-xl px-4 py-3 text-text-primary text-sm placeholder-text-secondary focus:outline-none focus:ring-2 focus:ring-accent" />
         </div>
-        <div className="flex-shrink-0 px-4 pt-3 pb-8 border-t border-surface2">
+        <div className="flex-shrink-0 px-4 pt-3 border-t border-surface2" style={{ paddingBottom: kbOffset > 0 ? '0.75rem' : 'max(env(safe-area-inset-bottom), 0.75rem)' }}>
           <button type="submit" disabled={!name.trim()}
             className="btn-primary w-full disabled:opacity-40 disabled:cursor-not-allowed">
             Start Workout
