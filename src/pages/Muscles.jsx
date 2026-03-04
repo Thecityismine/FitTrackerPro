@@ -186,19 +186,10 @@ function ExerciseCard({ exerciseName, sessions, onClick, editMode, onDelete }) {
 // ─── Add Exercise Sheet ────────────────────────────────────
 function AddExerciseSheet({ group, onClose, onAdd }) {
   const [name, setName] = useState('')
-  const [kbOffset, setKbOffset] = useState(0)
   const inputRef = useRef(null)
   useEffect(() => {
     const t = setTimeout(() => inputRef.current?.focus(), 80)
     return () => clearTimeout(t)
-  }, [])
-  useEffect(() => {
-    const vv = window.visualViewport
-    if (!vv) return
-    const update = () => setKbOffset(Math.max(0, window.innerHeight - vv.height))
-    vv.addEventListener('resize', update)
-    vv.addEventListener('scroll', update)
-    return () => { vv.removeEventListener('resize', update); vv.removeEventListener('scroll', update) }
   }, [])
   function handleSubmit(e) {
     e.preventDefault()
@@ -207,29 +198,29 @@ function AddExerciseSheet({ group, onClose, onAdd }) {
     onAdd(trimmed)
   }
   return (
-    <>
-      <div className="fixed inset-0 bg-black/50 z-[60]" onClick={onClose} />
+    <div className="fixed inset-0 z-[60] flex items-center justify-center px-6" style={{ paddingBottom: '30vh' }}>
+      <div className="absolute inset-0 bg-black/60" onClick={onClose} />
       <form onSubmit={handleSubmit}
-        className="fixed left-0 right-0 z-[70] bg-surface rounded-t-2xl shadow-2xl flex flex-col"
-        style={{ maxHeight: kbOffset > 0 ? `calc(100vh - ${kbOffset}px - 16px)` : '80vh', bottom: kbOffset }}>
-        <div className="flex-shrink-0 px-4 pt-5 pb-4">
-          <div className="w-10 h-1 bg-surface2 rounded-full mx-auto mb-4" />
-          <h2 className="font-display text-lg font-bold text-text-primary mb-1">Add Exercise</h2>
-          <p className="text-text-secondary text-sm">Adding to <span className="font-semibold text-text-primary">{group.label}</span></p>
+        className="relative w-full bg-surface rounded-2xl shadow-2xl p-5 flex flex-col gap-4">
+        <div>
+          <h2 className="font-display text-lg font-bold text-text-primary">Add Exercise</h2>
+          <p className="text-text-secondary text-sm mt-0.5">Adding to <span className="font-semibold text-text-primary">{group.label}</span></p>
         </div>
-        <div className="flex-1 overflow-y-auto px-4 pb-2">
-          <input ref={inputRef} type="text" value={name} onChange={e => setName(e.target.value)}
-            placeholder="e.g. Preacher Curl"
-            className="w-full bg-surface2 rounded-xl px-4 py-3 text-text-primary text-sm placeholder-text-secondary focus:outline-none focus:ring-2 focus:ring-accent" />
-        </div>
-        <div className="flex-shrink-0 px-4 pt-3 border-t border-surface2" style={{ paddingBottom: kbOffset > 0 ? '0.75rem' : 'max(env(safe-area-inset-bottom), 0.75rem)' }}>
+        <input ref={inputRef} type="text" value={name} onChange={e => setName(e.target.value)}
+          placeholder="e.g. Preacher Curl"
+          className="w-full bg-surface2 rounded-xl px-4 py-3 text-text-primary text-sm placeholder-text-secondary focus:outline-none focus:ring-2 focus:ring-accent" />
+        <div className="flex gap-3">
+          <button type="button" onClick={onClose}
+            className="btn-secondary flex-1">
+            Cancel
+          </button>
           <button type="submit" disabled={!name.trim()}
-            className="btn-primary w-full disabled:opacity-40 disabled:cursor-not-allowed">
+            className="btn-primary flex-1 disabled:opacity-40 disabled:cursor-not-allowed">
             Start Workout
           </button>
         </div>
       </form>
-    </>
+    </div>
   )
 }
 
