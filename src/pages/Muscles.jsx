@@ -216,7 +216,7 @@ function AddExerciseSheet({ group, onClose, onAdd }) {
           </button>
           <button type="submit" disabled={!name.trim()}
             className="btn-primary flex-1 disabled:opacity-40 disabled:cursor-not-allowed">
-            Start Workout
+            Save
           </button>
         </div>
       </form>
@@ -330,6 +330,7 @@ export default function Muscles() {
   const [expandedId, setExpandedId] = useState(null)
   const [showAdd, setShowAdd]   = useState(false)
   const [editMode, setEditMode] = useState(false)
+  const [localExercises, setLocalExercises] = useState([])
 
   // PPL config — targets driven by user profile (falls back to PPL defaults)
   const pplConfig = useMemo(() => [
@@ -398,7 +399,11 @@ export default function Muscles() {
       }
       byExercise[s.exerciseId].sessions.push(s)
     }
-    const exercises = Object.values(byExercise).sort((a, b) => b.sessions.length - a.sessions.length)
+    const firestoreExercises = Object.values(byExercise).sort((a, b) => b.sessions.length - a.sessions.length)
+    const newLocals = localExercises
+      .filter(le => le.groupId === groupId && !byExercise[le.exerciseId])
+      .map(le => ({ exerciseId: le.exerciseId, exerciseName: le.exerciseName, sessions: [] }))
+    const exercises = [...firestoreExercises, ...newLocals]
 
     return (
       <PageWrapper showHeader={false}>
@@ -458,7 +463,8 @@ export default function Muscles() {
           <AddExerciseSheet group={meta} onClose={() => setShowAdd(false)}
             onAdd={exerciseName => {
               const slug = toSlug(exerciseName)
-              navigate(`/workout/${slug}`, { state: { exercise: { id: slug, name: exerciseName, muscleGroup: meta.label } } })
+              setLocalExercises(prev => [...prev, { exerciseId: slug, exerciseName, groupId }])
+              setShowAdd(false)
             }} />
         )}
       </PageWrapper>
