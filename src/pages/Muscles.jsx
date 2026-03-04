@@ -208,9 +208,9 @@ function AddExerciseSheet({ group, onClose, onAdd }) {
   }
   return (
     <>
-      <div className="fixed inset-0 bg-black/50 z-40" onClick={onClose} />
+      <div className="fixed inset-0 bg-black/50 z-[60]" onClick={onClose} />
       <form onSubmit={handleSubmit}
-        className="fixed left-0 right-0 z-50 bg-surface rounded-t-2xl shadow-2xl flex flex-col"
+        className="fixed left-0 right-0 z-[70] bg-surface rounded-t-2xl shadow-2xl flex flex-col"
         style={{ maxHeight: '80vh', bottom: kbOffset }}>
         <div className="flex-shrink-0 px-4 pt-5 pb-4">
           <div className="w-10 h-1 bg-surface2 rounded-full mx-auto mb-4" />
