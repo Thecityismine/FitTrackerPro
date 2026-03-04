@@ -229,9 +229,8 @@ export default function Dashboard() {
 
   const totalSessions = activeSessions.length
 
-  // True 24-hour window using updatedAt timestamp
-  const lastUpdatedMs = activeSessions[0]?.updatedAt?.toMillis?.() ?? null
-  const isWithin24h = lastUpdatedMs !== null && (Date.now() - lastUpdatedMs) < 86_400_000
+  // Resets at midnight — "Continue Workout" only if they trained today
+  const trainedToday = lastDate === TODAY
 
   // ── Error / Empty state ──────────────────────────────────
   if (!loading && (sessions.length === 0 || loadError)) {
@@ -297,7 +296,7 @@ export default function Dashboard() {
           <button
             onClick={() => navigate('/routines')}
             className={`flex-shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold active:scale-95 transition-transform mt-1 ${
-              isWithin24h
+              trainedToday
                 ? 'bg-surface2 text-text-secondary'
                 : 'bg-accent-green text-white shadow-lg shadow-accent-green/25'
             }`}
@@ -305,7 +304,7 @@ export default function Dashboard() {
             <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.348a1.125 1.125 0 010 1.971l-11.54 6.347a1.125 1.125 0 01-1.667-.985V5.653z" />
             </svg>
-            {isWithin24h ? 'Continue Workout' : 'Start Workout'}
+            {trainedToday ? 'Continue Workout' : 'Start Workout'}
           </button>
         </div>
 
