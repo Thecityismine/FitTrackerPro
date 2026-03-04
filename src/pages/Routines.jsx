@@ -642,6 +642,13 @@ export default function Routines() {
       exercises: arrayUnion(exercise),
       updatedAt: serverTimestamp(),
     })
+    // Optimistic update so the exercise appears immediately without waiting for onSnapshot
+    setSelectedRoutine(prev => {
+      if (!prev || prev.id !== routineId) return prev
+      const alreadyExists = (prev.exercises || []).some(e => e.id === exercise.id)
+      if (alreadyExists) return prev
+      return { ...prev, exercises: [...(prev.exercises || []), exercise] }
+    })
   }
 
   async function removeExercise(routineId, exercise) {

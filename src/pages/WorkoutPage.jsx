@@ -119,6 +119,27 @@ export default function WorkoutPage() {
   const sessionIdRef = useRef(null)
   sessionIdRef.current = sessionId
 
+  // Lock container to the visual viewport so the Finish button stays visible
+  // above the keyboard when a number input is focused on iOS PWA.
+  // When keyboard is closed: subtract 64px for the fixed BottomNav.
+  // When keyboard is open: vv.height is already reduced by keyboard height,
+  // and the BottomNav sits below the keyboard (out of view), so subtract 0.
+  const [containerH, setContainerH] = useState(() => {
+    const vvh = window.visualViewport?.height ?? window.innerHeight
+    return vvh - 64
+  })
+  useEffect(() => {
+    const vv = window.visualViewport
+    if (!vv) return
+    const update = () => {
+      const kbOpen = window.innerHeight - vv.height > 50
+      setContainerH(vv.height - (kbOpen ? 0 : 64))
+    }
+    vv.addEventListener('resize', update)
+    update()
+    return () => vv.removeEventListener('resize', update)
+  }, [])
+
   // ── Load today's session + past history ─────────────────
   useEffect(() => {
     if (!user || !exerciseId) return
@@ -273,8 +294,8 @@ export default function WorkoutPage() {
   const totalPages = 1 + pastSessionsData.length
 
   return (
-    <PageWrapper showHeader={false} className="!pb-16">
-      <div className="flex flex-col h-full">
+    <PageWrapper showHeader={false} className="!pb-0">
+      <div className="flex flex-col" style={{ height: containerH }}>
 
         {/* ── Header ─────────────────────────────────────── */}
         <div className="px-4 pt-4 pb-2 flex-shrink-0">
