@@ -11,6 +11,7 @@ import HexRing from '../components/HexRing'
 import { useAuth } from '../context/AuthContext'
 import { sessionsCol, exercisesCol, exerciseDoc, globalExercisesCol } from '../firebase/collections'
 import { db } from '../firebase/config'
+import { getExerciseIcon } from '../utils/exerciseIcons'
 
 // ─── Push / Pull / Legs config ────────────────────────────
 const PPL = [
@@ -132,31 +133,6 @@ const GROUPS_META = [
   { id: 'Cardio',    label: 'Cardio',    icon: '/icons/cardio.png' },
   { id: 'Recovery',  label: 'Recovery',  icon: '/icons/cardio.png' },
 ]
-
-// ─── Per-exercise icon lookup ──────────────────────────────
-const AB_ICONS = {
-  'ab crunch machine':     '/Ab/Ab Crunch Machine.png',
-  'bicycle crunches':      '/Ab/Bicycle Crunches.png',
-  'ab rollout':            '/Ab/Ab Rollout.png',
-  'bird dog':              '/Ab/Bird Dog.png',
-  'crunches':              '/Ab/Crunches.png',
-  'leg pull-in':           '/Ab/Leg Pull-In.png',
-  'leg raise':             '/Ab/Leg Raise.png',
-  'vertical leg raise':    '/Ab/Vertical Leg Raise.png',
-  'vertical leg raises':   '/Ab/Vertical Leg Raise.png',
-  'mountain climbers':     '/Ab/Mountain Climbers.png',
-  'plank':                 '/Ab/Plank.png',
-  'seated crunch machine': '/Ab/Seated Crunch Machine.png',
-  'sit ups':               '/Ab/Sit Ups.png',
-  'superman hold':         '/Ab/Superman Hold.png',
-}
-
-function getExerciseIcon(exerciseName, muscleGroup) {
-  const key = (exerciseName || '').trim().toLowerCase()
-  if (AB_ICONS[key]) return AB_ICONS[key]
-  if ((muscleGroup || '').toLowerCase() === 'abs') return '/Ab/Generic Ab Exercise.png'
-  return null
-}
 
 // ─── Exercise Card (detail view) ──────────────────────────
 function ExerciseCard({ exerciseName, muscleGroup = '', sessions, onClick, editMode, onDelete, onEdit, type = 'weight' }) {

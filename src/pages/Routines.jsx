@@ -43,6 +43,7 @@ import {
 import { useAuth } from '../context/AuthContext'
 import { routinesCol, routineDoc, sessionsCol, exercisesCol } from '../firebase/collections'
 import PageWrapper from '../components/layout/PageWrapper'
+import { getExerciseIcon } from '../utils/exerciseIcons'
 
 // ─── New Routine Bottom Sheet ──────────────────────────────
 function NewRoutineSheet({ onClose, onSave }) {
@@ -488,9 +489,9 @@ function RoutineDetail({ routine, onClose, onAddExercise, onRemoveExercise, onDe
                   </div>
 
                   {/* Right: muscle line art */}
-                  {muscleIcon(ex.muscleGroup, ex.name) && (
+                  {(getExerciseIcon(ex.name, ex.muscleGroup) || muscleIcon(ex.muscleGroup, ex.name)) && (
                     <img
-                      src={muscleIcon(ex.muscleGroup, ex.name)}
+                      src={getExerciseIcon(ex.name, ex.muscleGroup) || muscleIcon(ex.muscleGroup, ex.name)}
                       alt={ex.muscleGroup || ex.name}
                       className="w-20 h-20 object-contain opacity-80 flex-shrink-0 self-center"
                     />
