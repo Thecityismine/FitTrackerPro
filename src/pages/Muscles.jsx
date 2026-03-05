@@ -1,7 +1,7 @@
 // src/pages/Muscles.jsx
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { getDocs, setDoc, query, where, writeBatch, serverTimestamp } from 'firebase/firestore'
+import { getDocs, setDoc, query, where, writeBatch, serverTimestamp, doc } from 'firebase/firestore'
 import {
   format, differenceInDays, parseISO,
   startOfWeek, endOfWeek, subWeeks,
@@ -9,7 +9,7 @@ import {
 import PageWrapper from '../components/layout/PageWrapper'
 import HexRing from '../components/HexRing'
 import { useAuth } from '../context/AuthContext'
-import { sessionsCol, exercisesCol, exerciseDoc } from '../firebase/collections'
+import { sessionsCol, exercisesCol, exerciseDoc, globalExercisesCol } from '../firebase/collections'
 import { db } from '../firebase/config'
 
 // ─── Push / Pull / Legs config ────────────────────────────
@@ -365,9 +365,31 @@ export default function Muscles() {
         getDocs(sessionsCol(user.uid)),
         getDocs(exercisesCol(user.uid)),
       ]))
-      .then(([sessSnap, exSnap]) => {
+      .then(async ([sessSnap, exSnap]) => {
         setSessions(sessSnap.docs.map(d => ({ id: d.id, ...d.data() })))
-        setSavedExercises(exSnap.docs.map(d => d.data()))
+        const userExercises = exSnap.docs.map(d => d.data())
+
+        // New user: seed from globalExercises if they have none yet
+        if (userExercises.length === 0) {
+          const globalSnap = await getDocs(globalExercisesCol())
+          if (!globalSnap.empty) {
+            const batch = writeBatch(db)
+            const seeded = []
+            globalSnap.docs.forEach(d => {
+              const { id, name, muscleGroup, type } = d.data()
+              if (!id || !name || !muscleGroup) return
+              const entry = { id, name, muscleGroup, type: type || 'weight' }
+              batch.set(exerciseDoc(user.uid, id), entry)
+              seeded.push(entry)
+            })
+            await batch.commit()
+            setSavedExercises(seeded)
+            setLoading(false)
+            return
+          }
+        }
+
+        setSavedExercises(userExercises)
         setLoading(false)
       })
       .catch(() => setLoading(false))
