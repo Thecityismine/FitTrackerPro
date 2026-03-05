@@ -410,10 +410,11 @@ export default function Muscles() {
     }
   }
 
-  async function handleEditExerciseType(exerciseId, newType) {
+  async function handleEditExercise(exerciseId, newName, newType) {
     try {
-      await setDoc(exerciseDoc(user.uid, exerciseId), { type: newType }, { merge: true })
-      setSavedExercises(prev => prev.map(e => e.id === exerciseId ? { ...e, type: newType } : e))
+      await setDoc(exerciseDoc(user.uid, exerciseId), { name: newName, type: newType }, { merge: true })
+      setSavedExercises(prev => prev.map(e => e.id === exerciseId ? { ...e, name: newName, type: newType } : e))
+      setSessions(prev => prev.map(s => s.exerciseId === exerciseId ? { ...s, exerciseName: newName } : s))
       setEditingExercise(null)
     } catch {
       alert('Could not update exercise. Please try again.')
@@ -536,7 +537,15 @@ export default function Muscles() {
             <div className="relative w-full bg-surface rounded-2xl shadow-2xl p-5 flex flex-col gap-4">
               <div>
                 <h2 className="font-display text-lg font-bold text-text-primary">Edit Exercise</h2>
-                <p className="text-text-secondary text-sm mt-0.5 truncate">{editingExercise.exerciseName}</p>
+              </div>
+              <div>
+                <p className="text-text-secondary text-xs mb-2">Name</p>
+                <input
+                  type="text"
+                  value={editingExercise.exerciseName}
+                  onChange={e => setEditingExercise(prev => ({ ...prev, exerciseName: e.target.value }))}
+                  className="w-full bg-surface2 rounded-xl px-4 py-3 text-text-primary text-sm placeholder-text-secondary focus:outline-none focus:ring-2 focus:ring-accent"
+                />
               </div>
               <div>
                 <p className="text-text-secondary text-xs mb-2">Tracking type</p>
@@ -557,8 +566,10 @@ export default function Muscles() {
               </div>
               <div className="flex gap-3">
                 <button onClick={() => setEditingExercise(null)} className="btn-secondary flex-1">Cancel</button>
-                <button onClick={() => handleEditExerciseType(editingExercise.exerciseId, editingExercise.type)}
-                  className="btn-primary flex-1">Save</button>
+                <button
+                  onClick={() => handleEditExercise(editingExercise.exerciseId, editingExercise.exerciseName.trim(), editingExercise.type)}
+                  disabled={!editingExercise.exerciseName.trim()}
+                  className="btn-primary flex-1 disabled:opacity-40 disabled:cursor-not-allowed">Save</button>
               </div>
             </div>
           </div>
