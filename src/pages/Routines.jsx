@@ -12,7 +12,7 @@ const MUSCLE_ICONS = {
   legs:      '/icons/legs.png',
   glutes:    '/icons/glutes.png',
   cardio:    '/icons/cardio.png',
-  recovery:  '/icons/cardio.png',
+  recovery:  '/icons/Recovery.png',
 }
 const NAME_KEYWORDS = [
   { re: /\bcalf\b|\bcalves\b/,                                   group: 'legs'      },
