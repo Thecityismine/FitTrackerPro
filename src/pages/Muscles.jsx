@@ -130,6 +130,7 @@ const GROUPS_META = [
   { id: 'Legs',      label: 'Legs',      icon: '/icons/legs.png' },
   { id: 'Glutes',    label: 'Glutes',    icon: '/icons/glutes.png' },
   { id: 'Cardio',    label: 'Cardio',    icon: '/icons/cardio.png' },
+  { id: 'Recovery',  label: 'Recovery',  icon: '/icons/cardio.png' },
 ]
 
 // ─── Exercise Card (detail view) ──────────────────────────
