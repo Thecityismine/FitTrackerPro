@@ -16,8 +16,8 @@ const TODAY = format(new Date(), 'yyyy-MM-dd')
 // ─── Body part normalization ────────────────────────────────
 const BODY_PARTS = [
   { key: 'Abs',       match: ['abs', 'core', 'abdominal', 'crunch', 'plank', 'situp', 'sit-up'] },
-  { key: 'Arms',      match: ['arms', 'bicep', 'biceps', 'forearm', 'forearms', 'curl'] },
-  { key: 'Triceps',   match: ['triceps', 'tricep', 'pushdown', 'push-down', 'skull'] },
+  { key: 'Arms',      match: ['arms', 'bicep', 'biceps', 'forearm', 'forearms', 'curl', 'triceps', 'tricep', 'pushdown', 'push-down', 'skull', 'dips', 'dip'] },
+  { key: 'Chest',     match: ['chest', 'pec', 'pecs', 'bench', 'fly', 'flye'] },
   { key: 'Shoulders', match: ['shoulders', 'shoulder', 'delt', 'delts'] },
   { key: 'Back',      match: ['back', 'lats', 'lat', 'rhomboid', 'trap', 'traps', 'rear', 'row', 'rows', 'pulldown', 'pull-down', 'chin', 'deadlift'] },
   { key: 'Legs',      match: ['legs', 'leg', 'quad', 'quads', 'hamstring', 'hamstrings', 'calf', 'calves', 'calve', 'lunge', 'squat'] },
