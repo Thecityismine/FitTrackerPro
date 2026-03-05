@@ -355,6 +355,7 @@ export default function Muscles() {
   const [showAdd, setShowAdd]   = useState(false)
   const [editMode, setEditMode] = useState(false)
   const [editingExercise, setEditingExercise] = useState(null) // { exerciseId, exerciseName, type }
+  const [savingExercise, setSavingExercise] = useState(false)
 
   // PPL config — targets driven by user profile (falls back to PPL defaults)
   const pplConfig = useMemo(() => [
@@ -373,7 +374,7 @@ export default function Muscles() {
       ]))
       .then(async ([sessSnap, exSnap]) => {
         setSessions(sessSnap.docs.map(d => ({ id: d.id, ...d.data() })))
-        const userExercises = exSnap.docs.map(d => d.data())
+        const userExercises = exSnap.docs.map(d => ({ ...d.data(), id: d.id }))
 
         // New user: seed from globalExercises if they have none yet
         if (userExercises.length === 0) {
@@ -417,34 +418,35 @@ export default function Muscles() {
   }
 
   async function handleEditExercise(exerciseId, newName, newType) {
+    setSavingExercise(true)
     try {
+      // 1. Fetch data needed for batch
+      const [sessSnap, routinesSnap] = await Promise.all([
+        getDocs(query(sessionsCol(user.uid), where('exerciseId', '==', exerciseId))),
+        getDocs(routinesCol(user.uid)),
+      ])
+
+      // 2. Build and commit batch
       const batch = writeBatch(db)
-
-      // 1. Update the exercise library doc
       batch.set(exerciseDoc(user.uid, exerciseId), { name: newName, type: newType }, { merge: true })
-
-      // 2. Update all session docs that reference this exercise
-      const sessSnap = await getDocs(query(sessionsCol(user.uid), where('exerciseId', '==', exerciseId)))
       sessSnap.docs.forEach(d => batch.update(d.ref, { exerciseName: newName }))
-
-      // 3. Update any routine docs whose exercises array contains this exercise
-      const routinesSnap = await getDocs(routinesCol(user.uid))
       routinesSnap.docs.forEach(d => {
         const exArr = d.data().exercises || []
         if (exArr.some(e => e.id === exerciseId)) {
           batch.update(d.ref, { exercises: exArr.map(e => e.id === exerciseId ? { ...e, name: newName } : e) })
         }
       })
-
       await batch.commit()
 
-      // 4. Update local state
+      // 3. Update local state
       setSavedExercises(prev => prev.map(e => e.id === exerciseId ? { ...e, name: newName, type: newType } : e))
       setSessions(prev => prev.map(s => s.exerciseId === exerciseId ? { ...s, exerciseName: newName } : s))
       setEditingExercise(null)
     } catch (err) {
       console.error(err)
       alert('Could not update exercise. Please try again.')
+    } finally {
+      setSavingExercise(false)
     }
   }
 
@@ -593,11 +595,19 @@ export default function Muscles() {
                 </div>
               </div>
               <div className="flex gap-3">
-                <button onClick={() => setEditingExercise(null)} className="btn-secondary flex-1">Cancel</button>
+                <button onClick={() => setEditingExercise(null)} disabled={savingExercise} className="btn-secondary flex-1 disabled:opacity-40">Cancel</button>
                 <button
                   onClick={() => handleEditExercise(editingExercise.exerciseId, editingExercise.exerciseName.trim(), editingExercise.type)}
-                  disabled={!editingExercise.exerciseName.trim()}
-                  className="btn-primary flex-1 disabled:opacity-40 disabled:cursor-not-allowed">Save</button>
+                  disabled={!editingExercise.exerciseName.trim() || savingExercise}
+                  className="btn-primary flex-1 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2">
+                  {savingExercise && (
+                    <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                    </svg>
+                  )}
+                  {savingExercise ? 'Saving…' : 'Save'}
+                </button>
               </div>
             </div>
           </div>
