@@ -40,7 +40,7 @@ import {
   serverTimestamp, arrayUnion, arrayRemove,
 } from 'firebase/firestore'
 import { useAuth } from '../context/AuthContext'
-import { routinesCol, routineDoc, sessionsCol } from '../firebase/collections'
+import { routinesCol, routineDoc, sessionsCol, exercisesCol } from '../firebase/collections'
 import PageWrapper from '../components/layout/PageWrapper'
 
 // ─── New Routine Bottom Sheet ──────────────────────────────
@@ -115,19 +115,23 @@ function AddExerciseSheet({ onClose, onAdd, existingIds = [] }) {
 
   useEffect(() => {
     if (!user?.uid) return
-    getDocs(sessionsCol(user.uid))
-      .then((snap) => {
-        const seen = new Set()
-        const data = []
-        snap.docs.forEach((d) => {
+    Promise.all([getDocs(sessionsCol(user.uid)), getDocs(exercisesCol(user.uid))])
+      .then(([sessSnap, exSnap]) => {
+        const map = {}
+        // First: saved exercises from library
+        exSnap.docs.forEach((d) => {
+          const { id, name, muscleGroup } = d.data()
+          if (id && name) map[id] = { id, name, muscleGroup: muscleGroup || inferMuscleGroup(name) }
+        })
+        // Then: exercises from sessions (may add ones not in library)
+        sessSnap.docs.forEach((d) => {
           const { exerciseId, exerciseName, muscleGroup } = d.data()
-          if (exerciseId && !seen.has(exerciseId)) {
-            seen.add(exerciseId)
+          if (exerciseId && !map[exerciseId]) {
             const resolvedGroup = muscleGroup || inferMuscleGroup(exerciseName || exerciseId)
-            data.push({ id: exerciseId, name: exerciseName || exerciseId, muscleGroup: resolvedGroup })
+            map[exerciseId] = { id: exerciseId, name: exerciseName || exerciseId, muscleGroup: resolvedGroup }
           }
         })
-        data.sort((a, b) => a.name.localeCompare(b.name))
+        const data = Object.values(map).sort((a, b) => a.name.localeCompare(b.name))
         setLibrary(data)
         setLoading(false)
       })
