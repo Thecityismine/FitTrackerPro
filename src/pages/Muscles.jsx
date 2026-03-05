@@ -133,8 +133,33 @@ const GROUPS_META = [
   { id: 'Recovery',  label: 'Recovery',  icon: '/icons/cardio.png' },
 ]
 
+// ─── Per-exercise icon lookup ──────────────────────────────
+const AB_ICONS = {
+  'ab crunch machine':     '/Ab/Ab Crunch Machine.png',
+  'bicycle crunches':      '/Ab/Bicycle Crunches.png',
+  'ab rollout':            '/Ab/Ab Rollout.png',
+  'bird dog':              '/Ab/Bird Dog.png',
+  'crunches':              '/Ab/Crunches.png',
+  'leg pull-in':           '/Ab/Leg Pull-In.png',
+  'leg raise':             '/Ab/Leg Raise.png',
+  'vertical leg raise':    '/Ab/Vertical Leg Raise.png',
+  'vertical leg raises':   '/Ab/Vertical Leg Raise.png',
+  'mountain climbers':     '/Ab/Mountain Climbers.png',
+  'plank':                 '/Ab/Plank.png',
+  'seated crunch machine': '/Ab/Seated Crunch Machine.png',
+  'sit ups':               '/Ab/Sit Ups.png',
+  'superman hold':         '/Ab/Superman Hold.png',
+}
+
+function getExerciseIcon(exerciseName, muscleGroup) {
+  const key = (exerciseName || '').trim().toLowerCase()
+  if (AB_ICONS[key]) return AB_ICONS[key]
+  if ((muscleGroup || '').toLowerCase() === 'abs') return '/Ab/Generic Ab Exercise.png'
+  return null
+}
+
 // ─── Exercise Card (detail view) ──────────────────────────
-function ExerciseCard({ exerciseName, sessions, onClick, editMode, onDelete, onEdit, type = 'weight' }) {
+function ExerciseCard({ exerciseName, muscleGroup = '', sessions, onClick, editMode, onDelete, onEdit, type = 'weight' }) {
   const isTime   = type === 'time'
   const count    = sessions.length
   const lastDate = sessions.map(s => s.date).sort().at(-1)
@@ -142,6 +167,7 @@ function ExerciseCard({ exerciseName, sessions, onClick, editMode, onDelete, onE
   // For time exercises weight stores minutes; for weight exercises weight stores lbs
   const best     = sessions.reduce((max, s) =>
     Math.max(max, ...(s.sets || []).map(st => st.weight || 0)), 0)
+  const icon     = getExerciseIcon(exerciseName, muscleGroup)
 
   return (
     <div className="card flex items-center gap-3 text-left w-full">
@@ -170,6 +196,9 @@ function ExerciseCard({ exerciseName, sessions, onClick, editMode, onDelete, onE
             {days !== null ? ` · ${lastDoneLabel(days)}` : ''}
           </p>
         </div>
+        {!editMode && icon && (
+          <img src={icon} alt="" className="w-12 h-12 object-contain opacity-80 flex-shrink-0" />
+        )}
         {!editMode && best > 0 && (
           <div className="flex-shrink-0 text-right">
             <p className="text-accent-green font-bold text-base font-mono">{best}{isTime ? 'm' : ''}</p>
@@ -513,6 +542,7 @@ export default function Muscles() {
                 <ExerciseCard key={ex.exerciseId} {...ex}
                   editMode={editMode}
                   type={ex.type}
+                  muscleGroup={groupLabel}
                   onClick={() => navigate(`/workout/${ex.exerciseId}`, { state: { exercise: { id: ex.exerciseId, name: ex.exerciseName, muscleGroup: groupLabel, type: ex.type } } })}
                   onDelete={() => handleDeleteExercise(ex.exerciseId, ex.exerciseName)}
                   onEdit={() => setEditingExercise({ exerciseId: ex.exerciseId, exerciseName: ex.exerciseName, type: ex.type })} />
