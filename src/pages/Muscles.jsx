@@ -1,7 +1,7 @@
 // src/pages/Muscles.jsx
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { getDocs, setDoc, query, where, writeBatch, serverTimestamp, doc } from 'firebase/firestore'
+import { getDocs, setDoc, updateDoc, query, where, writeBatch, serverTimestamp, doc } from 'firebase/firestore'
 import {
   format, differenceInDays, parseISO,
   startOfWeek, endOfWeek, subWeeks,
@@ -9,7 +9,7 @@ import {
 import PageWrapper from '../components/layout/PageWrapper'
 import HexRing from '../components/HexRing'
 import { useAuth } from '../context/AuthContext'
-import { sessionsCol, exercisesCol, exerciseDoc, globalExercisesCol } from '../firebase/collections'
+import { sessionsCol, exercisesCol, exerciseDoc, globalExercisesCol, routinesCol } from '../firebase/collections'
 import { db } from '../firebase/config'
 import { getExerciseIcon } from '../utils/exerciseIcons'
 
@@ -418,11 +418,32 @@ export default function Muscles() {
 
   async function handleEditExercise(exerciseId, newName, newType) {
     try {
-      await setDoc(exerciseDoc(user.uid, exerciseId), { name: newName, type: newType }, { merge: true })
+      const batch = writeBatch(db)
+
+      // 1. Update the exercise library doc
+      batch.set(exerciseDoc(user.uid, exerciseId), { name: newName, type: newType }, { merge: true })
+
+      // 2. Update all session docs that reference this exercise
+      const sessSnap = await getDocs(query(sessionsCol(user.uid), where('exerciseId', '==', exerciseId)))
+      sessSnap.docs.forEach(d => batch.update(d.ref, { exerciseName: newName }))
+
+      // 3. Update any routine docs whose exercises array contains this exercise
+      const routinesSnap = await getDocs(routinesCol(user.uid))
+      routinesSnap.docs.forEach(d => {
+        const exArr = d.data().exercises || []
+        if (exArr.some(e => e.id === exerciseId)) {
+          batch.update(d.ref, { exercises: exArr.map(e => e.id === exerciseId ? { ...e, name: newName } : e) })
+        }
+      })
+
+      await batch.commit()
+
+      // 4. Update local state
       setSavedExercises(prev => prev.map(e => e.id === exerciseId ? { ...e, name: newName, type: newType } : e))
       setSessions(prev => prev.map(s => s.exerciseId === exerciseId ? { ...s, exerciseName: newName } : s))
       setEditingExercise(null)
-    } catch {
+    } catch (err) {
+      console.error(err)
       alert('Could not update exercise. Please try again.')
     }
   }
