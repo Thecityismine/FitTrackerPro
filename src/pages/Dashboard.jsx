@@ -364,7 +364,7 @@ export default function Dashboard() {
                     cx="60" cy="60" r="50" fill="none"
                     stroke="currentColor" strokeWidth="10"
                     strokeLinecap="round"
-                    strokeDasharray={`${Math.min((thisWeekVol / (maxVol || 1)) * 314, 314)} 314`}
+                    strokeDasharray={`${Math.min((thisWeekVol / (profile?.weeklyVolumeGoal || 100000)) * 314, 314)} 314`}
                     className="text-accent-green transition-all duration-700"
                   />
                 </svg>

@@ -23,6 +23,7 @@ export default function Profile() {
   const [pullTarget, setPullTarget] = useState(profile?.weeklyTargets?.pull ?? 15)
   const [legsTarget, setLegsTarget] = useState(profile?.weeklyTargets?.legs ?? 21)
   const [workoutGoal, setWorkoutGoal] = useState(profile?.weeklyWorkoutGoal ?? 3)
+  const [volumeGoal, setVolumeGoal]   = useState(profile?.weeklyVolumeGoal ?? 100000)
   const [saving, setSaving]       = useState(false)
   const [saved, setSaved]         = useState(false)
 
@@ -88,6 +89,7 @@ export default function Profile() {
           legs: Number(legsTarget) || 21,
         },
         weeklyWorkoutGoal: Number(workoutGoal) || 3,
+        weeklyVolumeGoal: Number(volumeGoal) || 100000,
       })
       if (auth.currentUser) {
         await updateProfile(auth.currentUser, { displayName: trimmedName })
@@ -281,6 +283,25 @@ export default function Profile() {
                 >+</button>
               </div>
               <p className="text-text-secondary text-xs mt-1">Shown as X / {Number(workoutGoal) || 3} days on the Log tab</p>
+            </div>
+            <div>
+              <label className="label">Weekly Volume Goal</label>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => setVolumeGoal(v => Math.max(10000, Number(v) - 5000))}
+                  className="w-9 h-9 rounded-xl bg-surface2 flex items-center justify-center text-text-primary font-bold active:scale-95 transition-transform flex-shrink-0"
+                >−</button>
+                <div className="input flex-1 text-center flex items-center justify-center">
+                  <span className="text-text-primary font-semibold">
+                    {Number(volumeGoal) >= 1000 ? `${Math.round(Number(volumeGoal) / 1000)}k` : Number(volumeGoal)} lbs
+                  </span>
+                </div>
+                <button
+                  onClick={() => setVolumeGoal(v => Number(v) + 5000)}
+                  className="w-9 h-9 rounded-xl bg-surface2 flex items-center justify-center text-text-primary font-bold active:scale-95 transition-transform flex-shrink-0"
+                >+</button>
+              </div>
+              <p className="text-text-secondary text-xs mt-1">Fills the volume ring on your Dashboard · steps of 5k</p>
             </div>
             <p className="text-text-secondary text-xs">
               Sets total: <span className="text-text-primary font-semibold">{(Number(pushTarget) || 0) + (Number(pullTarget) || 0) + (Number(legsTarget) || 0)} sets/week</span>
