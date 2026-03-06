@@ -606,7 +606,8 @@ export default function Routines() {
     function calcVolume(sessionList) {
       return sessionList.reduce((sum, s) => {
         if ((s.muscleGroup || '').toLowerCase() === 'cardio') return sum
-        return sum + (s.sets || []).reduce((sv, set) => sv + (set.reps || 0) * (set.weight || 0), 0)
+        const fromSets = (s.sets || []).reduce((sv, set) => sv + (set.reps || 0) * (set.weight || 0), 0)
+        return sum + (fromSets > 0 ? fromSets : (s.totalVolume || 0))
       }, 0)
     }
 
@@ -619,7 +620,10 @@ export default function Routines() {
     const sortedDates = Object.keys(byDate).sort().reverse()
     if (!sortedDates.length) return null
 
-    const lastDate = sortedDates[0]
+    // Prefer the last date that had a named routine; fall back to any last date
+    const lastDate =
+      sortedDates.find((d) => byDate[d].some((s) => s.routineName)) ||
+      sortedDates[0]
     const lastSessions = byDate[lastDate]
     const lastRoutine = lastSessions.find((s) => s.routineName)?.routineName || 'Free Workout'
     const lastVolume = calcVolume(lastSessions)
