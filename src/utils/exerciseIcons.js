@@ -38,10 +38,24 @@ const TRICEP_ICONS = {
   'skull crusher':                    '/Tricep/Skullcrusher.png',
 }
 
+const GROUP_ICONS = {
+  'abs':       '/icons/abs.png',
+  'biceps':    '/icons/arm.png',
+  'triceps':   '/icons/triceps.png',
+  'shoulders': '/icons/shoulder.png',
+  'chest':     '/icons/chest.png',
+  'back':      '/icons/back.png',
+  'legs':      '/icons/legs.png',
+  'glutes':    '/icons/glutes.png',
+  'cardio':    '/icons/cardio.png',
+  'recovery':  '/icons/Recovery.png',
+}
+
 export function getExerciseIcon(exerciseName, muscleGroup) {
   const key = (exerciseName || '').trim().toLowerCase()
   if (AB_ICONS[key])     return AB_ICONS[key]
   if (TRICEP_ICONS[key]) return TRICEP_ICONS[key]
-  if ((muscleGroup || '').toLowerCase() === 'abs') return '/Ab/Generic Ab Exercise.png'
-  return null
+  // Fall back to muscle group icon
+  const groupKey = (muscleGroup || '').trim().toLowerCase()
+  return GROUP_ICONS[groupKey] || null
 }
