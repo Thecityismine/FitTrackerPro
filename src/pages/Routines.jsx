@@ -624,15 +624,7 @@ export default function Routines() {
     const lastRoutine = lastSessions.find((s) => s.routineName)?.routineName || 'Free Workout'
     const lastVolume = calcVolume(lastSessions)
 
-    // Weekly total (Sun–Sat of the current week)
-    const todayStr = new Date().toISOString().slice(0, 10)
-    const weekStart = new Date(todayStr)
-    weekStart.setDate(weekStart.getDate() - weekStart.getDay())
-    const weekStartStr = weekStart.toISOString().slice(0, 10)
-    const weekSessions = sessions.filter((s) => s.date >= weekStartStr && s.date <= todayStr)
-    const weekVolume = calcVolume(weekSessions)
-
-    return { lastDate, lastRoutine, lastVolume, weekVolume }
+    return { lastDate, lastRoutine, lastVolume }
   }, [sessions])
 
   useEffect(() => {
@@ -733,7 +725,7 @@ export default function Routines() {
 
                 {/* Last session volume */}
                 <div className="bg-surface2 rounded-xl p-3">
-                  <p className="text-text-secondary text-xs mb-1">Session Volume</p>
+                  <p className="text-text-secondary text-xs mb-1">Volume</p>
                   {metrics.lastVolume > 0 ? (
                     <>
                       <p className="text-accent-green font-mono font-bold text-lg leading-none">
@@ -743,23 +735,6 @@ export default function Routines() {
                       </p>
                       <p className="text-text-secondary text-xs mt-1">lbs</p>
                     </>
-                  ) : (
-                    <p className="text-text-secondary text-sm">—</p>
-                  )}
-                </div>
-
-                {/* Weekly volume */}
-                <div className="bg-surface2 rounded-xl p-3 col-span-2">
-                  <p className="text-text-secondary text-xs mb-1">This Week's Volume</p>
-                  {metrics.weekVolume > 0 ? (
-                    <div className="flex items-baseline gap-1.5">
-                      <p className="text-accent-green font-mono font-bold text-lg leading-none">
-                        {metrics.weekVolume >= 1000
-                          ? `${(metrics.weekVolume / 1000).toFixed(1)}k`
-                          : metrics.weekVolume.toLocaleString()}
-                      </p>
-                      <p className="text-text-secondary text-xs">lbs</p>
-                    </div>
                   ) : (
                     <p className="text-text-secondary text-sm">—</p>
                   )}
