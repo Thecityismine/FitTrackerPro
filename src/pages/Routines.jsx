@@ -626,7 +626,9 @@ export default function Routines() {
       sortedDates[0]
     const lastSessions = byDate[lastDate]
     const lastRoutine = lastSessions.find((s) => s.routineName)?.routineName || 'Free Workout'
-    const lastVolume = calcVolume(lastSessions)
+    // Only count volume from the sessions that belong to that routine
+    const routineSessions = lastSessions.filter((s) => s.routineName === lastRoutine)
+    const lastVolume = calcVolume(routineSessions.length > 0 ? routineSessions : lastSessions)
 
     return { lastDate, lastRoutine, lastVolume }
   }, [sessions])
