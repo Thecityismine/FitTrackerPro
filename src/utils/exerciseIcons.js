@@ -18,9 +18,30 @@ const AB_ICONS = {
   'superman hold':         '/Ab/Superman Hold.png',
 }
 
+const TRICEP_ICONS = {
+  'cable overhead triceps extension': '/Tricep/Cable Overhead Triceps Extension.png',
+  'triceps pushdown machine':         '/Tricep/Triceps Pushdown Machine.png',
+  'cable face pull':                  '/Tricep/Cable Face Pull.png',
+  'dips':                             '/Tricep/Dips.png',
+  'triceps cable push down':          '/Tricep/Triceps Cable Push Down.png',
+  'tricep cable push down':           '/Tricep/Triceps Cable Push Down.png',
+  'bench dip':                        '/Tricep/Bench Dip.png',
+  'bench dips':                       '/Tricep/Bench Dip.png',
+  'diamond push up':                  '/Tricep/Diamond Push Up.png',
+  'diamond push-up':                  '/Tricep/Diamond Push Up.png',
+  'dumbbell skullcrusher':            '/Tricep/Dumbbell Skullcrusher.png',
+  'dumbbell skull crusher':           '/Tricep/Dumbbell Skullcrusher.png',
+  'dumbbell tricep extension':        '/Tricep/Dumbbell Tricep Extension.png',
+  'dumbbell triceps extension':       '/Tricep/Dumbbell Tricep Extension.png',
+  'skullcrusher':                     '/Tricep/Skullcrusher.png',
+  'skullcrushers':                    '/Tricep/Skullcrusher.png',
+  'skull crusher':                    '/Tricep/Skullcrusher.png',
+}
+
 export function getExerciseIcon(exerciseName, muscleGroup) {
   const key = (exerciseName || '').trim().toLowerCase()
-  if (AB_ICONS[key]) return AB_ICONS[key]
+  if (AB_ICONS[key])     return AB_ICONS[key]
+  if (TRICEP_ICONS[key]) return TRICEP_ICONS[key]
   if ((muscleGroup || '').toLowerCase() === 'abs') return '/Ab/Generic Ab Exercise.png'
   return null
 }
