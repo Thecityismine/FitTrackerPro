@@ -96,6 +96,11 @@ const LEG_ICONS = {
   'seated dumbbell calf raises': '/Legs/Seated Dumbbell Calf Raise.png',
 }
 
+const RECOVERY_ICONS = {
+  'back massage':   '/Recovery/Back Massage.png',
+  'massage chair':  '/Recovery/Massage Chair.png',
+}
+
 const CARDIO_ICONS = {
   'elliptical machine':    '/Cardio/Elliptical Machine.png',
   'elliptical':            '/Cardio/Elliptical Machine.png',
@@ -216,6 +221,7 @@ export function getExerciseIcon(exerciseName, muscleGroup) {
   if (TRICEP_ICONS[key]) return TRICEP_ICONS[key]
   if (BICEP_ICONS[key])  return BICEP_ICONS[key]
   if (LEG_ICONS[key])    return LEG_ICONS[key]
+  if (RECOVERY_ICONS[key]) return RECOVERY_ICONS[key]
   if (CARDIO_ICONS[key])   return CARDIO_ICONS[key]
   if (SHOULDER_ICONS[key]) return SHOULDER_ICONS[key]
   if (GLUTE_ICONS[key])    return GLUTE_ICONS[key]
