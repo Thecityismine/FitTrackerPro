@@ -79,7 +79,6 @@ const exercises = [
   { name: 'Walking',                          muscleGroup: 'Cardio',    category: 'cardio'   },
   { name: 'Walking Treadmill',                muscleGroup: 'Cardio',    category: 'cardio'   },
   { name: 'Elliptical Machine',               muscleGroup: 'Cardio',    category: 'cardio'   },
-  { name: 'Sex',                              muscleGroup: 'Cardio',    category: 'cardio'   },
   // Recovery
   { name: 'Hydro Massage Bed',                muscleGroup: 'Recovery',  category: 'recovery' },
 ]
