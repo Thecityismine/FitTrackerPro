@@ -38,6 +38,30 @@ const TRICEP_ICONS = {
   'skull crusher':                    '/Tricep/Skullcrusher.png',
 }
 
+const LEG_ICONS = {
+  'leg press':                   '/Legs/Leg Press.png',
+  'leg extension':               '/Legs/Leg Extension.png',
+  'leg extensions':              '/Legs/Leg Extension.png',
+  'calf extension':              '/Legs/Calf Extension.png',
+  'calf extensions':             '/Legs/Calf Extension.png',
+  'seated leg curl':             '/Legs/Seated Leg Curl.png',
+  'squat':                       '/Legs/Squat.png',
+  'squats':                      '/Legs/Squat.png',
+  'barbell squat':               '/Legs/Squat.png',
+  'calf raise':                  '/Legs/Calf Raise.png',
+  'calf raises':                 '/Legs/Calf Raise.png',
+  'standing calf raise':         '/Legs/Calf Raise.png',
+  'bulgarian split squat':       '/Legs/Bulgarian Split Squat.png',
+  'bulgarian split squats':      '/Legs/Bulgarian Split Squat.png',
+  'burpee':                      '/Legs/Burpee.png',
+  'burpees':                     '/Legs/Burpee.png',
+  'cable hip abduction':         '/Legs/Cable Hip Abduction.png',
+  'dumbbell squats':             '/Legs/Dumbbell Squats.png',
+  'dumbbell squat':              '/Legs/Dumbbell Squats.png',
+  'seated dumbbell calf raise':  '/Legs/Seated Dumbbell Calf Raise.png',
+  'seated dumbbell calf raises': '/Legs/Seated Dumbbell Calf Raise.png',
+}
+
 const GROUP_ICONS = {
   'abs':       '/icons/abs.png',
   'biceps':    '/icons/arm.png',
@@ -55,6 +79,7 @@ export function getExerciseIcon(exerciseName, muscleGroup) {
   const key = (exerciseName || '').trim().toLowerCase()
   if (AB_ICONS[key])     return AB_ICONS[key]
   if (TRICEP_ICONS[key]) return TRICEP_ICONS[key]
+  if (LEG_ICONS[key])    return LEG_ICONS[key]
   // Fall back to muscle group icon
   const groupKey = (muscleGroup || '').trim().toLowerCase()
   return GROUP_ICONS[groupKey] || null
