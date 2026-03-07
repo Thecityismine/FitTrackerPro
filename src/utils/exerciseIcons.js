@@ -95,6 +95,25 @@ const LEG_ICONS = {
   'seated dumbbell calf raises': '/Legs/Seated Dumbbell Calf Raise.png',
 }
 
+const SHOULDER_ICONS = {
+  'cable lateral raise':        '/Shoulder/Cable Lateral Raise.png',
+  'cable lateral raises':       '/Shoulder/Cable Lateral Raise.png',
+  'dumbbell front raise':       '/Shoulder/Dumbbell Front Raise.png',
+  'dumbbell front raises':      '/Shoulder/Dumbbell Front Raise.png',
+  'dumbbell lateral raise':     '/Shoulder/Dumbbell Lateral Raise.png',
+  'dumbbell lateral raises':    '/Shoulder/Dumbbell Lateral Raise.png',
+  'lateral raise':              '/Shoulder/Dumbbell Lateral Raise.png',
+  'lateral raises':             '/Shoulder/Dumbbell Lateral Raise.png',
+  'dumbbell shoulder press':    '/Shoulder/Dumbbell Shoulder Press.png',
+  'shoulder press':             '/Shoulder/Dumbbell Shoulder Press.png',
+  'handstand push up':          '/Shoulder/Handstand Push Up.png',
+  'handstand push-up':          '/Shoulder/Handstand Push Up.png',
+  'handstand push ups':         '/Shoulder/Handstand Push Up.png',
+  'machine shoulder pulldown':  '/Shoulder/Machine Shoulder Pulldown.png',
+  'upright row':                '/Shoulder/Upright Row.png',
+  'upright rows':               '/Shoulder/Upright Row.png',
+}
+
 const GLUTE_ICONS = {
   'bridge':                  '/Glutes/Bridge.png',
   'cable hip extension':     '/Glutes/Cable Hip Extension.png',
@@ -182,7 +201,8 @@ export function getExerciseIcon(exerciseName, muscleGroup) {
   if (TRICEP_ICONS[key]) return TRICEP_ICONS[key]
   if (BICEP_ICONS[key])  return BICEP_ICONS[key]
   if (LEG_ICONS[key])    return LEG_ICONS[key]
-  if (GLUTE_ICONS[key])  return GLUTE_ICONS[key]
+  if (SHOULDER_ICONS[key]) return SHOULDER_ICONS[key]
+  if (GLUTE_ICONS[key])    return GLUTE_ICONS[key]
   if (BACK_ICONS[key])   return BACK_ICONS[key]
   if (CHEST_ICONS[key])  return CHEST_ICONS[key]
   // Fall back to muscle group icon
