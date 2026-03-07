@@ -38,6 +38,39 @@ const TRICEP_ICONS = {
   'skull crusher':                    '/Tricep/Skullcrusher.png',
 }
 
+const BICEP_ICONS = {
+  'cable bicep curl':              '/Biceps/Cable Bicep Curl.png',
+  'cable biceps curl':             '/Biceps/Cable Bicep Curl.png',
+  'lat pulldown':                  '/Biceps/Lat Pulldown.png',
+  'lat pull down':                 '/Biceps/Lat Pulldown.png',
+  'ez bar curl':                   '/Biceps/EZ Bar Curl.png',
+  'ez-bar curl':                   '/Biceps/EZ Bar Curl.png',
+  'push ups':                      '/Biceps/Push Ups.png',
+  'push-ups':                      '/Biceps/Push Ups.png',
+  'pushups':                       '/Biceps/Push Ups.png',
+  'concentrated curl':             '/Biceps/Concentrated Curl.png',
+  'concentration curl':            '/Biceps/Concentrated Curl.png',
+  'concentration curls':           '/Biceps/Concentrated Curl.png',
+  'dumbbell bicep curl':           '/Biceps/Dumbbell Bicep Curl.png',
+  'dumbbell biceps curl':          '/Biceps/Dumbbell Bicep Curl.png',
+  'dumbbell curl':                 '/Biceps/Dumbbell Bicep Curl.png',
+  'dumbbell curls':                '/Biceps/Dumbbell Bicep Curl.png',
+  'dumbbell preacher curls':       '/Biceps/Dumbbell Preacher Curls.png',
+  'dumbbell preacher curl':        '/Biceps/Dumbbell Preacher Curls.png',
+  'hammer curls':                  '/Biceps/Hammer Curls.png',
+  'hammer curl':                   '/Biceps/Hammer Curls.png',
+  'machine bicep curl':            '/Biceps/Machine Bicep Curl.png',
+  'machine biceps curl':           '/Biceps/Machine Bicep Curl.png',
+  'preacher curl':                 '/Biceps/Preacher Curl.png',
+  'preacher curls':                '/Biceps/Preacher Curl.png',
+  'seated dumbbell curl':          '/Biceps/Seated Dumbbell Curl.png',
+  'seated dumbbell curls':         '/Biceps/Seated Dumbbell Curl.png',
+  'single arm cable bicep curl':   '/Biceps/Single Arm Cable Bicep Curl.png',
+  'single-arm cable bicep curl':   '/Biceps/Single Arm Cable Bicep Curl.png',
+  'single arm preacher curl':      '/Biceps/Single Arm Preacher Curl.png',
+  'single-arm preacher curl':      '/Biceps/Single Arm Preacher Curl.png',
+}
+
 const LEG_ICONS = {
   'leg press':                   '/Legs/Leg Press.png',
   'leg extension':               '/Legs/Leg Extension.png',
@@ -79,6 +112,7 @@ export function getExerciseIcon(exerciseName, muscleGroup) {
   const key = (exerciseName || '').trim().toLowerCase()
   if (AB_ICONS[key])     return AB_ICONS[key]
   if (TRICEP_ICONS[key]) return TRICEP_ICONS[key]
+  if (BICEP_ICONS[key])  return BICEP_ICONS[key]
   if (LEG_ICONS[key])    return LEG_ICONS[key]
   // Fall back to muscle group icon
   const groupKey = (muscleGroup || '').trim().toLowerCase()
