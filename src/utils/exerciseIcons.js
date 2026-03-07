@@ -95,6 +95,20 @@ const LEG_ICONS = {
   'seated dumbbell calf raises': '/Legs/Seated Dumbbell Calf Raise.png',
 }
 
+const CARDIO_ICONS = {
+  'elliptical machine':    '/Cardio/Elliptical Machine.png',
+  'elliptical':            '/Cardio/Elliptical Machine.png',
+  'fitness bike':          '/Cardio/Fitness Bike.png',
+  'stationary bike':       '/Cardio/Stationary Bike.png',
+  'step mill':             '/Cardio/Step Mill.png',
+  'stairmill':             '/Cardio/Step Mill.png',
+  'stair mill':            '/Cardio/Step Mill.png',
+  'walking treadmill':     '/Cardio/Walking Treadmill.png',
+  'treadmill':             '/Cardio/Walking Treadmill.png',
+  'walking':               '/Cardio/Walking.png',
+  'walk':                  '/Cardio/Walking.png',
+}
+
 const SHOULDER_ICONS = {
   'cable lateral raise':        '/Shoulder/Cable Lateral Raise.png',
   'cable lateral raises':       '/Shoulder/Cable Lateral Raise.png',
@@ -201,6 +215,7 @@ export function getExerciseIcon(exerciseName, muscleGroup) {
   if (TRICEP_ICONS[key]) return TRICEP_ICONS[key]
   if (BICEP_ICONS[key])  return BICEP_ICONS[key]
   if (LEG_ICONS[key])    return LEG_ICONS[key]
+  if (CARDIO_ICONS[key])   return CARDIO_ICONS[key]
   if (SHOULDER_ICONS[key]) return SHOULDER_ICONS[key]
   if (GLUTE_ICONS[key])    return GLUTE_ICONS[key]
   if (BACK_ICONS[key])   return BACK_ICONS[key]
