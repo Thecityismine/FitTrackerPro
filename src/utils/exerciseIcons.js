@@ -26,6 +26,7 @@ const TRICEP_ICONS = {
   'triceps cable push down':          '/Tricep/Triceps Cable Push Down.png',
   'tricep cable push down':           '/Tricep/Triceps Cable Push Down.png',
   'bench dip':                        '/Tricep/Bench Dip.png',
+  'assisted dip machine':             '/Tricep/Assisted Dip Machine.png',
   'bench dips':                       '/Tricep/Bench Dip.png',
   'diamond push up':                  '/Tricep/Diamond Push Up.png',
   'diamond push-up':                  '/Tricep/Diamond Push Up.png',
