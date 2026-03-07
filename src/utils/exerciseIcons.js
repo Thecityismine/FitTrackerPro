@@ -95,6 +95,34 @@ const LEG_ICONS = {
   'seated dumbbell calf raises': '/Legs/Seated Dumbbell Calf Raise.png',
 }
 
+const GLUTE_ICONS = {
+  'bridge':                  '/Glutes/Bridge.png',
+  'cable hip extension':     '/Glutes/Cable Hip Extension.png',
+  'deadlift':                '/Glutes/Deadlift.png',
+  'deadlifts':               '/Glutes/Deadlift.png',
+  'glute cable kickbacks':   '/Glutes/Glute Cable Kickbacks.png',
+  'glute cable kickback':    '/Glutes/Glute Cable Kickbacks.png',
+  'glute kickback machine':  '/Glutes/Glute Kickback Machine.png',
+  'glute trainer machine':   '/Glutes/Glute Trainer Machine.png',
+  'hack squat':              '/Glutes/Hack Squat.png',
+  'hack squats':             '/Glutes/Hack Squat.png',
+  'hip thrust':              '/Glutes/Hip Thrust.png',
+  'hip thrusts':             '/Glutes/Hip Thrust.png',
+  'romanian deadlift':       '/Glutes/Romanian Deadlifts.png',
+  'romanian deadlifts':      '/Glutes/Romanian Deadlifts.png',
+  'rdl':                     '/Glutes/Romanian Deadlifts.png',
+  'single leg kickback':     '/Glutes/Single Leg Kickback.png',
+  'single-leg kickback':     '/Glutes/Single Leg Kickback.png',
+  'smith machine squat':     '/Glutes/Smith Machine Squat.png',
+  'smith machine squats':    '/Glutes/Smith Machine Squat.png',
+  'step ups':                '/Glutes/Step Ups.png',
+  'step up':                 '/Glutes/Step Ups.png',
+  'sumo squat':              '/Glutes/Sumo Squat.png',
+  'sumo squats':             '/Glutes/Sumo Squat.png',
+  'walking lunges':          '/Glutes/Walking Lunges.png',
+  'walking lunge':           '/Glutes/Walking Lunges.png',
+}
+
 const BACK_ICONS = {
   'assisted pull up':      '/Back/Assisted Pull Up.png',
   'assisted pull-up':      '/Back/Assisted Pull Up.png',
@@ -154,6 +182,7 @@ export function getExerciseIcon(exerciseName, muscleGroup) {
   if (TRICEP_ICONS[key]) return TRICEP_ICONS[key]
   if (BICEP_ICONS[key])  return BICEP_ICONS[key]
   if (LEG_ICONS[key])    return LEG_ICONS[key]
+  if (GLUTE_ICONS[key])  return GLUTE_ICONS[key]
   if (BACK_ICONS[key])   return BACK_ICONS[key]
   if (CHEST_ICONS[key])  return CHEST_ICONS[key]
   // Fall back to muscle group icon
