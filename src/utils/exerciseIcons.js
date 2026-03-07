@@ -95,6 +95,24 @@ const LEG_ICONS = {
   'seated dumbbell calf raises': '/Legs/Seated Dumbbell Calf Raise.png',
 }
 
+const CHEST_ICONS = {
+  'barbell bench press':         '/Chest/Barbell Bench Press.png',
+  'barbell decline bench press': '/Chest/Barbell Decline Bench Press.png',
+  'cable crossover fly':         '/Chest/Cable Crossover Fly.png',
+  'cable crossover':             '/Chest/Cable Crossover Fly.png',
+  'decline press machine':       '/Chest/Decline Press Machine.png',
+  'dumbbell bench press':        '/Chest/Dumbbell Bench Press.png',
+  'dumbbell fly':                '/Chest/Dumbbell Fly.png',
+  'dumbbell flye':               '/Chest/Dumbbell Fly.png',
+  'dumbbell incline fly':        '/Chest/Dumbbell Incline Fly.png',
+  'dumbbell incline flye':       '/Chest/Dumbbell Incline Fly.png',
+  'incline bench press':         '/Chest/Incline Bench Press.png',
+  'machine bench press':         '/Chest/Machine Bench Press.png',
+  'machine fly':                 '/Chest/Machine Fly.png',
+  'machine flye':                '/Chest/Machine Fly.png',
+  'supine press':                '/Chest/Supine Press.png',
+}
+
 const GROUP_ICONS = {
   'abs':       '/icons/abs.png',
   'biceps':    '/icons/arm.png',
@@ -114,6 +132,7 @@ export function getExerciseIcon(exerciseName, muscleGroup) {
   if (TRICEP_ICONS[key]) return TRICEP_ICONS[key]
   if (BICEP_ICONS[key])  return BICEP_ICONS[key]
   if (LEG_ICONS[key])    return LEG_ICONS[key]
+  if (CHEST_ICONS[key])  return CHEST_ICONS[key]
   // Fall back to muscle group icon
   const groupKey = (muscleGroup || '').trim().toLowerCase()
   return GROUP_ICONS[groupKey] || null
