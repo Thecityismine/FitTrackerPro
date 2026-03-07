@@ -104,17 +104,3 @@
     @apply text-text-secondary text-xs font-semibold uppercase tracking-widest mb-3;
   }
 }
-
-/* Lock to portrait — rotate content back if device is held landscape */
-@media screen and (orientation: landscape) {
-  html {
-    transform: rotate(-90deg);
-    transform-origin: left top;
-    width: 100dvh;
-    height: 100dvw;
-    overflow-x: hidden;
-    position: absolute;
-    top: 100%;
-    left: 0;
-  }
-}
