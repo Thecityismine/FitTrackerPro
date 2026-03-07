@@ -15,14 +15,14 @@ const TODAY = format(new Date(), 'yyyy-MM-dd')
 
 // ─── Body part normalization ────────────────────────────────
 const BODY_PARTS = [
-  { key: 'Abs',       match: ['abs', 'core', 'abdominal', 'crunch', 'plank', 'situp', 'sit-up'] },
-  { key: 'Arms',      match: ['arms', 'bicep', 'biceps', 'forearm', 'forearms', 'curl', 'triceps', 'tricep', 'pushdown', 'push-down', 'skull', 'dips', 'dip'] },
-  { key: 'Chest',     match: ['chest', 'pec', 'pecs', 'bench', 'fly', 'flye'] },
-  { key: 'Shoulders', match: ['shoulders', 'shoulder', 'delt', 'delts'] },
-  { key: 'Back',      match: ['back', 'lats', 'lat', 'rhomboid', 'trap', 'traps', 'rear', 'row', 'rows', 'pulldown', 'pull-down', 'chin', 'deadlift'] },
-  { key: 'Legs',      match: ['legs', 'leg', 'quad', 'quads', 'hamstring', 'hamstrings', 'calf', 'calves', 'calve', 'lunge', 'squat'] },
-  { key: 'Glutes',    match: ['glutes', 'glute', 'gluts', 'hip', 'hips', 'butt', 'gluteal'] },
-  { key: 'Cardio',    match: ['cardio', 'walking', 'walk', 'run', 'running', 'bike', 'elliptical', 'swim', 'rowing', 'treadmill', 'fitness bike'] },
+  { key: 'Abs',       icon: '/icons/abs.png',      match: ['abs', 'core', 'abdominal', 'crunch', 'plank', 'situp', 'sit-up'] },
+  { key: 'Arms',      icon: '/icons/arm.png',      match: ['arms', 'bicep', 'biceps', 'forearm', 'forearms', 'curl', 'triceps', 'tricep', 'pushdown', 'push-down', 'skull', 'dips', 'dip'] },
+  { key: 'Chest',     icon: '/icons/chest.png',    match: ['chest', 'pec', 'pecs', 'bench', 'fly', 'flye'] },
+  { key: 'Shoulders', icon: '/icons/shoulder.png', match: ['shoulders', 'shoulder', 'delt', 'delts'] },
+  { key: 'Back',      icon: '/icons/back.png',     match: ['back', 'lats', 'lat', 'rhomboid', 'trap', 'traps', 'rear', 'row', 'rows', 'pulldown', 'pull-down', 'chin', 'deadlift'] },
+  { key: 'Legs',      icon: '/icons/legs.png',     match: ['legs', 'leg', 'quad', 'quads', 'hamstring', 'hamstrings', 'calf', 'calves', 'calve', 'lunge', 'squat'] },
+  { key: 'Glutes',    icon: '/icons/glutes.png',   match: ['glutes', 'glute', 'gluts', 'hip', 'hips', 'butt', 'gluteal'] },
+  { key: 'Cardio',    icon: '/icons/cardio.png',   match: ['cardio', 'walking', 'walk', 'run', 'running', 'bike', 'elliptical', 'swim', 'rowing', 'treadmill', 'fitness bike'] },
 ]
 
 // Use word-boundary regex so short keywords like "ab" don't falsely match
@@ -389,12 +389,19 @@ export default function Dashboard() {
                 return (
                   <div
                     key={bp.key}
-                    className={`rounded-xl py-3 flex flex-col items-center gap-1.5 transition-colors ${
-                      hit ? 'bg-accent-green/15 border border-accent-green/25' : 'bg-surface2'
+                    className={`relative rounded-xl p-2 flex flex-col items-center gap-1.5 transition-colors ${
+                      hit ? 'bg-accent-green/15 border border-accent-green/30' : 'bg-surface2 border border-transparent'
                     }`}
                   >
-                    <div className={`w-2.5 h-2.5 rounded-full ${hit ? 'bg-accent-green' : 'bg-border'}`} />
-                    <p className={`text-[11px] font-semibold leading-none ${hit ? 'text-accent-green' : 'text-text-secondary'}`}>
+                    {/* Status dot — top-right corner */}
+                    <div className={`absolute top-1.5 right-1.5 w-2 h-2 rounded-full ${hit ? 'bg-accent-green' : 'bg-border'}`} />
+                    {/* Muscle icon */}
+                    <img
+                      src={bp.icon}
+                      alt={bp.key}
+                      className={`w-12 h-12 object-contain transition-opacity ${hit ? 'opacity-100' : 'opacity-30'}`}
+                    />
+                    <p className={`text-[10px] font-semibold leading-none text-center ${hit ? 'text-accent-green' : 'text-text-secondary'}`}>
                       {bp.key}
                     </p>
                   </div>
