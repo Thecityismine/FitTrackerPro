@@ -49,10 +49,8 @@ export default function Login() {
     <div className="min-h-dvh bg-bg flex flex-col items-center justify-center px-6 py-12">
       {/* Logo / Brand */}
       <div className="mb-10 text-center">
-        <div className="w-16 h-16 bg-accent rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-accent/30">
-          <svg className="w-9 h-9 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />
-          </svg>
+        <div className="w-20 h-20 mx-auto mb-4">
+          <img src="/Logo.png" alt="FitTrack Pro" className="w-full h-full object-contain" />
         </div>
         <h1 className="font-display text-3xl font-bold text-text-primary tracking-tight">FitTrack Pro</h1>
         <p className="text-text-secondary text-sm mt-1">Your personal fitness journal</p>
