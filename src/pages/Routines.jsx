@@ -625,11 +625,23 @@ export default function Routines() {
       sortedDates.find((d) => byDate[d].some((s) => s.routineName)) ||
       sortedDates[0]
     const lastSessions = byDate[lastDate]
-    const lastRoutine = lastSessions.find((s) => s.routineName)?.routineName || 'Free Workout'
-    // Only count volume from the sessions that belong to that routine
-    const routineSessions = lastSessions.filter((s) => s.routineName === lastRoutine)
-    const lastVolume = calcVolume(routineSessions.length > 0 ? routineSessions : lastSessions)
 
+    // Collect distinct routine names used that day
+    const routineNames = [...new Set(lastSessions.map((s) => s.routineName).filter(Boolean))]
+
+    let lastRoutine, volumeSessions
+    if (routineNames.length > 1) {
+      lastRoutine = 'Mixed Workout'
+      volumeSessions = lastSessions
+    } else if (routineNames.length === 1) {
+      lastRoutine = routineNames[0]
+      volumeSessions = lastSessions.filter((s) => s.routineName === lastRoutine)
+    } else {
+      lastRoutine = 'Free Workout'
+      volumeSessions = lastSessions
+    }
+
+    const lastVolume = calcVolume(volumeSessions)
     return { lastDate, lastRoutine, lastVolume }
   }, [sessions])
 
