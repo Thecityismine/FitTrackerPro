@@ -65,6 +65,7 @@ export function AuthProvider({ children }) {
       heightIn: null,       // inches — used for BMI
       weightUnit: 'lbs',    // 'lbs' | 'kg'
       dateOfBirth: null,
+      setupComplete: false,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     }

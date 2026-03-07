@@ -16,6 +16,7 @@ function lazyWithReload(factory) {
 }
 
 const Login       = lazyWithReload(() => import('./pages/Login'))
+const Setup       = lazyWithReload(() => import('./pages/Setup'))
 const Dashboard   = lazyWithReload(() => import('./pages/Dashboard'))
 const Routines    = lazyWithReload(() => import('./pages/Routines'))
 const BodyMetrics = lazyWithReload(() => import('./pages/BodyMetrics'))
@@ -36,11 +37,12 @@ function PageLoader() {
   )
 }
 
-// Route guard — redirects to login if not authenticated
+// Route guard — redirects to login if not authenticated, to /setup if onboarding not done
 function ProtectedRoute({ children }) {
-  const { user, loading } = useAuth()
+  const { user, profile, loading } = useAuth()
   if (loading) return <PageLoader />
   if (!user) return <Navigate to="/login" replace />
+  if (profile?.setupComplete === false) return <Navigate to="/setup" replace />
   return children
 }
 
@@ -52,6 +54,7 @@ function AppRoutes() {
       <Routes>
         {/* Public */}
         <Route path="/login" element={user ? <Navigate to="/" replace /> : <Login />} />
+        <Route path="/setup" element={!user ? <Navigate to="/login" replace /> : <Setup />} />
 
         {/* Protected */}
         <Route path="/"           element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
