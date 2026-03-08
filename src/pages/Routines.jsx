@@ -118,32 +118,35 @@ function AddExerciseSheet({ onClose, onAdd, existingIds = [] }) {
 
   useEffect(() => {
     if (!user?.uid) return
-    Promise.all([getDocs(sessionsCol(user.uid)), getDocs(exercisesCol(user.uid))])
-      .then(async ([sessSnap, exSnap]) => {
+    Promise.all([
+      getDocs(sessionsCol(user.uid)),
+      getDocs(exercisesCol(user.uid)),
+      getDocs(globalExercisesCol()),
+    ])
+      .then(async ([sessSnap, exSnap, globalSnap]) => {
         const map = {}
-        // First: saved exercises from library
-        exSnap.docs.forEach((d) => {
-          const { id, name, muscleGroup } = d.data()
-          if (id && name) map[id] = { id, name, muscleGroup: muscleGroup || inferMuscleGroup(name) }
+        // Start with the full global library so every user sees all exercises
+        globalSnap.docs.forEach((d) => {
+          const { id, name, muscleGroup, type } = d.data()
+          if (id && name && muscleGroup) map[id] = { id, name, muscleGroup, type: type || 'weight' }
         })
-        // Then: exercises from sessions (may add ones not in library)
+        // Overlay user's own saved exercises (may include custom ones or renamed)
+        exSnap.docs.forEach((d) => {
+          const { id, name, muscleGroup, type } = d.data()
+          if (id && name) map[id] = { id, name, muscleGroup: muscleGroup || inferMuscleGroup(name), type: type || 'weight' }
+        })
+        // Also add any exercises that appear in sessions but aren't in library
         sessSnap.docs.forEach((d) => {
           const { exerciseId, exerciseName, muscleGroup } = d.data()
           if (exerciseId && !map[exerciseId]) {
-            const resolvedGroup = muscleGroup || inferMuscleGroup(exerciseName || exerciseId)
-            map[exerciseId] = { id: exerciseId, name: exerciseName || exerciseId, muscleGroup: resolvedGroup }
+            map[exerciseId] = { id: exerciseId, name: exerciseName || exerciseId, muscleGroup: muscleGroup || inferMuscleGroup(exerciseName || exerciseId), type: 'weight' }
           }
         })
-        // New user: seed from globalExercises if they have nothing yet
-        if (Object.keys(map).length === 0) {
-          const globalSnap = await getDocs(globalExercisesCol())
+        // Seed user's exercises collection if empty
+        if (exSnap.empty) {
           const batch = writeBatch(db)
-          globalSnap.docs.forEach((d) => {
-            const { id, name, muscleGroup, type } = d.data()
-            if (!id || !name || !muscleGroup) return
-            const entry = { id, name, muscleGroup, type: type || 'weight' }
-            map[id] = entry
-            batch.set(exerciseDoc(user.uid, id), entry)
+          Object.values(map).forEach((entry) => {
+            batch.set(exerciseDoc(user.uid, entry.id), entry)
           })
           await batch.commit()
         }
