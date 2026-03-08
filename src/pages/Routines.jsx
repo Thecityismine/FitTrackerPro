@@ -118,11 +118,12 @@ function AddExerciseSheet({ onClose, onAdd, existingIds = [] }) {
 
   useEffect(() => {
     if (!user?.uid) return
-    Promise.all([
-      getDocs(sessionsCol(user.uid)),
-      getDocs(exercisesCol(user.uid)),
-      getDocs(globalExercisesCol()),
-    ])
+    user.getIdToken()
+      .then(() => Promise.all([
+        getDocs(sessionsCol(user.uid)),
+        getDocs(exercisesCol(user.uid)),
+        getDocs(globalExercisesCol()),
+      ]))
       .then(async ([sessSnap, exSnap, globalSnap]) => {
         const map = {}
         // Start with the full global library so every user sees all exercises
@@ -132,8 +133,8 @@ function AddExerciseSheet({ onClose, onAdd, existingIds = [] }) {
         })
         // Overlay user's own saved exercises (may include custom ones or renamed)
         exSnap.docs.forEach((d) => {
-          const { id, name, muscleGroup, type } = d.data()
-          if (id && name) map[id] = { id, name, muscleGroup: muscleGroup || inferMuscleGroup(name), type: type || 'weight' }
+          const data = { ...d.data(), id: d.id }
+          if (data.id && data.name) map[data.id] = { id: data.id, name: data.name, muscleGroup: data.muscleGroup || inferMuscleGroup(data.name), type: data.type || 'weight' }
         })
         // Also add any exercises that appear in sessions but aren't in library
         sessSnap.docs.forEach((d) => {
@@ -154,7 +155,7 @@ function AddExerciseSheet({ onClose, onAdd, existingIds = [] }) {
         setLibrary(data)
         setLoading(false)
       })
-      .catch(() => setLoading(false))
+      .catch((err) => { console.error('AddExerciseSheet load error:', err); setLoading(false) })
   }, [user?.uid])
 
   const groups = ['All', ...[...new Set(library.map((e) => e.muscleGroup))].sort()]
