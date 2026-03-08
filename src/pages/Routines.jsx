@@ -615,7 +615,7 @@ export default function Routines() {
         setSessions(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
         setSessLoading(false)
       })
-      .catch(() => setSessLoading(false))
+      .catch((err) => { console.error('Routines sessions load error:', err); setSessLoading(false) })
   }, [user?.uid])
 
   const metrics = useMemo(() => {

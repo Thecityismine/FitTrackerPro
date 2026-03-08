@@ -398,7 +398,7 @@ export default function Muscles() {
         setSavedExercises(Object.values(map))
         setLoading(false)
       })
-      .catch(() => setLoading(false))
+      .catch((err) => { console.error('Muscles load error:', err); setLoading(false) })
   }, [user?.uid])
 
   async function handleDeleteExercise(exerciseId, exerciseName) {

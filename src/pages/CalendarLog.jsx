@@ -40,7 +40,7 @@ export default function CalendarLog() {
         setRoutineMap(rMap)
         setLoading(false)
       })
-      .catch(() => setLoading(false))
+      .catch((err) => { console.error('CalendarLog load error:', err); setLoading(false) })
   }, [user?.uid])
 
   // All dates with at least one session

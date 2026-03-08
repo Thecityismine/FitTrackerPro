@@ -566,7 +566,7 @@ export default function BodyMetrics() {
         setSessions(sessionsSnap.docs.map(d => ({ id: d.id, ...d.data() })))
         setLoading(false)
       })
-      .catch(() => setLoading(false))
+      .catch((err) => { console.error('BodyMetrics load error:', err); setLoading(false) })
   }, [user?.uid])
 
   const latest = entries[0]

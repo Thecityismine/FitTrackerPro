@@ -150,7 +150,8 @@ export default function WorkoutPage() {
     setPastSessionsData([])
     setSessionId(null)
     setLoading(true)
-    getDocs(query(sessionsCol(user.uid), where('exerciseId', '==', exerciseId)))
+    user.getIdToken()
+      .then(() => getDocs(query(sessionsCol(user.uid), where('exerciseId', '==', exerciseId))))
       .then((snap) => {
         const all = snap.docs
           .map((d) => ({ id: d.id, ...d.data() }))
@@ -180,7 +181,7 @@ export default function WorkoutPage() {
 
         setLoading(false)
       })
-      .catch(() => setLoading(false))
+      .catch((err) => { console.error('WorkoutPage load error:', err); setLoading(false) })
   }, [user, exerciseId])
 
   // ── Cancel pending saves on unmount ─────────────────────
