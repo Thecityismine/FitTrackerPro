@@ -38,10 +38,11 @@ function muscleIcon(muscleGroup, exerciseName) {
 import { useNavigate, useLocation } from 'react-router-dom'
 import {
   addDoc, deleteDoc, updateDoc, onSnapshot, getDocs,
-  serverTimestamp, arrayUnion, arrayRemove,
+  serverTimestamp, arrayUnion, arrayRemove, writeBatch, doc,
 } from 'firebase/firestore'
 import { useAuth } from '../context/AuthContext'
-import { routinesCol, routineDoc, sessionsCol, exercisesCol } from '../firebase/collections'
+import { routinesCol, routineDoc, sessionsCol, exercisesCol, globalExercisesCol, exerciseDoc } from '../firebase/collections'
+import { db } from '../firebase/config'
 import PageWrapper from '../components/layout/PageWrapper'
 import { getExerciseIcon } from '../utils/exerciseIcons'
 
@@ -118,7 +119,7 @@ function AddExerciseSheet({ onClose, onAdd, existingIds = [] }) {
   useEffect(() => {
     if (!user?.uid) return
     Promise.all([getDocs(sessionsCol(user.uid)), getDocs(exercisesCol(user.uid))])
-      .then(([sessSnap, exSnap]) => {
+      .then(async ([sessSnap, exSnap]) => {
         const map = {}
         // First: saved exercises from library
         exSnap.docs.forEach((d) => {
@@ -133,6 +134,19 @@ function AddExerciseSheet({ onClose, onAdd, existingIds = [] }) {
             map[exerciseId] = { id: exerciseId, name: exerciseName || exerciseId, muscleGroup: resolvedGroup }
           }
         })
+        // New user: seed from globalExercises if they have nothing yet
+        if (Object.keys(map).length === 0) {
+          const globalSnap = await getDocs(globalExercisesCol())
+          const batch = writeBatch(db)
+          globalSnap.docs.forEach((d) => {
+            const { id, name, muscleGroup, type } = d.data()
+            if (!id || !name || !muscleGroup) return
+            const entry = { id, name, muscleGroup, type: type || 'weight' }
+            map[id] = entry
+            batch.set(exerciseDoc(user.uid, id), entry)
+          })
+          await batch.commit()
+        }
         const data = Object.values(map).sort((a, b) => a.name.localeCompare(b.name))
         setLibrary(data)
         setLoading(false)

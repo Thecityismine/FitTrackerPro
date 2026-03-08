@@ -241,7 +241,7 @@ export default function Dashboard() {
             <h1 className="font-display text-2xl font-bold text-text-primary">
               Hey, {firstName} 👋
             </h1>
-            <p className="text-text-secondary text-sm mt-0.5">{user?.email}</p>
+            <p className="text-text-secondary text-sm mt-0.5">Here's your fitness overview</p>
           </div>
 
           {loadError ? (
@@ -266,14 +266,12 @@ export default function Dashboard() {
                 <p className="text-text-primary font-semibold">No workouts yet</p>
                 <p className="text-text-secondary text-sm mt-1">Import your history or log your first workout</p>
               </div>
-              <div className="flex gap-3">
-                <button onClick={() => navigate('/import')} className="btn-secondary text-sm px-4 py-2">
-                  Import Data
-                </button>
-                <button onClick={() => navigate('/routines')} className="btn-primary text-sm px-4 py-2">
-                  Start Workout
-                </button>
-              </div>
+              <button onClick={() => navigate('/routines')} className="btn-primary px-8 py-3">
+                Start Workout
+              </button>
+              <button onClick={() => navigate('/import')} className="text-text-secondary text-xs underline underline-offset-2">
+                or import existing data
+              </button>
             </div>
           )}
         </div>
