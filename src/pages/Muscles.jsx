@@ -371,32 +371,31 @@ export default function Muscles() {
       .then(() => Promise.all([
         getDocs(sessionsCol(user.uid)),
         getDocs(exercisesCol(user.uid)),
+        getDocs(globalExercisesCol()),
       ]))
-      .then(async ([sessSnap, exSnap]) => {
+      .then(async ([sessSnap, exSnap, globalSnap]) => {
         setSessions(sessSnap.docs.map(d => ({ id: d.id, ...d.data() })))
-        const userExercises = exSnap.docs.map(d => ({ ...d.data(), id: d.id }))
 
-        // New user: seed from globalExercises if they have none yet
-        if (userExercises.length === 0) {
-          const globalSnap = await getDocs(globalExercisesCol())
-          if (!globalSnap.empty) {
-            const batch = writeBatch(db)
-            const seeded = []
-            globalSnap.docs.forEach(d => {
-              const { id, name, muscleGroup, type } = d.data()
-              if (!id || !name || !muscleGroup) return
-              const entry = { id, name, muscleGroup, type: type || 'weight' }
-              batch.set(exerciseDoc(user.uid, id), entry)
-              seeded.push(entry)
-            })
-            await batch.commit()
-            setSavedExercises(seeded)
-            setLoading(false)
-            return
-          }
+        // Build map starting from global library so every user sees all exercises
+        const map = {}
+        globalSnap.docs.forEach(d => {
+          const { id, name, muscleGroup, type } = d.data()
+          if (id && name && muscleGroup) map[id] = { id, name, muscleGroup, type: type || 'weight' }
+        })
+        // Overlay user's own exercises (custom names/types take priority)
+        exSnap.docs.forEach(d => {
+          const data = { ...d.data(), id: d.id }
+          if (data.id && data.name) map[data.id] = data
+        })
+
+        // Seed user's exercises collection if empty
+        if (exSnap.empty && Object.keys(map).length > 0) {
+          const batch = writeBatch(db)
+          Object.values(map).forEach(entry => batch.set(exerciseDoc(user.uid, entry.id), entry))
+          await batch.commit()
         }
 
-        setSavedExercises(userExercises)
+        setSavedExercises(Object.values(map))
         setLoading(false)
       })
       .catch(() => setLoading(false))
