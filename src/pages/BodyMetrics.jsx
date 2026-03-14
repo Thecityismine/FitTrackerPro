@@ -763,7 +763,14 @@ Notes: weight/boneMass/fatFreeBodyWeight/muscleMassLbs are in lbs; bodyFat/bodyW
 
         {/* Metric cards — single collapsible card */}
         <div className="card">
-          <p className="section-title mb-3">Body Profile</p>
+          <div className="flex items-center justify-between mb-3">
+            <p className="section-title">Body Profile</p>
+            {latest?.date && (
+              <span className="text-text-secondary text-xs">
+                Updated {format(new Date(latest.date + 'T12:00:00'), 'MMM d, yyyy')}
+              </span>
+            )}
+          </div>
           {loading ? (
             <div className="grid grid-cols-3 gap-2">
               {[...Array(3)].map((_, i) => <div key={i} className="rounded-2xl h-16 animate-pulse bg-surface2" />)}
