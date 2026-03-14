@@ -93,7 +93,7 @@ export default function WorkoutPage() {
   const { state } = useLocation()
   const navigate = useNavigate()
   const { user } = useAuth()
-  const { isRunning, toggle, reset, formatted } = useTimer()
+  const { isRunning, toggle, reset, start, formatted } = useTimer()
 
   const exercise = state?.exercise ?? {
     id: exerciseId,
@@ -252,6 +252,8 @@ export default function WorkoutPage() {
     ]
     setSets(newSets)
     scheduleSave(newSets)
+    reset()
+    start()
   }
 
   function updateSet(updated) {

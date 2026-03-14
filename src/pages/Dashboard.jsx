@@ -25,9 +25,26 @@ const BODY_PARTS = [
   { key: 'Cardio',    icon: '/icons/cardio.png',   match: ['cardio', 'walking', 'walk', 'run', 'running', 'bike', 'elliptical', 'swim', 'rowing', 'treadmill', 'fitness bike'] },
 ]
 
+// Direct muscleGroup → body part mapping (highest priority, avoids false name matches)
+const MG_MAP = {
+  legs: 'Legs', leg: 'Legs', quads: 'Legs', hamstrings: 'Legs', calves: 'Legs',
+  arms: 'Arms', biceps: 'Arms', triceps: 'Arms', forearms: 'Arms',
+  chest: 'Chest',
+  shoulders: 'Shoulders', shoulder: 'Shoulders',
+  back: 'Back', lats: 'Back',
+  abs: 'Abs', core: 'Abs',
+  glutes: 'Glutes', glute: 'Glutes',
+  cardio: 'Cardio',
+}
+
 // Use word-boundary regex so short keywords like "ab" don't falsely match
 // words like "cable". e.g. /\bab/ won't match "cable" but will match "abs".
 function getBodyPart(muscleGroup, exerciseName) {
+  // 1. Try direct muscleGroup lookup first (most reliable)
+  const mgKey = (muscleGroup || '').trim().toLowerCase()
+  if (MG_MAP[mgKey]) return MG_MAP[mgKey]
+
+  // 2. Fall back to keyword search across both fields
   const searchStr = `${muscleGroup || ''} ${exerciseName || ''}`.toLowerCase()
   for (const bp of BODY_PARTS) {
     if (bp.match.some((k) => new RegExp(`\\b${k}`).test(searchStr))) return bp.key
