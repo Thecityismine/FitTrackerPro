@@ -142,7 +142,7 @@ export default function Profile() {
             className="relative w-24 h-24 rounded-3xl active:scale-95 transition-transform"
           >
             {photoURL ? (
-              <img src={photoURL} alt="Profile" className="w-24 h-24 rounded-3xl object-cover" />
+              <img src={photoURL} alt="Profile" loading="lazy" decoding="async" className="w-24 h-24 rounded-3xl object-cover" />
             ) : (
               <div className="w-24 h-24 rounded-3xl bg-accent flex items-center justify-center">
                 <span className="text-white text-3xl font-bold font-display">{initials}</span>
@@ -378,7 +378,7 @@ export default function Profile() {
             {profile?.gymQrUrl ? (
               <div className="flex flex-col items-center gap-3">
                 <div className="bg-white rounded-2xl p-3">
-                  <img src={profile.gymQrUrl} alt="Gym QR" className="w-48 h-48 object-contain" />
+                  <img src={profile.gymQrUrl} alt="Gym QR" loading="lazy" decoding="async" className="w-48 h-48 object-contain" />
                 </div>
                 <button
                   onClick={() => qrInputRef.current?.click()}

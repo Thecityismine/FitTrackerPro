@@ -414,6 +414,8 @@ export default function Dashboard() {
                     <img
                       src={bp.icon}
                       alt={bp.key}
+                      loading="lazy"
+                      decoding="async"
                       className={`w-12 h-12 object-contain transition-opacity ${hit ? 'opacity-100' : 'opacity-30'}`}
                     />
                     <p className={`text-[10px] font-semibold leading-none text-center ${hit ? 'text-accent-green' : 'text-text-secondary'}`}>

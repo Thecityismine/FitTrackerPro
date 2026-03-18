@@ -272,7 +272,7 @@ function LogSheet({ onClose, onSave, lastEntry, prefillData }) {
               <input ref={photoInputRef} type="file" accept="image/*" className="hidden" onChange={handlePhoto} />
               {photo ? (
                 <div className="relative">
-                  <img src={photo} alt="Preview" className="w-full h-36 object-cover rounded-xl" />
+                  <img src={photo} alt="Preview" loading="lazy" decoding="async" className="w-full h-36 object-cover rounded-xl" />
                   <button type="button" onClick={() => setPhoto(null)}
                     className="absolute top-2 right-2 w-7 h-7 bg-black/60 rounded-full flex items-center justify-center text-white text-xs">✕</button>
                 </div>
@@ -330,7 +330,7 @@ function ProgressPhotoCard({ entries }) {
             {lastMonthPhoto ? (
               <button onClick={() => setExpanded({ src: lastMonthPhoto, label: 'Last Month' })}
                 className="w-full active:scale-95 transition-transform">
-                <img src={lastMonthPhoto} alt="Last month" className="w-full h-40 object-cover rounded-xl" />
+                <img src={lastMonthPhoto} alt="Last month" loading="lazy" decoding="async" className="w-full h-40 object-cover rounded-xl" />
               </button>
             ) : (
               <div className="w-full h-40 bg-surface2 rounded-xl flex items-center justify-center">
@@ -344,7 +344,7 @@ function ProgressPhotoCard({ entries }) {
             {thisMonthPhoto ? (
               <button onClick={() => setExpanded({ src: thisMonthPhoto, label: 'This Month' })}
                 className="w-full active:scale-95 transition-transform">
-                <img src={thisMonthPhoto} alt="This month" className="w-full h-40 object-cover rounded-xl" />
+                <img src={thisMonthPhoto} alt="This month" loading="lazy" decoding="async" className="w-full h-40 object-cover rounded-xl" />
               </button>
             ) : (
               <div className="w-full h-40 bg-surface2 rounded-xl flex items-center justify-center">
@@ -375,6 +375,8 @@ function ProgressPhotoCard({ entries }) {
           <img
             src={expanded.src}
             alt={expanded.label}
+            loading="lazy"
+            decoding="async"
             className="max-w-full max-h-[80dvh] object-contain rounded-2xl px-4"
             onClick={e => e.stopPropagation()}
           />

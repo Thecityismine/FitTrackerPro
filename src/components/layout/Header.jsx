@@ -43,7 +43,7 @@ export default function Header({ showSettings = false }) {
           {/* Profile avatar */}
           <button onClick={() => navigate('/profile')} className="active:scale-95 transition-transform">
             {photoURL ? (
-              <img src={photoURL} alt="Profile" className="w-9 h-9 rounded-full object-cover border-2 border-accent" />
+              <img src={photoURL} alt="Profile" loading="lazy" decoding="async" className="w-9 h-9 rounded-full object-cover border-2 border-accent" />
             ) : (
               <div className="w-9 h-9 rounded-full bg-accent flex items-center justify-center border-2 border-accent/50">
                 <span className="text-white text-xs font-bold font-display">{initials}</span>
@@ -70,6 +70,8 @@ export default function Header({ showSettings = false }) {
                 <img
                   src={profile.gymQrUrl}
                   alt="Gym QR Code"
+                  loading="lazy"
+                  decoding="async"
                   className="w-56 h-56 object-contain"
                 />
               </div>

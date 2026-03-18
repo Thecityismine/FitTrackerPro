@@ -760,6 +760,8 @@ function RoutineDetail({
                     <img
                       src={getExerciseIcon(ex.name, ex.muscleGroup) || muscleIcon(ex.muscleGroup, ex.name)}
                       alt={ex.muscleGroup || ex.name}
+                      loading="lazy"
+                      decoding="async"
                       className="w-20 h-20 object-contain opacity-80 flex-shrink-0 self-center"
                     />
                   )}
