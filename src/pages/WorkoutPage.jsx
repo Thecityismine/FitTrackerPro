@@ -580,12 +580,6 @@ function GuidedWorkoutPage() {
                               >
                                 Skip
                               </button>
-                              <button
-                                onClick={finishExercise}
-                                className="px-3 py-2 rounded-xl bg-accent text-white text-sm font-semibold active:scale-95 transition-transform"
-                              >
-                                Finish
-                              </button>
                             </div>
                             <div className="text-right">
                               <p className="text-text-secondary text-xs">{cardio ? 'Total Time' : 'Total Volume'}</p>
@@ -631,15 +625,15 @@ function GuidedWorkoutPage() {
             </button>
           ) : (
             <>
-              <div className="grid grid-cols-[1.4fr_1fr] gap-2">
-                <div className="rounded-2xl border border-surface2 bg-surface px-3 py-2.5">
-                  <div className="flex items-center gap-2">
+              <div className="grid grid-cols-[1.7fr_0.9fr] gap-2">
+                <div className="rounded-2xl border border-surface2 bg-surface px-3 py-2.5 flex items-center gap-3">
+                  <div className="flex items-center gap-2 min-w-0">
                     <svg className="w-4 h-4 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
                     <span className="font-mono text-text-primary text-base font-bold">{formatted()}</span>
                   </div>
-                  <div className="flex items-center gap-3 mt-2">
+                  <div className="flex items-center gap-3 ml-auto flex-shrink-0">
                     <button onClick={toggle} className={`text-sm font-semibold ${isRunning ? 'text-accent-green' : 'text-accent'}`}>
                       {isRunning ? 'Pause' : 'Start'}
                     </button>
