@@ -589,7 +589,7 @@ function GuidedWorkoutPage() {
                               <div className="py-6 text-center">
                                 <p className="text-text-secondary text-sm">No sets yet</p>
                                 <p className="text-text-secondary text-xs mt-1">
-                                  Use Add Set below to start with {formatWeight(state.lastTemplate.weight)} lbs x {state.lastTemplate.reps}
+                                  Use Add Set below to start with {state.lastTemplate.reps} reps x {formatWeight(state.lastTemplate.weight)} {cardio ? 'min' : 'lbs'}
                                 </p>
                               </div>
                             ) : (
@@ -639,7 +639,7 @@ function GuidedWorkoutPage() {
                               ? `${state.sets.length} set${state.sets.length !== 1 ? 's' : ''} logged`
                               : status === 'skipped'
                                 ? 'Skipped for this workout'
-                                : `${state.lastTemplate.reps} reps x ${formatWeight(state.lastTemplate.weight)} lbs ready`}
+                                : `${state.lastTemplate.reps} reps x ${formatWeight(state.lastTemplate.weight)} ${cardio ? 'min' : 'lbs'} ready`}
                           </div>
                           {(status === 'next' || status === 'upcoming') && (
                             <button

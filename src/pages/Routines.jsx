@@ -107,6 +107,16 @@ function inferMuscleGroup(name) {
   return ''
 }
 
+function mergeRoutineExerciseTypes(routine, exerciseTypeMap = {}) {
+  return {
+    ...routine,
+    exercises: (routine.exercises || []).map((exercise) => ({
+      ...exercise,
+      type: exercise.type || exerciseTypeMap[exercise.id] || 'weight',
+    })),
+  }
+}
+
 // ─── Add Exercise Sheet (Library Picker) ──────────────────
 function AddExerciseSheet({ onClose, onAdd, existingIds = [] }) {
   const { user } = useAuth()
@@ -169,7 +179,7 @@ function AddExerciseSheet({ onClose, onAdd, existingIds = [] }) {
 
   async function handleAdd(ex) {
     if (addedIds.has(ex.id)) return
-    await onAdd({ id: ex.id, name: ex.name, muscleGroup: ex.muscleGroup })
+    await onAdd({ id: ex.id, name: ex.name, muscleGroup: ex.muscleGroup, type: ex.type || 'weight' })
     setAddedIds((prev) => new Set([...prev, ex.id]))
     setNewlyAdded((n) => n + 1)
   }
@@ -345,10 +355,10 @@ function RoutineDetail({
       const count = exSessions.length
       let lastDate = null
       let pr = null
-      const isCardio = (ex.muscleGroup || '').toLowerCase() === 'cardio'
+      const isTimeBased = ex.type === 'time'
       for (const s of exSessions) {
         if (!lastDate || s.date > lastDate) lastDate = s.date
-        if (!isCardio && Array.isArray(s.sets)) {
+        if (Array.isArray(s.sets)) {
           for (const set of s.sets) {
             const w = parseFloat(set.weight)
             if (!isNaN(w) && w > 0 && (pr === null || w > pr)) pr = w
@@ -364,7 +374,7 @@ function RoutineDetail({
         daysAgoStr = diff === 0 ? 'today' : diff === 1 ? 'yesterday' : `${diff}d ago`
         dotColor = diff === 0 ? 'bg-red-500' : diff === 1 ? 'bg-orange-400' : 'bg-accent-green'
       }
-      result[ex.id] = { count, daysAgoStr, pr, dotColor }
+      result[ex.id] = { count, daysAgoStr, pr, dotColor, prLabel: isTimeBased ? 'min best' : 'lbs PR' }
     }
     return result
   }, [exercises, sessions])
@@ -591,7 +601,7 @@ function RoutineDetail({
                       )}
                     </div>
                     {stats.pr != null && (
-                      <p className="text-accent-green text-xs font-semibold">{stats.pr} lbs PR</p>
+                      <p className="text-accent-green text-xs font-semibold">{stats.pr} {stats.prLabel}</p>
                     )}
                   </div>
 
@@ -691,6 +701,7 @@ export default function Routines() {
   const [showNew, setShowNew] = useState(false)
   const [selectedRoutine, setSelectedRoutine] = useState(null)
   const autoOpenedRef = useRef(false)
+  const [exerciseTypeMap, setExerciseTypeMap] = useState({})
 
   // ── Sessions for metrics summary ──────────────────────────
   const [sessions, setSessions] = useState([])
@@ -705,6 +716,28 @@ export default function Routines() {
         setSessLoading(false)
       })
       .catch((err) => { console.error('Routines sessions load error:', err); setSessLoading(false) })
+  }, [user?.uid])
+
+  useEffect(() => {
+    if (!user?.uid) return
+    user.getIdToken()
+      .then(() => Promise.all([
+        getDocs(exercisesCol(user.uid)),
+        getDocs(globalExercisesCol()),
+      ]))
+      .then(([userExercisesSnap, globalExercisesSnap]) => {
+        const nextTypeMap = {}
+        globalExercisesSnap.docs.forEach((docSnapshot) => {
+          const data = docSnapshot.data()
+          if (data?.id) nextTypeMap[data.id] = data.type || 'weight'
+        })
+        userExercisesSnap.docs.forEach((docSnapshot) => {
+          const data = { ...docSnapshot.data(), id: docSnapshot.id }
+          if (data?.id) nextTypeMap[data.id] = data.type || 'weight'
+        })
+        setExerciseTypeMap(nextTypeMap)
+      })
+      .catch((error) => console.error('Routine exercise types load error:', error))
   }, [user?.uid])
 
   const metrics = useMemo(() => {
@@ -755,12 +788,12 @@ export default function Routines() {
   useEffect(() => {
     if (!user) return
     const unsub = onSnapshot(routinesCol(user.uid), (snap) => {
-      const data = snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+      const data = snap.docs.map((d) => mergeRoutineExerciseTypes({ id: d.id, ...d.data() }, exerciseTypeMap))
       setRoutines(data)
       setLoading(false)
     })
     return unsub
-  }, [user])
+  }, [exerciseTypeMap, user])
 
   // Auto-reopen routine when navigating back from a workout
   useEffect(() => {
