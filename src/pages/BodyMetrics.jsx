@@ -1,5 +1,5 @@
 // src/pages/BodyMetrics.jsx
-import { useState, useEffect, useRef } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { format, subMonths, startOfMonth, endOfMonth } from 'date-fns'
 import { getDocs, addDoc, serverTimestamp } from 'firebase/firestore'
 import { AreaChart, Area, XAxis, Tooltip, ResponsiveContainer } from 'recharts'
@@ -22,6 +22,168 @@ function bmiLabel(bmi) {
   if (bmi < 25) return 'Normal'
   if (bmi < 30) return 'Overweight'
   return 'Obese'
+}
+
+const STRENGTH_GROUPS = [
+  { id: 'push', label: 'Push', muscles: ['Chest', 'Shoulders', 'Triceps'] },
+  { id: 'pull', label: 'Pull', muscles: ['Back', 'Biceps'] },
+  { id: 'legs', label: 'Legs', muscles: ['Legs'] },
+]
+
+const PRIMARY_STRENGTH_MUSCLES = new Set(STRENGTH_GROUPS.flatMap((group) => group.muscles))
+
+function normalizeMuscleGroup(value) {
+  const normalized = String(value || '').trim().toLowerCase()
+  if (!normalized) return ''
+  if (normalized.includes('chest')) return 'Chest'
+  if (normalized.includes('shoulder')) return 'Shoulders'
+  if (normalized.includes('tricep')) return 'Triceps'
+  if (normalized.includes('back')) return 'Back'
+  if (normalized.includes('bicep')) return 'Biceps'
+  if (normalized.includes('leg')) return 'Legs'
+  return ''
+}
+
+function getDaysSince(dateString) {
+  if (!dateString) return 999
+  const timestamp = new Date(`${dateString}T12:00:00`).getTime()
+  if (!Number.isFinite(timestamp)) return 999
+  return Math.max(0, Math.floor((Date.now() - timestamp) / 86400000))
+}
+
+function recencyFactor(daysSince) {
+  if (daysSince <= 14) return 1
+  if (daysSince <= 30) return 0.96
+  if (daysSince <= 60) return 0.9
+  if (daysSince <= 90) return 0.82
+  return 0.72
+}
+
+function average(values = []) {
+  if (!values.length) return null
+  return values.reduce((sum, value) => sum + value, 0) / values.length
+}
+
+function estimateExerciseStrength(sets = []) {
+  let weightedBest = 0
+  let bodyweightBest = 0
+  let validSetCount = 0
+
+  sets.forEach((set) => {
+    const reps = Number(set?.reps) || 0
+    const weight = Number(set?.weight) || 0
+    if (reps <= 0 && weight <= 0) return
+    validSetCount += 1
+
+    if (weight > 0) {
+      // Epley-style estimate capped to keep high-rep sets from exploding the score.
+      weightedBest = Math.max(weightedBest, weight * (1 + Math.min(reps, 12) / 30))
+    } else if (reps > 0) {
+      bodyweightBest = Math.max(bodyweightBest, reps)
+    }
+  })
+
+  if (weightedBest > 0) {
+    return { mode: 'weighted', raw: weightedBest, setCount: validSetCount }
+  }
+  if (bodyweightBest > 0) {
+    return { mode: 'bodyweight', raw: bodyweightBest, setCount: validSetCount }
+  }
+  return null
+}
+
+function calculateStrengthData(sessions = [], bodyWeight) {
+  const exerciseMap = new Map()
+  const scaleWeight = Math.max(Number(bodyWeight) || 0, 90)
+
+  sessions.forEach((session) => {
+    if (session?.type === 'time') return
+    const muscleGroup = normalizeMuscleGroup(session?.muscleGroup)
+    if (!PRIMARY_STRENGTH_MUSCLES.has(muscleGroup)) return
+
+    const estimated = estimateExerciseStrength(session?.sets || [])
+    if (!estimated) return
+
+    const key = session.exerciseId || `${muscleGroup}:${session.exerciseName || session.id}`
+    const current = exerciseMap.get(key) || {
+      id: key,
+      exerciseName: session.exerciseName || 'Exercise',
+      muscleGroup,
+      mode: estimated.mode,
+      bestRaw: 0,
+      setCount: 0,
+      lastDate: session.date || TODAY,
+    }
+
+    current.mode = estimated.mode === 'weighted' || current.mode !== 'weighted'
+      ? estimated.mode
+      : current.mode
+    current.bestRaw = Math.max(current.bestRaw, estimated.raw)
+    current.setCount += estimated.setCount
+    if (session.date && session.date > current.lastDate) current.lastDate = session.date
+    exerciseMap.set(key, current)
+  })
+
+  const muscleMap = new Map(
+    [...PRIMARY_STRENGTH_MUSCLES].map((muscle) => [muscle, {
+      muscle,
+      setCount: 0,
+      exerciseScores: [],
+      freshness: [],
+    }])
+  )
+
+  exerciseMap.forEach((exercise) => {
+    const recency = recencyFactor(getDaysSince(exercise.lastDate))
+    const relativeStrength = exercise.mode === 'weighted'
+      ? (exercise.bestRaw / scaleWeight)
+      : (exercise.bestRaw / 20)
+    const score = Math.max(1, Math.min(100, Math.round(100 * (1 - Math.exp(-(relativeStrength * recency))))))
+
+    const muscle = muscleMap.get(exercise.muscleGroup)
+    if (!muscle) return
+    muscle.setCount += exercise.setCount
+    muscle.exerciseScores.push(score)
+    muscle.freshness.push(recency)
+  })
+
+  const muscleScores = Object.fromEntries(
+    [...muscleMap.entries()].map(([muscle, data]) => {
+      const topScores = [...data.exerciseScores].sort((a, b) => b - a).slice(0, 3)
+      const score = data.setCount >= 6 && topScores.length
+        ? Math.round(average(topScores))
+        : null
+      return [muscle, { ...data, score, unlocked: score != null }]
+    })
+  )
+
+  const groupScores = STRENGTH_GROUPS.map((group) => {
+    const missingMuscles = group.muscles.filter((muscle) => !muscleScores[muscle]?.unlocked)
+    const score = missingMuscles.length === 0
+      ? Math.round(average(group.muscles.map((muscle) => muscleScores[muscle].score)))
+      : null
+    return {
+      ...group,
+      score,
+      unlocked: score != null,
+      missingMuscles,
+    }
+  })
+
+  const overallUnlocked = groupScores.every((group) => group.unlocked)
+  const overallScore = overallUnlocked
+    ? Math.round(average(groupScores.map((group) => group.score)))
+    : null
+
+  return {
+    overallUnlocked,
+    overallScore,
+    groupScores,
+    muscleScores,
+    missingMuscles: groupScores.flatMap((group) => group.missingMuscles),
+    scaleWeight,
+    exerciseCount: exerciseMap.size,
+  }
 }
 
 // Compress image base64 using canvas
@@ -386,6 +548,85 @@ function ProgressPhotoCard({ entries }) {
   )
 }
 
+function StrengthScoreCard({ sessions, bodyWeight }) {
+  const strengthData = useMemo(
+    () => calculateStrengthData(sessions, bodyWeight),
+    [bodyWeight, sessions]
+  )
+
+  const hasLoggedStrengthData = strengthData.exerciseCount > 0
+  const missingLabel = [...new Set(strengthData.missingMuscles)].join(', ')
+
+  return (
+    <div className="card">
+      <div className="flex items-start justify-between gap-3 mb-3">
+        <div>
+          <p className="section-title mb-0">Strength Score</p>
+          <p className="text-text-secondary text-xs mt-0.5">
+            Estimated from your best logged sets, muscle coverage, and recent activity.
+          </p>
+        </div>
+        <div className="w-10 h-10 rounded-2xl bg-accent/10 flex items-center justify-center flex-shrink-0">
+          <svg className="w-5 h-5 text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 7.5h9m-9 9h9M6 10.5h12a1.5 1.5 0 011.5 1.5v0A1.5 1.5 0 0118 13.5H6A1.5 1.5 0 014.5 12v0A1.5 1.5 0 016 10.5zM9 7.5v-1.5A1.5 1.5 0 0110.5 4.5h3A1.5 1.5 0 0115 6v1.5m-6 9V18A1.5 1.5 0 0010.5 19.5h3A1.5 1.5 0 0015 18v-1.5" />
+          </svg>
+        </div>
+      </div>
+
+      <div className="rounded-2xl border border-surface2 bg-surface2/60 p-4">
+        {strengthData.overallUnlocked ? (
+          <div className="flex items-end justify-between gap-3">
+            <div>
+              <p className="text-text-secondary text-xs uppercase tracking-[0.22em]">Overall</p>
+              <p className="font-display text-4xl font-bold text-text-primary mt-1">
+                {strengthData.overallScore}
+              </p>
+              <p className="text-text-secondary text-xs mt-1">Push, Pull, and Legs unlocked</p>
+            </div>
+            <div className="text-right">
+              <p className="text-accent-green text-xs font-semibold">Unlocked</p>
+              <p className="text-text-secondary text-xs mt-1">Scaled to {Math.round(strengthData.scaleWeight)} lb bodyweight</p>
+            </div>
+          </div>
+        ) : hasLoggedStrengthData ? (
+          <div>
+            <p className="text-text-primary font-display text-2xl font-bold">Hit every muscle to unlock this score</p>
+            <p className="text-text-secondary text-sm mt-2">
+              Log at least 6 quality sets for each primary muscle across Push, Pull, and Legs.
+            </p>
+            {missingLabel && (
+              <p className="text-accent text-sm mt-2">
+                Missing coverage: {missingLabel}
+              </p>
+            )}
+          </div>
+        ) : (
+          <div>
+            <p className="text-text-primary font-display text-2xl font-bold">No strength score yet</p>
+            <p className="text-text-secondary text-sm mt-2">
+              Log weighted sets across Push, Pull, and Legs to unlock your overall strength score.
+            </p>
+          </div>
+        )}
+      </div>
+
+      <div className="grid grid-cols-3 gap-2 mt-3">
+        {strengthData.groupScores.map((group) => (
+          <div key={group.id} className="bg-surface2 rounded-2xl p-3">
+            <p className="text-text-secondary text-xs uppercase tracking-[0.18em]">{group.label}</p>
+            <p className={`font-display text-2xl font-bold mt-1 ${group.unlocked ? 'text-text-primary' : 'text-surface2'}`}>
+              {group.unlocked ? group.score : '—'}
+            </p>
+            <p className="text-text-secondary text-[11px] mt-1">
+              {group.unlocked ? 'Ready' : `Need ${group.missingMuscles.join(', ')}`}
+            </p>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 // ── AI Monthly Report Card ─────────────────────────────────
 function AiReportCard({ entries, sessions }) {
   const [report, setReport] = useState(null)
@@ -555,6 +796,7 @@ export default function BodyMetrics() {
 
   const latest = entries[0]
   const previous = entries[1]
+  const strengthWeight = latest?.weight || entries.find((entry) => entry.weight)?.weight || null
 
   function delta(key) {
     if (latest?.[key] == null || previous?.[key] == null) return null
@@ -716,6 +958,8 @@ Notes: weight/boneMass/fatFreeBodyWeight/muscleMassLbs are in lbs; bodyFat/bodyW
         <p className="text-text-secondary text-xs">
           {AI_SERVER_MESSAGE}
         </p>
+
+        <StrengthScoreCard sessions={sessions} bodyWeight={strengthWeight} />
 
         {/* Metric cards — single collapsible card */}
         <div className="card">
