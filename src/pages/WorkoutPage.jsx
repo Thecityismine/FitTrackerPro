@@ -215,7 +215,12 @@ function GuidedWorkoutPage() {
         (exercise) => exercise.id !== activeExercise?.id && !guidedWorkout.completed.includes(exercise.id) && !guidedWorkout.skipped.includes(exercise.id)
       ) || null
   const totalExercises = guidedWorkout?.exercises.length || 0
-  const completedCount = (guidedWorkout?.completed.length || 0) + (guidedWorkout?.skipped.length || 0)
+  const completedCount = guidedWorkout?.completed.length || 0
+  const skippedCount = guidedWorkout?.skipped.length || 0
+  const resolvedCount = completedCount + skippedCount
+  const loggedExerciseCount = Object.values(exerciseState).filter((state) =>
+    (state.sets || []).some((set) => (set.reps || 0) > 0 || (set.weight || 0) > 0)
+  ).length
   const totalVolume = Object.values(exerciseState).reduce(
     (sum, state) => sum + (state.sets || []).reduce((exerciseSum, set) => exerciseSum + (set.reps || 0) * (set.weight || 0), 0),
     0
@@ -330,17 +335,19 @@ function GuidedWorkoutPage() {
     skipExercise(activeExercise.id)
   }
 
-  async function saveWorkout() {
-    const persistJobs = Object.entries(exerciseStateRef.current)
-      .map(([id, state]) => {
-        const exercise = exerciseById.get(id)
-        if (!exercise || !state.sets?.length) return null
-        clearTimeout(saveTimeoutsRef.current[id])
-        return persistExerciseSets(exercise, state.sets)
+  function flushPendingSaves() {
+    Object.entries(exerciseStateRef.current).forEach(([id, state]) => {
+      const exercise = exerciseById.get(id)
+      clearTimeout(saveTimeoutsRef.current[id])
+      if (!exercise || !state.sets?.length) return
+      persistExerciseSets(exercise, state.sets).catch((error) => {
+        console.error('flushPendingSaves error:', error)
       })
-      .filter(Boolean)
+    })
+  }
 
-    await Promise.all(persistJobs)
+  function saveWorkout() {
+    flushPendingSaves()
     clearActiveWorkout()
     reset()
     navigate('/routines', { state: { openRoutineId: routine.id } })
@@ -394,8 +401,8 @@ function GuidedWorkoutPage() {
                 <p className="text-text-secondary text-[11px] uppercase tracking-[0.24em]">Progress</p>
                 <p className="text-text-primary font-semibold text-sm mt-1">
                   {guidedWorkout?.summaryReady
-                    ? `Workout complete - ${totalExercises} of ${totalExercises}`
-                    : `Exercise ${Math.min(completedCount + 1, totalExercises)} of ${totalExercises}`}
+                    ? `Workout complete - ${loggedExerciseCount} logged`
+                    : `Exercise ${Math.min(resolvedCount + 1, totalExercises)} of ${totalExercises}`}
                 </p>
               </div>
               <div className="text-right">
@@ -406,12 +413,19 @@ function GuidedWorkoutPage() {
             <div className="mt-3 flex items-center gap-2">
               {Array.from({ length: totalExercises }).map((_, index) => {
                 const done = index < completedCount
-                const current = !guidedWorkout?.summaryReady && index === completedCount
+                const skipped = index >= completedCount && index < resolvedCount
+                const current = !guidedWorkout?.summaryReady && index === resolvedCount
                 return (
                   <span
                     key={index}
                     className={`h-2 rounded-full transition-all ${
-                      done ? 'flex-1 bg-accent-green' : current ? 'flex-[1.35] bg-accent' : 'flex-1 bg-surface2'
+                      done
+                        ? 'flex-1 bg-accent-green'
+                        : skipped
+                          ? 'flex-1 bg-slate-600'
+                          : current
+                            ? 'flex-[1.35] bg-accent'
+                            : 'flex-1 bg-surface2'
                     }`}
                   />
                 )
@@ -438,9 +452,9 @@ function GuidedWorkoutPage() {
                 </div>
                 <div className="rounded-2xl bg-bg/60 border border-white/5 p-3">
                   <p className="text-text-secondary text-[11px] uppercase tracking-[0.22em]">Exercises</p>
-                  <p className="text-text-primary font-display text-2xl font-bold mt-2">{totalExercises}</p>
+                  <p className="text-text-primary font-display text-2xl font-bold mt-2">{loggedExerciseCount}</p>
                   <p className="text-text-secondary text-xs">
-                    {guidedWorkout.skipped.length ? `${guidedWorkout.skipped.length} skipped` : 'all done'}
+                    {skippedCount ? `${skippedCount} skipped` : `of ${totalExercises} planned`}
                   </p>
                 </div>
               </div>
