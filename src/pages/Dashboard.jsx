@@ -323,7 +323,6 @@ export default function Dashboard() {
         {/* Greeting */}
         <div className="flex items-start justify-between gap-3">
           <div>
-            <p className="text-text-secondary text-sm">{format(new Date(), 'EEE, MMM d')}</p>
             <h1 className="font-display text-2xl font-bold text-text-primary mt-3">
               Hey, {firstName} 👋
             </h1>
