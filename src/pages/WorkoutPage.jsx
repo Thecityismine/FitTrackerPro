@@ -115,6 +115,7 @@ function GuidedWorkoutPage() {
     setCurrentExercise,
     completeExercise,
     skipExercise,
+    hydrateCompletedExercises,
     clearActiveWorkout,
   } = useActiveWorkout()
 
@@ -166,7 +167,12 @@ function GuidedWorkoutPage() {
         const sessions = snapshot.docs
           .map((docSnapshot) => ({ id: docSnapshot.id, ...docSnapshot.data() }))
           .filter((session) => exerciseIds.has(session.exerciseId))
-        setExerciseState(buildExerciseState(guidedWorkout.exercises, sessions))
+        const nextExerciseState = buildExerciseState(guidedWorkout.exercises, sessions)
+        const completedTodayIds = Object.entries(nextExerciseState)
+          .filter(([, state]) => (state.sets || []).some((set) => (set.reps || 0) > 0 || (set.weight || 0) > 0))
+          .map(([id]) => id)
+        setExerciseState(nextExerciseState)
+        hydrateCompletedExercises(completedTodayIds)
         setLoading(false)
       })
       .catch((error) => {
@@ -405,7 +411,7 @@ function GuidedWorkoutPage() {
                 <p className="text-text-primary font-semibold text-sm mt-1">
                   {guidedWorkout?.summaryReady
                     ? `Workout complete - ${loggedExerciseCount} logged`
-                    : `Exercise ${Math.min(resolvedCount + 1, totalExercises)} of ${totalExercises}`}
+                    : `${completedCount} of ${totalExercises} completed today`}
                 </p>
               </div>
               <div className="text-right">
@@ -473,6 +479,7 @@ function GuidedWorkoutPage() {
               const status = getStatus(exercise)
               const state = exerciseState[exercise.id] || { sets: [], lastTemplate: { reps: 8, weight: 0 } }
               const cardio = isCardioExercise(exercise)
+              const completedToday = (state.sets || []).some((set) => (set.reps || 0) > 0 || (set.weight || 0) > 0)
               const totalExerciseVolume = (state.sets || []).reduce(
                 (sum, set) => sum + (set.reps || 0) * (set.weight || 0),
                 0
@@ -494,7 +501,14 @@ function GuidedWorkoutPage() {
                           <p className="text-text-secondary text-[11px] uppercase tracking-[0.24em]">
                             {status === 'active' ? 'Active' : status === 'next' ? 'Next' : status === 'completed' ? 'Completed' : status === 'skipped' ? 'Skipped' : 'Up Next'}
                           </p>
-                          <h2 className="font-display text-xl font-bold text-text-primary mt-1 truncate">{exercise.name}</h2>
+                          <div className="flex flex-wrap items-center gap-2 mt-1">
+                            <h2 className="font-display text-xl font-bold text-text-primary truncate">{exercise.name}</h2>
+                            {completedToday && status !== 'active' && (
+                              <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-red-400 bg-red-500/10 px-2 py-1 rounded-full">
+                                Complete today
+                              </span>
+                            )}
+                          </div>
                           <div className="flex flex-wrap items-center gap-2 mt-2">
                             {exercise.muscleGroup && (
                               <span className="text-[11px] font-semibold text-accent bg-accent/10 px-2 py-1 rounded-full">

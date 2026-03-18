@@ -4,6 +4,18 @@ const STORAGE_KEY = 'fittrack-active-workout-v1'
 
 const ActiveWorkoutContext = createContext(null)
 
+function getLocalDayKey(value = Date.now()) {
+  const date = value instanceof Date ? value : new Date(value)
+  const year = date.getFullYear()
+  const month = `${date.getMonth() + 1}`.padStart(2, '0')
+  const day = `${date.getDate()}`.padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+function sameArray(a = [], b = []) {
+  return a.length === b.length && a.every((value, index) => value === b[index])
+}
+
 function normalizeExercises(exercises = []) {
   return exercises
     .filter((exercise) => exercise?.id)
@@ -20,6 +32,8 @@ function sanitizeWorkoutState(value) {
 
   const exercises = normalizeExercises(value.exercises)
   if (exercises.length === 0) return null
+  const dayKey = value.dayKey || getLocalDayKey(value.startedAt || Date.now())
+  if (dayKey !== getLocalDayKey()) return null
 
   const knownIds = new Set(exercises.map((exercise) => exercise.id))
   const completed = (value.completed || []).filter((id) => knownIds.has(id))
@@ -35,6 +49,7 @@ function sanitizeWorkoutState(value) {
       name: value.routine?.name || 'Workout',
     },
     exercises,
+    dayKey,
     currentExerciseId: summaryReady ? null : currentExerciseId,
     completed,
     skipped,
@@ -76,6 +91,7 @@ export function ActiveWorkoutProvider({ children }) {
         name: routine.name || 'Workout',
       },
       exercises,
+      dayKey: getLocalDayKey(),
       currentExerciseId,
       completed: [],
       skipped: [],
@@ -91,6 +107,7 @@ export function ActiveWorkoutProvider({ children }) {
   function syncRoutine(routine) {
     setActiveWorkout((current) => {
       if (!current || current.kind !== 'routine' || current.routine.id !== routine?.id) return current
+      if (current.dayKey !== getLocalDayKey()) return null
 
       const exercises = normalizeExercises(routine.exercises)
       if (exercises.length === 0) return null
@@ -113,11 +130,9 @@ export function ActiveWorkoutProvider({ children }) {
         ))
       const sameName = current.routine.name === (routine.name || current.routine.name)
       const sameCurrent = (current.summaryReady ? null : (remaining[0] || null)) === current.currentExerciseId
-      const sameCompleted = completed.length === current.completed.length && completed.every((id, index) => id === current.completed[index])
-      const sameSkipped = skipped.length === current.skipped.length && skipped.every((id, index) => id === current.skipped[index])
-      const sameOrder =
-        completionOrder.length === current.completionOrder.length &&
-        completionOrder.every((id, index) => id === current.completionOrder[index])
+      const sameCompleted = sameArray(completed, current.completed)
+      const sameSkipped = sameArray(skipped, current.skipped)
+      const sameOrder = sameArray(completionOrder, current.completionOrder)
 
       if (sameExercises && sameName && sameCurrent && sameCompleted && sameSkipped && sameOrder) {
         return current
@@ -142,6 +157,7 @@ export function ActiveWorkoutProvider({ children }) {
   function setCurrentExercise(exerciseId) {
     setActiveWorkout((current) => {
       if (!current || current.summaryReady) return current
+      if (current.dayKey !== getLocalDayKey()) return null
       const isKnownExercise = current.exercises.some((exercise) => exercise.id === exerciseId)
       if (!isKnownExercise) return current
       return { ...current, currentExerciseId: exerciseId }
@@ -151,6 +167,7 @@ export function ActiveWorkoutProvider({ children }) {
   function moveExerciseToDone(exerciseId, outcome) {
     setActiveWorkout((current) => {
       if (!current || current.kind !== 'routine') return current
+      if (current.dayKey !== getLocalDayKey()) return null
       if (!current.exercises.some((exercise) => exercise.id === exerciseId)) return current
 
       const completed = outcome === 'completed'
@@ -186,6 +203,50 @@ export function ActiveWorkoutProvider({ children }) {
     moveExerciseToDone(exerciseId, 'skipped')
   }
 
+  function hydrateCompletedExercises(exerciseIds = []) {
+    setActiveWorkout((current) => {
+      if (!current || current.kind !== 'routine') return current
+      if (current.dayKey !== getLocalDayKey()) return null
+
+      const knownIds = new Set(current.exercises.map((exercise) => exercise.id))
+      const completedToday = [...new Set(exerciseIds.filter((id) => knownIds.has(id)))]
+      const completed = [...new Set([...current.completed, ...completedToday])]
+      const skipped = current.skipped.filter((id) => !completedToday.includes(id))
+      const completionOrder = [
+        ...current.completionOrder.filter((id) => knownIds.has(id)),
+        ...current.exercises
+          .map((exercise) => exercise.id)
+          .filter((id) => completedToday.includes(id) && !current.completionOrder.includes(id)),
+      ]
+      const remaining = current.exercises
+        .map((exercise) => exercise.id)
+        .filter((id) => !completed.includes(id) && !skipped.includes(id))
+      const nextCurrentExerciseId = remaining.includes(current.currentExerciseId)
+        ? current.currentExerciseId
+        : (remaining[0] || null)
+      const summaryReady = remaining.length === 0
+
+      if (
+        sameArray(completed, current.completed) &&
+        sameArray(skipped, current.skipped) &&
+        sameArray(completionOrder, current.completionOrder) &&
+        (summaryReady ? null : nextCurrentExerciseId) === current.currentExerciseId &&
+        summaryReady === current.summaryReady
+      ) {
+        return current
+      }
+
+      return {
+        ...current,
+        completed,
+        skipped,
+        completionOrder,
+        currentExerciseId: summaryReady ? null : nextCurrentExerciseId,
+        summaryReady,
+      }
+    })
+  }
+
   function clearActiveWorkout() {
     setActiveWorkout(null)
   }
@@ -199,6 +260,7 @@ export function ActiveWorkoutProvider({ children }) {
         setCurrentExercise,
         completeExercise,
         skipExercise,
+        hydrateCompletedExercises,
         clearActiveWorkout,
       }}
     >
