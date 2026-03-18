@@ -14,6 +14,8 @@ export default function Profile() {
   const email = user?.email || ''
   const initials = displayName.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2)
   const photoURL = profile?.photoURL || user?.photoURL
+  const savedAnthropicApiKey = profile?.anthropicApiKey?.trim() || ''
+  const savedOpenAiApiKey = profile?.openAiApiKey?.trim() || ''
 
   // Editable fields
   const [name, setName]           = useState(displayName)
@@ -28,6 +30,11 @@ export default function Profile() {
   const [openAiApiKey, setOpenAiApiKey] = useState(profile?.openAiApiKey || '')
   const [saving, setSaving]       = useState(false)
   const [saved, setSaved]         = useState(false)
+
+  const aiKeysSaved = Boolean(savedAnthropicApiKey || savedOpenAiApiKey)
+  const aiKeysDirty =
+    anthropicApiKey.trim() !== savedAnthropicApiKey ||
+    openAiApiKey.trim() !== savedOpenAiApiKey
 
   // File upload states
   const [uploadingPhoto, setUploadingPhoto] = useState(false)
@@ -233,7 +240,18 @@ export default function Profile() {
         </div>
 
         <div>
-          <p className="section-title">AI Settings</p>
+          <div className="flex items-center justify-between gap-3 mb-2">
+            <p className="section-title mb-0">AI Settings</p>
+            {aiKeysDirty ? (
+              <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-orange-300 bg-orange-500/10 border border-orange-500/20 px-2.5 py-1 rounded-full">
+                Unsaved
+              </span>
+            ) : aiKeysSaved ? (
+              <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-accent-green bg-accent-green/10 border border-accent-green/20 px-2.5 py-1 rounded-full">
+                API Saved
+              </span>
+            ) : null}
+          </div>
           <div className="card space-y-4">
             <p className="text-text-secondary text-xs">
               Add your Anthropic or OpenAI API key to enable AI Monthly Reports, Scan Scale Photo, and Weekly Summary Reports.
