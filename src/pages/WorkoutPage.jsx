@@ -135,6 +135,7 @@ function GuidedWorkoutPage() {
   const timerRestartTimeoutRef = useRef(null)
   const exerciseStateRef = useRef(exerciseState)
   const cardRefs = useRef({})
+  const lastScrolledExerciseRef = useRef(null)
 
   exerciseStateRef.current = exerciseState
 
@@ -198,11 +199,18 @@ function GuidedWorkoutPage() {
   }, [])
 
   useEffect(() => {
-    if (!guidedWorkout?.currentExerciseId || guidedWorkout.summaryReady) return
+    if (loading || !guidedWorkout?.currentExerciseId || guidedWorkout.summaryReady) return
+
+    const shouldAnimate = lastScrolledExerciseRef.current != null
+    lastScrolledExerciseRef.current = guidedWorkout.currentExerciseId
+
     requestAnimationFrame(() => {
-      cardRefs.current[guidedWorkout.currentExerciseId]?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      cardRefs.current[guidedWorkout.currentExerciseId]?.scrollIntoView({
+        behavior: shouldAnimate ? 'smooth' : 'auto',
+        block: 'start',
+      })
     })
-  }, [guidedWorkout?.currentExerciseId, guidedWorkout?.summaryReady])
+  }, [guidedWorkout?.currentExerciseId, guidedWorkout?.summaryReady, loading])
 
   useEffect(() => {
     if (guidedWorkout?.summaryReady) pause()
