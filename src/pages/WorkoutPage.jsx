@@ -1,51 +1,98 @@
-// src/pages/WorkoutPage.jsx
-import { useState, useEffect, useRef } from 'react'
-import { useNavigate, useParams, useLocation } from 'react-router-dom'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { format, parseISO } from 'date-fns'
-import {
-  addDoc, updateDoc, getDocs, query, where, serverTimestamp,
-} from 'firebase/firestore'
-import {
-  AreaChart, Area, XAxis, Tooltip, ResponsiveContainer,
-} from 'recharts'
-import { useAuth } from '../context/AuthContext'
-import { sessionsCol, sessionDoc } from '../firebase/collections'
-import { useTimer } from '../context/TimerContext'
+import { addDoc, getDocs, serverTimestamp, updateDoc } from 'firebase/firestore'
+import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import PageWrapper from '../components/layout/PageWrapper'
+import { useActiveWorkout } from '../context/ActiveWorkoutContext'
+import { useAuth } from '../context/AuthContext'
+import { useTimer } from '../context/TimerContext'
+import { sessionDoc, sessionsCol } from '../firebase/collections'
+import LegacyExerciseWorkout from './LegacyExerciseWorkout'
 
 const TODAY = format(new Date(), 'yyyy-MM-dd')
-const TODAY_DISPLAY = format(new Date(), 'EEEE, MMM d')
+const CARDIO_RE = /\b(cardio|walking|walk|run|running|jog|jogging|bike|cycling|cycle|elliptical|swim|swimming|rowing|treadmill|stair|hiit)\b/i
 
-// ─── Set Row (editable) ────────────────────────────────────
-function SetRow({ set, index, onUpdate, onDelete, isCardio }) {
+function isCardioExercise(exercise) {
+  return exercise?.type === 'time' || CARDIO_RE.test(exercise?.muscleGroup || '') || CARDIO_RE.test(exercise?.name || '')
+}
+
+function formatWeight(value) {
+  if (!Number.isFinite(value) || value <= 0) return '0'
+  return Number.isInteger(value) ? `${value}` : value.toFixed(1)
+}
+
+function formatVolume(value) {
+  if (!value) return '0'
+  return value >= 1000 ? `${(value / 1000).toFixed(1)}k` : value.toLocaleString()
+}
+
+function normalizeSet(set, fallback = {}) {
+  return {
+    id: set?.id || `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+    reps: Number.isFinite(set?.reps) ? set.reps : (fallback.reps ?? 8),
+    weight: Number.isFinite(set?.weight) ? set.weight : (fallback.weight ?? 0),
+  }
+}
+
+function buildExerciseState(exercises, sessions) {
+  return exercises.reduce((result, exercise) => {
+    const exerciseSessions = sessions
+      .filter((session) => session.exerciseId === exercise.id)
+      .sort((a, b) => a.date.localeCompare(b.date))
+    const todaySession = exerciseSessions.find((session) => session.date === TODAY)
+    const pastSessions = exerciseSessions.filter((session) => session.date !== TODAY)
+    const recentPast = pastSessions.at(-1) || null
+    const lastTemplateSet = [...(recentPast?.sets || [])]
+      .reverse()
+      .find((set) => (set.reps || 0) > 0 || (set.weight || 0) > 0)
+
+    result[exercise.id] = {
+      sessionId: todaySession?.id || null,
+      sets: todaySession?.sets || [],
+      lastTemplate: {
+        reps: lastTemplateSet?.reps || 8,
+        weight: lastTemplateSet?.weight || 0,
+      },
+      bestWeight: exerciseSessions.reduce(
+        (maxWeight, session) => Math.max(maxWeight, ...(session.sets || []).map((set) => set.weight || 0)),
+        0
+      ),
+      lastSessionDate: recentPast?.date || null,
+      sessionCount: exerciseSessions.length,
+    }
+
+    return result
+  }, {})
+}
+
+function WorkoutSetRow({ set, index, isCardio, onUpdate, onDelete }) {
   const volume = (set.reps || 0) * (set.weight || 0)
+
   return (
-    <div className="grid grid-cols-[28px_1fr_1fr_1fr_28px] gap-2 items-center py-2.5 border-b border-surface2 last:border-0">
-      <span className="text-text-secondary text-sm text-center font-mono font-semibold">{index + 1}</span>
+    <div className="grid grid-cols-[30px_1fr_1fr_56px_28px] gap-2 items-center py-2 border-b border-surface2 last:border-0">
+      <span className="text-text-secondary text-xs text-center font-mono font-semibold">{index + 1}</span>
       <input
         type="number"
         inputMode="numeric"
         value={set.reps || ''}
         placeholder="0"
-        onChange={(e) => onUpdate({ ...set, reps: Number(e.target.value) })}
-        className="bg-surface2 rounded-lg px-2 py-2.5 text-text-primary text-base text-center w-full focus:outline-none focus:ring-1 focus:ring-accent"
+        onChange={(event) => onUpdate({ ...set, reps: Number(event.target.value) })}
+        className="bg-bg/70 rounded-xl px-3 py-2.5 text-text-primary text-sm text-center w-full focus:outline-none focus:ring-1 focus:ring-accent"
       />
       <input
         type="number"
         inputMode="decimal"
         value={set.weight || ''}
         placeholder={isCardio ? 'min' : '0'}
-        onChange={(e) => onUpdate({ ...set, weight: Number(e.target.value) })}
-        className="bg-surface2 rounded-lg px-2 py-2.5 text-white font-semibold text-base text-center w-full focus:outline-none focus:ring-1 focus:ring-accent"
+        onChange={(event) => onUpdate({ ...set, weight: Number(event.target.value) })}
+        className="bg-bg/70 rounded-xl px-3 py-2.5 text-text-primary text-sm text-center w-full focus:outline-none focus:ring-1 focus:ring-accent"
       />
-      <span className="text-text-secondary text-sm text-right font-mono">
-        {isCardio
-          ? (set.weight > 0 ? `${set.weight}m` : '—')
-          : (volume > 0 ? volume.toLocaleString() : '—')}
+      <span className="text-text-secondary text-xs text-right font-mono">
+        {isCardio ? `${set.weight || 0}m` : (volume > 0 ? volume.toLocaleString() : '-')}
       </span>
       <button
         onClick={() => onDelete(set.id)}
-        className="w-7 h-7 rounded-lg flex items-center justify-center active:scale-95 transition-transform text-text-secondary hover:text-accent-red"
+        className="w-7 h-7 rounded-lg flex items-center justify-center text-text-secondary active:scale-95 transition-transform"
       >
         <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -55,528 +102,611 @@ function SetRow({ set, index, onUpdate, onDelete, isCardio }) {
   )
 }
 
-// ─── Past Set Row (read-only) ──────────────────────────────
-function PastSetRow({ set, index, isCardio }) {
-  const volume = (set.reps || 0) * (set.weight || 0)
-  return (
-    <div className="grid grid-cols-[28px_1fr_1fr_1fr] gap-2 items-center py-2.5 border-b border-surface2 last:border-0">
-      <span className="text-text-secondary text-sm text-center font-mono font-semibold">{index + 1}</span>
-      <span className="text-text-primary text-base text-center">{set.reps ?? '—'}</span>
-      <span className="text-white font-semibold text-base text-center">{set.weight ?? '—'}</span>
-      <span className="text-text-secondary text-sm text-right font-mono">
-        {isCardio
-          ? (set.weight > 0 ? `${set.weight}m` : '—')
-          : (volume > 0 ? volume.toLocaleString() : '—')}
-      </span>
-    </div>
-  )
-}
-
-// ─── Chart Tooltip ─────────────────────────────────────────
-function ChartTooltip({ active, payload, label, isCardio }) {
-  if (!active || !payload?.length) return null
-  return (
-    <div className="bg-surface border border-surface2 rounded-xl px-3 py-2 text-xs shadow-lg">
-      <p className="text-text-secondary mb-0.5">{label}</p>
-      <p className="text-accent font-bold font-mono">
-        {Number(payload[0].value).toLocaleString()} {isCardio ? 'min' : 'lbs'}
-      </p>
-    </div>
-  )
-}
-
-const CARDIO_RE = /\b(cardio|walking|walk|run|running|jog|jogging|bike|cycling|cycle|elliptical|swim|swimming|rowing|treadmill|stair|hiit)\b/i
-
-// ─── Main Page ─────────────────────────────────────────────
-export default function WorkoutPage() {
+function GuidedWorkoutPage() {
   const { exerciseId } = useParams()
-  const { state } = useLocation()
+  const location = useLocation()
   const navigate = useNavigate()
   const { user } = useAuth()
-  const { isRunning, toggle, reset, start, formatted } = useTimer()
+  const { seconds, isRunning, formatted, toggle, reset, start, pause } = useTimer()
+  const {
+    activeWorkout,
+    startRoutineWorkout,
+    syncRoutine,
+    setCurrentExercise,
+    completeExercise,
+    skipExercise,
+    clearActiveWorkout,
+  } = useActiveWorkout()
 
-  const exercise = state?.exercise ?? {
-    id: exerciseId,
-    name: exerciseId?.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()) ?? '',
-    muscleGroup: '',
-  }
-  const routine = state?.routine ?? null
-  const isCardio = exercise.type === 'time' || CARDIO_RE.test(exercise.muscleGroup || '') || CARDIO_RE.test(exercise.name || '')
+  const routeRoutine = location.state?.routine
+  const routeWantsWorkoutMode = Boolean(location.state?.workoutMode || routeRoutine)
+  const guidedWorkout = activeWorkout?.kind === 'routine' ? activeWorkout : null
+  const routine = routeRoutine || (guidedWorkout ? { ...guidedWorkout.routine, exercises: guidedWorkout.exercises } : null)
 
-  const [sets, setSets] = useState([])
-  const [sessionId, setSessionId] = useState(null)
-  const [history, setHistory] = useState([])
-  const [pastSessionsData, setPastSessionsData] = useState([]) // for swipe cards
-  const [lastHistoricalWeight, setLastHistoricalWeight] = useState(0)
+  const [exerciseState, setExerciseState] = useState({})
   const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
+  const [savingExerciseId, setSavingExerciseId] = useState(null)
+  const [containerHeight, setContainerHeight] = useState(() => window.visualViewport?.height ?? window.innerHeight)
 
-  // Carousel
-  const carouselRef = useRef(null)
-  const [activePage, setActivePage] = useState(0)
+  const saveTimeoutsRef = useRef({})
+  const exerciseStateRef = useRef(exerciseState)
+  const cardRefs = useRef({})
 
-  const saveTimeoutRef = useRef(null)
-  const sessionIdRef = useRef(null)
-  sessionIdRef.current = sessionId
+  exerciseStateRef.current = exerciseState
 
-  // Lock container to the visual viewport so the Finish button stays visible
-  // above the keyboard when a number input is focused on iOS PWA.
-  // When keyboard is closed: subtract 64px for the fixed BottomNav.
-  // When keyboard is open: vv.height is already reduced by keyboard height,
-  // and the BottomNav sits below the keyboard (out of view), so subtract 0.
-  const [containerH, setContainerH] = useState(() => {
-    const vvh = window.visualViewport?.height ?? window.innerHeight
-    return vvh - 64
-  })
   useEffect(() => {
-    const vv = window.visualViewport
-    if (!vv) return
-    const update = () => {
-      const kbOpen = window.innerHeight - vv.height > 50
-      setContainerH(vv.height - (kbOpen ? 0 : 64))
-    }
-    vv.addEventListener('resize', update)
-    update()
-    return () => vv.removeEventListener('resize', update)
+    const viewport = window.visualViewport
+    if (!viewport) return undefined
+    const updateHeight = () => setContainerHeight(viewport.height)
+    viewport.addEventListener('resize', updateHeight)
+    updateHeight()
+    return () => viewport.removeEventListener('resize', updateHeight)
   }, [])
 
-  // ── Load today's session + past history ─────────────────
   useEffect(() => {
-    if (!user || !exerciseId) return
-    // Reset all per-exercise state immediately so the previous exercise's data
-    // doesn't linger while the new exercise's data loads
-    setSets([])
-    setHistory([])
-    setPastSessionsData([])
-    setSessionId(null)
+    if (!routeWantsWorkoutMode || !routeRoutine?.id) return
+    if (!guidedWorkout || guidedWorkout.routine.id !== routeRoutine.id) {
+      startRoutineWorkout(routeRoutine, { startExerciseId: exerciseId })
+      return
+    }
+    syncRoutine(routeRoutine)
+  }, [exerciseId, guidedWorkout, routeRoutine, routeWantsWorkoutMode, startRoutineWorkout, syncRoutine])
+
+  useEffect(() => {
+    if (!guidedWorkout || guidedWorkout.summaryReady || !exerciseId) return
+    if (guidedWorkout.currentExerciseId === exerciseId) return
+    if (guidedWorkout.exercises.some((exercise) => exercise.id === exerciseId)) {
+      setCurrentExercise(exerciseId)
+    }
+  }, [exerciseId, guidedWorkout, setCurrentExercise])
+
+  useEffect(() => {
+    if (!user?.uid || !guidedWorkout?.exercises?.length) return
+    let isMounted = true
     setLoading(true)
+
     user.getIdToken()
-      .then(() => getDocs(query(sessionsCol(user.uid), where('exerciseId', '==', exerciseId))))
-      .then((snap) => {
-        const all = snap.docs
-          .map((d) => ({ id: d.id, ...d.data() }))
-          .sort((a, b) => (a.date < b.date ? -1 : 1))
-
-        const todaySession = all.find((s) => s.date === TODAY)
-        if (todaySession) {
-          setSessionId(todaySession.id)
-          setSets(todaySession.sets || [])
-        }
-
-        const pastSessions = all.filter((s) => s.date !== TODAY)
-
-        // Chart data (last 8)
-        const pastHistory = pastSessions
-          .slice(-8)
-          .map((s) => ({ date: s.date.slice(5), volume: s.totalVolume || 0 }))
-        setHistory(pastHistory)
-
-        // Last 3 past sessions for swipe cards (newest first)
-        setPastSessionsData([...pastSessions].reverse().slice(0, 3))
-
-        // Default weight for new sets
-        const lastPast = pastSessions.at(-1)
-        const lastWeight = (lastPast?.sets || []).reduce((m, s) => Math.max(m, s.weight || 0), 0)
-        setLastHistoricalWeight(lastWeight)
-
+      .then(() => getDocs(sessionsCol(user.uid)))
+      .then((snapshot) => {
+        if (!isMounted) return
+        const exerciseIds = new Set(guidedWorkout.exercises.map((exercise) => exercise.id))
+        const sessions = snapshot.docs
+          .map((docSnapshot) => ({ id: docSnapshot.id, ...docSnapshot.data() }))
+          .filter((session) => exerciseIds.has(session.exerciseId))
+        setExerciseState(buildExerciseState(guidedWorkout.exercises, sessions))
         setLoading(false)
       })
-      .catch((err) => { console.error('WorkoutPage load error:', err); setLoading(false) })
-  }, [user, exerciseId])
+      .catch((error) => {
+        console.error('GuidedWorkout load error:', error)
+        if (isMounted) setLoading(false)
+      })
 
-  // ── Cancel pending saves on unmount ─────────────────────
-  useEffect(() => () => clearTimeout(saveTimeoutRef.current), [])
+    return () => { isMounted = false }
+  }, [guidedWorkout, user])
 
-  // ── Carousel scroll tracker ──────────────────────────────
-  function handleCarouselScroll() {
-    const el = carouselRef.current
-    if (!el) return
-    const page = Math.round(el.scrollLeft / el.clientWidth)
-    setActivePage(page)
+  useEffect(() => () => {
+    Object.values(saveTimeoutsRef.current).forEach((timeoutId) => clearTimeout(timeoutId))
+  }, [])
+
+  useEffect(() => {
+    if (!guidedWorkout?.currentExerciseId || guidedWorkout.summaryReady) return
+    requestAnimationFrame(() => {
+      cardRefs.current[guidedWorkout.currentExerciseId]?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    })
+  }, [guidedWorkout?.currentExerciseId, guidedWorkout?.summaryReady])
+
+  useEffect(() => {
+    if (!guidedWorkout || guidedWorkout.summaryReady) return
+    const currentExerciseId = guidedWorkout.currentExerciseId || guidedWorkout.exercises[0]?.id
+    if (!currentExerciseId || currentExerciseId === exerciseId) return
+    navigate(`/workout/${currentExerciseId}`, {
+      replace: true,
+      state: { workoutMode: true, routine },
+    })
+  }, [exerciseId, guidedWorkout, navigate, routine])
+
+  useEffect(() => {
+    if (guidedWorkout?.summaryReady) pause()
+  }, [guidedWorkout?.summaryReady, pause])
+
+  const exerciseById = useMemo(
+    () => new Map((guidedWorkout?.exercises || []).map((exercise) => [exercise.id, exercise])),
+    [guidedWorkout?.exercises]
+  )
+
+  const orderedExercises = useMemo(() => {
+    if (!guidedWorkout) return []
+    const doneIds = new Set([...guidedWorkout.completed, ...guidedWorkout.skipped])
+    const activeExercise = guidedWorkout.currentExerciseId ? exerciseById.get(guidedWorkout.currentExerciseId) : null
+    const upcoming = guidedWorkout.exercises.filter(
+      (exercise) => exercise.id !== guidedWorkout.currentExerciseId && !doneIds.has(exercise.id)
+    )
+    const completed = guidedWorkout.completionOrder.map((id) => exerciseById.get(id)).filter(Boolean)
+    return [activeExercise, ...upcoming, ...completed].filter(Boolean)
+  }, [exerciseById, guidedWorkout])
+
+  const activeExercise = guidedWorkout?.currentExerciseId ? exerciseById.get(guidedWorkout.currentExerciseId) : null
+  const nextExercise = guidedWorkout?.summaryReady
+    ? null
+    : orderedExercises.find(
+        (exercise) => exercise.id !== activeExercise?.id && !guidedWorkout.completed.includes(exercise.id) && !guidedWorkout.skipped.includes(exercise.id)
+      ) || null
+  const totalExercises = guidedWorkout?.exercises.length || 0
+  const completedCount = (guidedWorkout?.completed.length || 0) + (guidedWorkout?.skipped.length || 0)
+  const totalVolume = Object.values(exerciseState).reduce(
+    (sum, state) => sum + (state.sets || []).reduce((exerciseSum, set) => exerciseSum + (set.reps || 0) * (set.weight || 0), 0),
+    0
+  )
+
+  if (!routine || (!routeWantsWorkoutMode && !guidedWorkout)) {
+    return <LegacyExerciseWorkout />
   }
 
-  // ── Auto-scroll to today's card (last position) on load ──
-  useEffect(() => {
-    if (loading) return
-    const el = carouselRef.current
-    if (!el || pastSessionsData.length === 0) return
-    requestAnimationFrame(() => {
-      el.scrollTo({ left: pastSessionsData.length * el.clientWidth, behavior: 'instant' })
-    })
-  }, [loading, pastSessionsData.length])
+  async function persistExerciseSets(exercise, currentSets) {
+    if (!user?.uid || !exercise?.id) return
+    const existingState = exerciseStateRef.current[exercise.id] || {}
+    if (currentSets.length === 0 && !existingState.sessionId) return
+    setSavingExerciseId(exercise.id)
 
-  // ── Persist sets to Firestore ────────────────────────────
-  async function persistSets(currentSets) {
-    if (!user || !exerciseId) return
-    // Never create a new session doc for an empty workout
-    if (currentSets.length === 0 && !sessionIdRef.current) return
-    setSaving(true)
     try {
-      const totalVolume = currentSets.reduce((sum, s) => sum + (s.reps || 0) * (s.weight || 0), 0)
+      const totalExerciseVolume = currentSets.reduce((sum, set) => sum + (set.reps || 0) * (set.weight || 0), 0)
       const payload = {
-        exerciseId,
+        exerciseId: exercise.id,
         exerciseName: exercise.name,
         muscleGroup: exercise.muscleGroup || '',
-        routineId: routine?.id || '',
-        routineName: routine?.name || '',
+        routineId: routine.id || '',
+        routineName: routine.name || '',
         date: TODAY,
         sets: currentSets,
-        totalVolume,
+        totalVolume: totalExerciseVolume,
         updatedAt: serverTimestamp(),
       }
-      const currentId = sessionIdRef.current
-      if (currentId) {
-        await updateDoc(sessionDoc(user.uid, currentId), payload)
+
+      if (existingState.sessionId) {
+        await updateDoc(sessionDoc(user.uid, existingState.sessionId), payload)
       } else {
         const ref = await addDoc(sessionsCol(user.uid), { ...payload, createdAt: serverTimestamp() })
-        setSessionId(ref.id)
+        setExerciseState((current) => ({
+          ...current,
+          [exercise.id]: {
+            ...(current[exercise.id] || {}),
+            sessionId: ref.id,
+            sets: currentSets,
+          },
+        }))
       }
     } finally {
-      setSaving(false)
+      setSavingExerciseId((current) => (current === exercise.id ? null : current))
     }
   }
 
-  function scheduleSave(updatedSets) {
-    clearTimeout(saveTimeoutRef.current)
-    saveTimeoutRef.current = setTimeout(() => persistSets(updatedSets), 900)
+  function scheduleSave(exercise, nextSets) {
+    clearTimeout(saveTimeoutsRef.current[exercise.id])
+    saveTimeoutsRef.current[exercise.id] = setTimeout(() => persistExerciseSets(exercise, nextSets), 700)
   }
 
-  // ── Set mutations ────────────────────────────────────────
-  function addSet() {
-    const last = sets[sets.length - 1]
-    const defaultWeight = last?.weight || lastHistoricalWeight || 0
-    const defaultReps = last?.reps || 8
-    const newSets = [
-      ...sets,
-      { id: Date.now().toString(), reps: defaultReps, weight: defaultWeight },
-    ]
-    setSets(newSets)
-    scheduleSave(newSets)
-    reset()
+  function updateSets(exercise, nextSets) {
+    setExerciseState((current) => ({
+      ...current,
+      [exercise.id]: {
+        ...(current[exercise.id] || {}),
+        sets: nextSets,
+      },
+    }))
+    scheduleSave(exercise, nextSets)
+  }
+
+  function getTemplate(exercise) {
+    const state = exerciseState[exercise.id] || {}
+    const lastSet = state.sets?.at(-1)
+    const fallback = state.lastTemplate || { reps: 8, weight: 0 }
+    return {
+      reps: lastSet?.reps || fallback.reps || 8,
+      weight: lastSet?.weight || fallback.weight || 0,
+    }
+  }
+
+  function appendSet(exercise, transform) {
+    const template = getTemplate(exercise)
+    const nextSet = normalizeSet(transform(template), template)
+    const nextSets = [...(exerciseState[exercise.id]?.sets || []), nextSet]
+    updateSets(exercise, nextSets)
     start()
   }
 
-  function updateSet(updated) {
-    const newSets = sets.map((s) => (s.id === updated.id ? updated : s))
-    setSets(newSets)
-    scheduleSave(newSets)
+  function addSet(exercise) {
+    appendSet(exercise, (template) => template)
   }
 
-  function deleteSet(id) {
-    const newSets = sets.filter((s) => s.id !== id)
-    setSets(newSets)
-    scheduleSave(newSets)
+  function applyQuickAction(exercise, mode) {
+    const cardio = isCardioExercise(exercise)
+    appendSet(exercise, (template) => {
+      if (cardio) {
+        if (mode === 'plus-five') return { ...template, weight: (template.weight || 0) + 5, reps: 1 }
+        if (mode === 'plus-one') return { ...template, weight: (template.weight || 0) + 1, reps: 1 }
+        return { ...template, reps: 1 }
+      }
+      if (mode === 'plus-five') return { ...template, weight: (template.weight || 0) + 5 }
+      if (mode === 'plus-two-point-five') return { ...template, weight: (template.weight || 0) + 2.5 }
+      if (mode === 'plus-one') return { ...template, reps: (template.reps || 0) + 1 }
+      return template
+    })
   }
 
-  function goBack() {
-    if (routine?.id) {
-      navigate('/routines', { state: { openRoutineId: routine.id } })
-    } else {
-      navigate(-1)
+  function updateSet(exercise, updatedSet) {
+    const nextSets = (exerciseState[exercise.id]?.sets || []).map((set) => (set.id === updatedSet.id ? updatedSet : set))
+    updateSets(exercise, nextSets)
+  }
+
+  function deleteSet(exercise, setId) {
+    const nextSets = (exerciseState[exercise.id]?.sets || []).filter((set) => set.id !== setId)
+    updateSets(exercise, nextSets)
+  }
+
+  async function finishExercise() {
+    if (!activeExercise) return
+    clearTimeout(saveTimeoutsRef.current[activeExercise.id])
+    const currentSets = exerciseStateRef.current[activeExercise.id]?.sets || []
+    if (currentSets.length > 0) {
+      await persistExerciseSets(activeExercise, currentSets)
     }
+    completeExercise(activeExercise.id)
   }
 
-  async function handleFinish() {
-    clearTimeout(saveTimeoutRef.current)
-    // Only persist if there is actual data to save
-    if (sets.length > 0) {
-      await persistSets(sets)
-    }
+  function handleSkipExercise() {
+    if (!activeExercise) return
+    clearTimeout(saveTimeoutsRef.current[activeExercise.id])
+    skipExercise(activeExercise.id)
+  }
+
+  async function saveWorkout() {
+    const persistJobs = Object.entries(exerciseStateRef.current)
+      .map(([id, state]) => {
+        const exercise = exerciseById.get(id)
+        if (!exercise || !state.sets?.length) return null
+        clearTimeout(saveTimeoutsRef.current[id])
+        return persistExerciseSets(exercise, state.sets)
+      })
+      .filter(Boolean)
+
+    await Promise.all(persistJobs)
+    clearActiveWorkout()
     reset()
-    goBack()
+    navigate('/routines', { state: { openRoutineId: routine.id } })
   }
 
-  // ── Derived values ────────────────────────────────────────
-  const totalVolume = sets.reduce((sum, s) => sum + (s.reps || 0) * (s.weight || 0), 0)
-  const bestWeight = sets.reduce((max, s) => Math.max(max, s.weight || 0), 0)
-  const chartData = [
-    ...history,
-    ...(totalVolume > 0 ? [{ date: 'Today', volume: totalVolume }] : []),
-  ]
+  function minimizeWorkout() {
+    navigate('/routines', { state: { openRoutineId: routine.id } })
+  }
 
-  const totalPages = 1 + pastSessionsData.length
+  function getStatus(exercise) {
+    if (guidedWorkout?.currentExerciseId === exercise.id && !guidedWorkout.summaryReady) return 'active'
+    if (guidedWorkout?.completed.includes(exercise.id)) return 'completed'
+    if (guidedWorkout?.skipped.includes(exercise.id)) return 'skipped'
+    if (nextExercise?.id === exercise.id) return 'next'
+    return 'upcoming'
+  }
+
+  function getCardClasses(status) {
+    if (status === 'active') return 'border-accent-green shadow-[0_0_0_1px_rgba(22,163,74,0.45),0_18px_40px_rgba(22,163,74,0.12)]'
+    if (status === 'next') return 'border-accent bg-accent/5'
+    if (status === 'completed') return 'border-slate-700 bg-slate-900/60 opacity-75'
+    if (status === 'skipped') return 'border-slate-700 bg-slate-900/50 opacity-65'
+    return 'border-surface2 opacity-70'
+  }
+
+  const summaryMinutes = Math.max(1, Math.round(seconds / 60))
 
   return (
-    <PageWrapper showHeader={false} className="!pb-0">
-      <div className="flex flex-col" style={{ height: containerH }}>
-
-        {/* ── Header ─────────────────────────────────────── */}
-        <div className="px-4 pt-4 pb-2 flex-shrink-0">
-          <div className="flex items-center gap-2 mb-3">
+    <PageWrapper showHeader={false} showBottomNav={false} className="!pb-0">
+      <div className="flex flex-col" style={{ height: containerHeight }}>
+        <div className="px-4 pt-4 pb-3 border-b border-surface2 bg-bg/95 backdrop-blur flex-shrink-0">
+          <div className="flex items-center gap-3 mb-4">
             <button
-              onClick={goBack}
-              className="flex items-center gap-1 text-text-secondary text-sm active:scale-95 transition-transform"
+              onClick={minimizeWorkout}
+              className="w-10 h-10 rounded-2xl bg-surface2 flex items-center justify-center active:scale-95 transition-transform"
             >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <svg className="w-5 h-5 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
               </svg>
-              {routine ? routine.name : 'Back'}
             </button>
-            {saving && (
-              <span className="text-text-secondary text-xs ml-auto animate-pulse-soft">Saving…</span>
-            )}
-          </div>
-
-          {/* Exercise tabs */}
-          {routine?.exercises?.length > 1 && (
-            <div className="flex gap-2 overflow-x-auto pb-2 mb-3 scrollbar-none">
-              {routine.exercises.map((ex) => (
-                <button
-                  key={ex.id}
-                  onClick={() =>
-                    ex.id !== exerciseId &&
-                    navigate(`/workout/${ex.id}`, { state: { exercise: ex, routine } })
-                  }
-                  className={`flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
-                    ex.id === exerciseId
-                      ? 'bg-accent text-white'
-                      : 'bg-surface2 text-text-secondary'
-                  }`}
-                >
-                  {ex.name}
-                </button>
-              ))}
+            <div className="min-w-0 flex-1">
+              <p className="text-text-secondary text-xs uppercase tracking-[0.28em]">Workout Mode</p>
+              <h1 className="font-display text-xl font-bold text-text-primary truncate">{routine.name}</h1>
             </div>
-          )}
-
-          <h1 className="font-display text-2xl font-bold text-text-primary leading-tight">
-            {exercise.name}
-          </h1>
-          <div className="flex items-center gap-2 mt-1">
-            {exercise.muscleGroup && (
-              <span className="text-xs font-semibold text-accent bg-accent/10 px-2 py-0.5 rounded-lg">
-                {exercise.muscleGroup}
-              </span>
-            )}
-            {routine?.name && (
-              <span className="text-text-secondary text-xs">{routine.name}</span>
-            )}
+            {savingExerciseId && <span className="text-text-secondary text-xs animate-pulse-soft">Saving...</span>}
           </div>
-        </div>
 
-        {/* ── Volume History Chart ────────────────────────── */}
-        <div className="mx-4 mb-3 flex-shrink-0">
-          <div className="card p-3">
-            <div className="flex items-center justify-between mb-1">
-              <p className="section-title mb-0">{isCardio ? 'Duration History' : 'Volume History'}</p>
-              {bestWeight > 0 && (
-                <p className="text-text-secondary text-sm">
-                  Best: <span className="text-accent-green font-semibold">{bestWeight} {isCardio ? 'min' : 'lbs'}</span>
+          <div className="rounded-2xl border border-surface2 bg-surface/70 px-4 py-3">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-text-secondary text-[11px] uppercase tracking-[0.24em]">Progress</p>
+                <p className="text-text-primary font-semibold text-sm mt-1">
+                  {guidedWorkout?.summaryReady
+                    ? `Workout complete - ${totalExercises} of ${totalExercises}`
+                    : `Exercise ${Math.min(completedCount + 1, totalExercises)} of ${totalExercises}`}
                 </p>
-              )}
-            </div>
-            {chartData.length > 0 ? (
-              <ResponsiveContainer width="100%" height={80}>
-                <AreaChart data={chartData} margin={{ top: 4, right: 4, left: 4, bottom: 0 }}>
-                  <defs>
-                    <linearGradient id="volGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#1A56DB" stopOpacity={0.35} />
-                      <stop offset="95%" stopColor="#1A56DB" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <XAxis
-                    dataKey="date"
-                    tick={{ fill: '#94A3B8', fontSize: 9 }}
-                    axisLine={false}
-                    tickLine={false}
-                  />
-                  <Tooltip content={(props) => <ChartTooltip {...props} isCardio={isCardio} />} />
-                  <Area
-                    type="monotone"
-                    dataKey="volume"
-                    stroke="#1A56DB"
-                    strokeWidth={2}
-                    fill="url(#volGrad)"
-                    dot={{ fill: '#1A56DB', r: 3, strokeWidth: 0 }}
-                    activeDot={{ r: 4, fill: '#1A56DB' }}
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="h-20 flex items-center justify-center">
-                <p className="text-text-secondary text-xs">Log your first set to see history</p>
               </div>
-            )}
+              <div className="text-right">
+                <p className="text-text-secondary text-[11px] uppercase tracking-[0.24em]">Timer</p>
+                <p className="font-mono text-text-primary text-sm font-bold mt-1">{formatted()}</p>
+              </div>
+            </div>
+            <div className="mt-3 flex items-center gap-2">
+              {Array.from({ length: totalExercises }).map((_, index) => {
+                const done = index < completedCount
+                const current = !guidedWorkout?.summaryReady && index === completedCount
+                return (
+                  <span
+                    key={index}
+                    className={`h-2 rounded-full transition-all ${
+                      done ? 'flex-1 bg-accent-green' : current ? 'flex-[1.35] bg-accent' : 'flex-1 bg-surface2'
+                    }`}
+                  />
+                )
+              })}
+            </div>
           </div>
         </div>
 
-        {/* ── Sets Carousel ───────────────────────────────── */}
-        <div className="flex-1 overflow-hidden flex flex-col">
-
-          {/* Horizontal swipe area */}
-          <div
-            ref={carouselRef}
-            onScroll={handleCarouselScroll}
-            className="flex-1 flex overflow-x-auto snap-x snap-mandatory scrollbar-none"
-          >
-
-            {/* ── Past session cards (read-only) — LEFT of today ── */}
-            {[...pastSessionsData].reverse().map((session) => {
-              const sessionSets = session.sets || []
-              const sessionVol = session.totalVolume || 0
-              const dateLabel = format(parseISO(session.date), 'EEEE, MMM d')
-              return (
-                <div key={session.id} className="flex-shrink-0 w-full overflow-y-auto px-4 pb-2">
-                  <div className="card">
-                    <div className="flex items-center justify-between mb-3">
-                      <p className="text-text-secondary text-xs font-semibold">{dateLabel}</p>
-                      <span className="text-[10px] text-text-secondary bg-surface2 px-2 py-0.5 rounded-lg">
-                        Previous
-                      </span>
-                    </div>
-
-                    {/* Column headers */}
-                    <div className="grid grid-cols-[28px_1fr_1fr_1fr] gap-2 pb-2 border-b border-surface2 mb-1">
-                      {['#', 'Reps', isCardio ? 'Min' : 'Lbs', isCardio ? 'Time' : 'Vol'].map((h, i) => (
-                        <span key={i} className="text-text-secondary text-sm font-semibold text-center">{h}</span>
-                      ))}
-                    </div>
-
-                    {sessionSets.length === 0 ? (
-                      <div className="py-6 text-center">
-                        <p className="text-text-secondary text-sm">No sets recorded</p>
-                      </div>
-                    ) : (
-                      [...sessionSets].reverse().map((set, i) => (
-                        <PastSetRow
-                          key={set.id || i}
-                          set={set}
-                          index={sessionSets.length - 1 - i}
-                          isCardio={isCardio}
-                        />
-                      ))
-                    )}
-
-                    {/* Total */}
-                    <div className="flex justify-end mt-3 pt-2.5 border-t border-surface2">
-                      <div className="text-right">
-                        <p className="text-text-secondary text-xs">{isCardio ? 'Total Time' : 'Total Volume'}</p>
-                        <p className="font-display font-bold text-text-secondary text-lg leading-tight">
-                          {isCardio
-                            ? (sessionVol > 0 ? `${sessionVol} min` : '—')
-                            : (sessionVol > 0 ? `${sessionVol.toLocaleString()} lbs` : '—')}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
+        <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
+          {guidedWorkout?.summaryReady && (
+            <div className="rounded-[28px] border border-accent-green/30 bg-gradient-to-br from-accent-green/18 via-surface to-bg px-5 py-5">
+              <p className="text-accent-green text-xs font-semibold uppercase tracking-[0.24em]">Workout Complete</p>
+              <h2 className="font-display text-3xl font-bold text-text-primary mt-2">Nice work</h2>
+              <div className="grid grid-cols-3 gap-3 mt-5">
+                <div className="rounded-2xl bg-bg/60 border border-white/5 p-3">
+                  <p className="text-text-secondary text-[11px] uppercase tracking-[0.22em]">Volume</p>
+                  <p className="text-text-primary font-display text-2xl font-bold mt-2">{formatVolume(totalVolume)}</p>
+                  <p className="text-text-secondary text-xs">lbs</p>
                 </div>
-              )
-            })}
-
-            {/* ── Today's card — RIGHTMOST ──────────────────── */}
-            <div className="flex-shrink-0 w-full overflow-y-auto px-4 pb-2">
-              <div className="card">
-                <div className="flex items-center justify-between mb-3">
-                  <p className="text-text-secondary text-xs font-semibold">{TODAY_DISPLAY}</p>
-                  {pastSessionsData.length > 0 && activePage === totalPages - 1 && (
-                    <p className="text-text-secondary text-[10px] flex items-center gap-1">
-                      <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-                      </svg>
-                      history
-                    </p>
-                  )}
+                <div className="rounded-2xl bg-bg/60 border border-white/5 p-3">
+                  <p className="text-text-secondary text-[11px] uppercase tracking-[0.22em]">Time</p>
+                  <p className="text-text-primary font-display text-2xl font-bold mt-2">{summaryMinutes}</p>
+                  <p className="text-text-secondary text-xs">min</p>
                 </div>
-
-                {/* Column headers */}
-                <div className="grid grid-cols-[28px_1fr_1fr_1fr_28px] gap-2 pb-2 border-b border-surface2 mb-1">
-                  {['#', 'Reps', isCardio ? 'Min' : 'Lbs', isCardio ? 'Time' : 'Vol', ''].map((h, i) => (
-                    <span key={i} className="text-text-secondary text-sm font-semibold text-center">{h}</span>
-                  ))}
-                </div>
-
-                {loading ? (
-                  <div className="flex justify-center py-8">
-                    <div className="w-6 h-6 border-2 border-accent border-t-transparent rounded-full animate-spin" />
-                  </div>
-                ) : sets.length === 0 ? (
-                  <div className="py-8 text-center">
-                    <p className="text-text-secondary text-sm">No sets yet</p>
-                    <p className="text-text-secondary text-xs mt-1">Tap Add Set to start tracking</p>
-                  </div>
-                ) : (
-                  [...sets].reverse().map((set, i) => (
-                    <SetRow
-                      key={set.id}
-                      set={set}
-                      index={sets.length - 1 - i}
-                      onUpdate={updateSet}
-                      onDelete={deleteSet}
-                      isCardio={isCardio}
-                    />
-                  ))
-                )}
-
-                {/* Add Set + Total */}
-                <div className="flex items-center justify-between mt-3 pt-2.5 border-t border-surface2">
-                  <button
-                    onClick={addSet}
-                    className="text-accent-green text-sm font-semibold flex items-center gap-1.5 active:scale-95 transition-transform"
-                  >
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-                    </svg>
-                    Add Set
-                  </button>
-                  <div className="text-right">
-                    <p className="text-text-secondary text-xs">{isCardio ? 'Total Time' : 'Total Volume'}</p>
-                    <p className="font-display font-bold text-accent-green text-lg leading-tight">
-                      {isCardio
-                        ? (totalVolume > 0 ? `${totalVolume} min` : '—')
-                        : (totalVolume > 0 ? `${totalVolume.toLocaleString()} lbs` : '—')}
-                    </p>
-                  </div>
+                <div className="rounded-2xl bg-bg/60 border border-white/5 p-3">
+                  <p className="text-text-secondary text-[11px] uppercase tracking-[0.22em]">Exercises</p>
+                  <p className="text-text-primary font-display text-2xl font-bold mt-2">{totalExercises}</p>
+                  <p className="text-text-secondary text-xs">
+                    {guidedWorkout.skipped.length ? `${guidedWorkout.skipped.length} skipped` : 'all done'}
+                  </p>
                 </div>
               </div>
             </div>
+          )}
 
-          </div>
-
-          {/* Page dot indicators */}
-          {totalPages > 1 && (
-            <div className="flex justify-center items-center gap-1.5 py-2 flex-shrink-0">
-              {Array.from({ length: totalPages }).map((_, i) => (
-                <div
-                  key={i}
-                  className={`rounded-full transition-all duration-200 ${
-                    activePage === i
-                      ? 'w-4 h-1.5 bg-accent'
-                      : 'w-1.5 h-1.5 bg-surface2'
-                  }`}
-                />
-              ))}
+          {loading ? (
+            <div className="card flex justify-center py-12">
+              <div className="w-8 h-8 border-2 border-accent border-t-transparent rounded-full animate-spin" />
             </div>
+          ) : (
+            orderedExercises.map((exercise) => {
+              const status = getStatus(exercise)
+              const state = exerciseState[exercise.id] || { sets: [], lastTemplate: { reps: 8, weight: 0 } }
+              const cardio = isCardioExercise(exercise)
+              const totalExerciseVolume = (state.sets || []).reduce(
+                (sum, set) => sum + (set.reps || 0) * (set.weight || 0),
+                0
+              )
+
+              return (
+                <section
+                  key={exercise.id}
+                  ref={(node) => { cardRefs.current[exercise.id] = node }}
+                  className={`rounded-[28px] border bg-surface px-4 py-4 transition-all ${getCardClasses(status)}`}
+                >
+                  <div className="flex items-start gap-3">
+                    <div className={`mt-1 h-10 w-1.5 rounded-full ${
+                      status === 'active' ? 'bg-accent-green' : status === 'next' ? 'bg-accent' : 'bg-surface2'
+                    }`} />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="text-text-secondary text-[11px] uppercase tracking-[0.24em]">
+                            {status === 'active' ? 'Active' : status === 'next' ? 'Next' : status === 'completed' ? 'Completed' : status === 'skipped' ? 'Skipped' : 'Up Next'}
+                          </p>
+                          <h2 className="font-display text-xl font-bold text-text-primary mt-1 truncate">{exercise.name}</h2>
+                          <div className="flex flex-wrap items-center gap-2 mt-2">
+                            {exercise.muscleGroup && (
+                              <span className="text-[11px] font-semibold text-accent bg-accent/10 px-2 py-1 rounded-full">
+                                {exercise.muscleGroup}
+                              </span>
+                            )}
+                            {state.sessionCount > 0 && (
+                              <span className="text-[11px] text-text-secondary">
+                                {state.sessionCount} session{state.sessionCount !== 1 ? 's' : ''}
+                              </span>
+                            )}
+                            {state.lastSessionDate && (
+                              <span className="text-[11px] text-text-secondary">
+                                Last {format(parseISO(state.lastSessionDate), 'MMM d')}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        {(status === 'completed' || status === 'skipped') && (
+                          <div className={`w-10 h-10 rounded-2xl flex items-center justify-center ${
+                            status === 'completed' ? 'bg-accent-green/15 text-accent-green' : 'bg-surface2 text-text-secondary'
+                          }`}>
+                            {status === 'completed' ? (
+                              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                              </svg>
+                            ) : (
+                              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M18 6L6 18M6 6l12 12" />
+                              </svg>
+                            )}
+                          </div>
+                        )}
+                      </div>
+
+                      {status === 'active' ? (
+                        <>
+                          <div className="mt-4 rounded-2xl bg-bg/55 border border-white/5 px-3 py-3 flex items-center justify-between gap-3">
+                            <div>
+                              <p className="text-text-secondary text-[11px] uppercase tracking-[0.22em]">Next Up</p>
+                              <p className="text-text-primary text-sm font-semibold mt-1">
+                                {nextExercise ? nextExercise.name : 'Finish here'}
+                              </p>
+                            </div>
+                            <div className="text-right">
+                              <p className="text-text-secondary text-[11px] uppercase tracking-[0.22em]">Best</p>
+                              <p className="text-text-primary text-sm font-semibold mt-1">
+                                {state.bestWeight > 0 ? `${formatWeight(state.bestWeight)} lbs` : 'No PR yet'}
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="mt-4 rounded-2xl bg-bg/40 border border-white/5 px-3 py-3">
+                            <div className="grid grid-cols-[30px_1fr_1fr_56px_28px] gap-2 pb-2 border-b border-surface2 mb-1">
+                              {['#', 'Reps', cardio ? 'Min' : 'Lbs', cardio ? 'Time' : 'Vol', ''].map((label) => (
+                                <span key={label} className="text-text-secondary text-xs font-semibold text-center uppercase tracking-[0.18em]">
+                                  {label}
+                                </span>
+                              ))}
+                            </div>
+
+                            {state.sets.length === 0 ? (
+                              <div className="py-6 text-center">
+                                <p className="text-text-secondary text-sm">No sets yet</p>
+                                <p className="text-text-secondary text-xs mt-1">
+                                  Quick log from {formatWeight(state.lastTemplate.weight)} lbs x {state.lastTemplate.reps}
+                                </p>
+                              </div>
+                            ) : (
+                              state.sets.map((set, index) => (
+                                <WorkoutSetRow
+                                  key={set.id}
+                                  set={set}
+                                  index={index}
+                                  isCardio={cardio}
+                                  onUpdate={(updatedSet) => updateSet(exercise, updatedSet)}
+                                  onDelete={(setId) => deleteSet(exercise, setId)}
+                                />
+                              ))
+                            )}
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-2 mt-4">
+                            {[
+                              { key: 'plus-five', label: cardio ? '+5 min' : '+5 lbs' },
+                              { key: 'plus-two-point-five', label: cardio ? 'Same' : '+2.5 lbs' },
+                              { key: 'same', label: 'Same' },
+                              { key: 'plus-one', label: cardio ? '+1 min' : '+1 rep' },
+                            ].map((action) => (
+                              <button
+                                key={action.key}
+                                onClick={() => applyQuickAction(exercise, action.key)}
+                                className="rounded-2xl border border-surface2 bg-bg/55 px-3 py-3 text-sm font-semibold text-text-primary active:scale-95 transition-transform"
+                              >
+                                {action.label}
+                              </button>
+                            ))}
+                          </div>
+
+                          <div className="flex items-center justify-between mt-4 pt-3 border-t border-surface2">
+                            <button
+                              onClick={() => addSet(exercise)}
+                              className="text-accent-green text-sm font-semibold flex items-center gap-1.5 active:scale-95 transition-transform"
+                            >
+                              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                              </svg>
+                              Add Set
+                            </button>
+                            <div className="text-right">
+                              <p className="text-text-secondary text-xs">{cardio ? 'Total Time' : 'Total Volume'}</p>
+                              <p className="font-display font-bold text-accent-green text-xl leading-tight">
+                                {cardio ? `${totalExerciseVolume} min` : `${totalExerciseVolume.toLocaleString()} lbs`}
+                              </p>
+                            </div>
+                          </div>
+                        </>
+                      ) : (
+                        <div className="flex items-center justify-between gap-3 mt-4">
+                          <div className="text-sm text-text-secondary">
+                            {status === 'completed'
+                              ? `${state.sets.length} set${state.sets.length !== 1 ? 's' : ''} logged`
+                              : status === 'skipped'
+                                ? 'Skipped for this workout'
+                                : `${state.lastTemplate.reps} reps x ${formatWeight(state.lastTemplate.weight)} lbs ready`}
+                          </div>
+                          {status === 'next' && (
+                            <button
+                              onClick={() => {
+                                setCurrentExercise(exercise.id)
+                                navigate(`/workout/${exercise.id}`, { replace: true, state: { workoutMode: true, routine } })
+                              }}
+                              className="text-accent text-sm font-semibold"
+                            >
+                              Open
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </section>
+              )
+            })
           )}
         </div>
 
-        {/* ── Footer: Rest Timer + Finish ─────────────────── */}
-        <div className="px-4 pt-3 flex gap-2 items-center flex-shrink-0 border-t border-surface2" style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 0.75rem)' }}>
-          <div className="flex items-center gap-2 bg-surface border border-surface2 rounded-xl px-3 py-2.5 flex-1">
-            <svg className="w-4 h-4 text-text-secondary flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            <span className="font-mono text-text-primary text-base font-bold tracking-wide">{formatted()}</span>
-            <button
-              onClick={toggle}
-              className={`text-sm font-semibold ml-auto transition-colors ${
-                isRunning ? 'text-accent-green' : 'text-accent'
-              }`}
-            >
-              {isRunning ? 'Pause' : 'Start'}
+        <div className="border-t border-surface2 bg-bg/95 backdrop-blur px-4 pt-3 flex-shrink-0" style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 0.75rem)' }}>
+          {guidedWorkout?.summaryReady ? (
+            <button onClick={saveWorkout} className="btn-primary w-full">
+              Save Workout
             </button>
-            <button onClick={reset} className="text-sm text-text-secondary">
-              Reset
-            </button>
-          </div>
-          <button onClick={handleFinish} className="btn-primary px-5">
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-            </svg>
-            Finish
-          </button>
-        </div>
+          ) : (
+            <>
+              <div className="grid grid-cols-[1.35fr_1fr_1fr] gap-2">
+                <div className="rounded-2xl border border-surface2 bg-surface px-3 py-2.5">
+                  <div className="flex items-center gap-2">
+                    <svg className="w-4 h-4 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <span className="font-mono text-text-primary text-base font-bold">{formatted()}</span>
+                  </div>
+                  <div className="flex items-center gap-3 mt-2">
+                    <button onClick={toggle} className={`text-sm font-semibold ${isRunning ? 'text-accent-green' : 'text-accent'}`}>
+                      {isRunning ? 'Pause' : 'Start'}
+                    </button>
+                    <button onClick={reset} className="text-sm text-text-secondary">
+                      Reset
+                    </button>
+                  </div>
+                </div>
 
+                <button onClick={() => activeExercise && addSet(activeExercise)} disabled={!activeExercise} className="btn-secondary disabled:opacity-50">
+                  + Add Set
+                </button>
+
+                <button onClick={finishExercise} disabled={!activeExercise} className="btn-primary disabled:opacity-50">
+                  Finish
+                </button>
+              </div>
+
+              <button onClick={handleSkipExercise} disabled={!activeExercise} className="w-full text-center text-sm font-semibold text-text-secondary py-3 disabled:opacity-50">
+                Skip Exercise
+              </button>
+            </>
+          )}
+        </div>
       </div>
     </PageWrapper>
   )
+}
+
+export default function WorkoutPage() {
+  const location = useLocation()
+  const { activeWorkout } = useActiveWorkout()
+
+  if (location.state?.workoutMode || location.state?.routine || activeWorkout?.kind === 'routine') {
+    return <GuidedWorkoutPage />
+  }
+
+  return <LegacyExerciseWorkout />
 }

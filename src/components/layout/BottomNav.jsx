@@ -1,5 +1,5 @@
-// src/components/layout/BottomNav.jsx
 import { useLocation, useNavigate } from 'react-router-dom'
+import { useActiveWorkout } from '../../context/ActiveWorkoutContext'
 import { useTimer } from '../../context/TimerContext'
 
 const TABS = [
@@ -54,24 +54,61 @@ export default function BottomNav() {
   const location = useLocation()
   const navigate = useNavigate()
   const { isRunning, formatted } = useTimer()
+  const { activeWorkout } = useActiveWorkout()
 
   const isActive = (path) => {
     if (path === '/') return location.pathname === '/'
     return location.pathname.startsWith(path)
   }
 
+  const currentExercise = activeWorkout?.exercises.find(
+    (exercise) => exercise.id === activeWorkout.currentExerciseId
+  )
+  const showWorkoutBadge = Boolean(activeWorkout) && !location.pathname.startsWith('/workout')
+
+  function openActiveWorkout() {
+    if (!activeWorkout) return
+
+    const exerciseId = activeWorkout.currentExerciseId || activeWorkout.exercises[0]?.id
+    if (!exerciseId) return
+
+    navigate(`/workout/${exerciseId}`, {
+      state: {
+        workoutMode: true,
+        routine: {
+          ...activeWorkout.routine,
+          exercises: activeWorkout.exercises,
+        },
+      },
+    })
+  }
+
   return (
     <div className="fixed bottom-0 left-0 right-0 z-50" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
-      {/* Timer floating badge — shown when timer is running and not on workout page */}
-      {isRunning && !location.pathname.startsWith('/workout') && (
-        <div className="flex justify-center mb-2">
-          <div className="bg-accent-green text-white text-xs font-mono font-bold px-3 py-1 rounded-full shadow-lg animate-pulse-soft">
-            ⏱ {formatted()}
-          </div>
+      {showWorkoutBadge ? (
+        <div className="flex justify-center mb-2 px-4">
+          <button
+            onClick={openActiveWorkout}
+            className="max-w-full bg-accent-green text-white px-4 py-2 rounded-full shadow-lg animate-pulse-soft active:scale-95 transition-transform"
+          >
+            <div className="flex items-center gap-2">
+              <span className="font-mono text-xs font-bold">{formatted()}</span>
+              <span className="text-xs font-semibold truncate max-w-[180px]">
+                {activeWorkout.summaryReady ? 'Workout Summary' : (currentExercise?.name || activeWorkout.routine.name)}
+              </span>
+            </div>
+          </button>
         </div>
+      ) : (
+        isRunning && !location.pathname.startsWith('/workout') && (
+          <div className="flex justify-center mb-2">
+            <div className="bg-accent-green text-white text-xs font-mono font-bold px-3 py-1 rounded-full shadow-lg animate-pulse-soft">
+              Timer {formatted()}
+            </div>
+          </div>
+        )
       )}
 
-      {/* Nav bar */}
       <div className="bg-surface border-t border-surface2 px-2">
         <div className="flex items-center justify-around">
           {TABS.map((tab) => {

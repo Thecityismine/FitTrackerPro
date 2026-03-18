@@ -41,6 +41,7 @@ import {
   serverTimestamp, arrayUnion, arrayRemove, writeBatch, doc,
 } from 'firebase/firestore'
 import { useAuth } from '../context/AuthContext'
+import { useActiveWorkout } from '../context/ActiveWorkoutContext'
 import { routinesCol, routineDoc, sessionsCol, exercisesCol, globalExercisesCol, exerciseDoc } from '../firebase/collections'
 import { db } from '../firebase/config'
 import PageWrapper from '../components/layout/PageWrapper'
@@ -305,15 +306,34 @@ function DeleteConfirm({ routineName, onCancel, onConfirm }) {
   )
 }
 
+function reorderList(list, fromIndex, toIndex) {
+  if (fromIndex === toIndex || fromIndex < 0 || toIndex < 0) return list
+  const next = [...list]
+  const [moved] = next.splice(fromIndex, 1)
+  next.splice(toIndex, 0, moved)
+  return next
+}
+
 // ─── Routine Detail (full-screen overlay) ─────────────────
-function RoutineDetail({ routine, onClose, onAddExercise, onRemoveExercise, onDeleteRoutine, onRenameRoutine, sessions = [] }) {
+function RoutineDetail({
+  routine,
+  onClose,
+  onAddExercise,
+  onRemoveExercise,
+  onDeleteRoutine,
+  onRenameRoutine,
+  onReorderExercises,
+  sessions = [],
+}) {
   const navigate = useNavigate()
+  const { activeWorkout, startRoutineWorkout, syncRoutine } = useActiveWorkout()
   const [showAddExercise, setShowAddExercise] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [renaming, setRenaming] = useState(false)
   const [newName, setNewName] = useState(routine.name)
   const [saving, setSaving] = useState(false)
   const [editMode, setEditMode] = useState(false)
+  const [dragIndex, setDragIndex] = useState(null)
 
   const exercises = routine.exercises || []
   const existingIds = exercises.map((ex) => ex.id)
@@ -367,6 +387,30 @@ function RoutineDetail({ routine, onClose, onAddExercise, onRemoveExercise, onDe
   function cancelRename() {
     setNewName(routine.name)
     setRenaming(false)
+  }
+
+  useEffect(() => {
+    if (activeWorkout?.kind === 'routine' && activeWorkout.routine.id === routine.id) {
+      syncRoutine(routine)
+    }
+  }, [activeWorkout, routine, syncRoutine])
+
+  function startWorkout() {
+    if (!exercises.length) return
+    startRoutineWorkout(routine, { startExerciseId: exercises[0].id })
+    navigate(`/workout/${exercises[0].id}`, {
+      state: {
+        workoutMode: true,
+        routine,
+      },
+    })
+  }
+
+  async function handleReorder(fromIndex, toIndex) {
+    if (fromIndex === toIndex || fromIndex == null || toIndex == null) return
+    const nextExercises = reorderList(exercises, fromIndex, toIndex)
+    setDragIndex(null)
+    await onReorderExercises(routine.id, nextExercises)
   }
 
   return (
@@ -453,6 +497,30 @@ function RoutineDetail({ routine, onClose, onAddExercise, onRemoveExercise, onDe
           )}
         </div>
 
+        <div className="px-4 pt-4">
+          <button
+            onClick={startWorkout}
+            disabled={exercises.length === 0}
+            className="w-full rounded-2xl border border-accent/30 bg-gradient-to-r from-accent to-accent-hover px-4 py-4 text-left shadow-lg shadow-accent/20 disabled:opacity-50"
+          >
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <p className="text-white/80 text-[11px] font-semibold uppercase tracking-[0.24em]">
+                  {activeWorkout?.kind === 'routine' && activeWorkout.routine.id === routine.id ? 'Resume workout' : 'Start workout'}
+                </p>
+                <p className="text-white font-display text-xl font-bold mt-1">
+                  {exercises.length ? `Train ${routine.name}` : 'Add exercises first'}
+                </p>
+              </div>
+              <div className="w-12 h-12 rounded-2xl bg-white/12 flex items-center justify-center">
+                <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M5.25 5.653c0-1.427 1.529-2.33 2.779-1.643l9.42 5.173c1.295.711 1.295 2.575 0 3.286l-9.42 5.173c-1.25.687-2.779-.216-2.779-1.643V5.653z" />
+                </svg>
+              </div>
+            </div>
+          </button>
+        </div>
+
         {/* Exercise list */}
         <div className="flex-1 overflow-y-auto px-4 py-4 space-y-2">
           {exercises.length === 0 ? (
@@ -469,26 +537,43 @@ function RoutineDetail({ routine, onClose, onAddExercise, onRemoveExercise, onDe
               <p className="text-text-secondary text-sm mt-1">Tap here to add your first exercise</p>
             </button>
           ) : (
-            exercises.map((ex) => {
+            exercises.map((ex, index) => {
               const stats = exerciseStats[ex.id] || {}
               return (
-                <button
+                <div
                   key={ex.id}
+                  draggable={editMode}
+                  onDragStart={() => setDragIndex(index)}
+                  onDragOver={(e) => { if (editMode) e.preventDefault() }}
+                  onDrop={(e) => { e.preventDefault(); if (editMode) handleReorder(dragIndex, index) }}
+                  onDragEnd={() => setDragIndex(null)}
                   onClick={() => !editMode && navigate(`/workout/${ex.id}`, { state: { exercise: ex, routine } })}
                   className={`card w-full flex items-stretch gap-3 py-4 pr-3 text-left overflow-hidden relative ${
-                    editMode ? 'cursor-default' : 'active:scale-[0.98] transition-transform'
-                  }`}
+                    editMode ? 'cursor-move' : 'active:scale-[0.98] transition-transform'
+                  } ${dragIndex === index ? 'opacity-60' : ''}`}
                 >
-                  {/* Edit mode: red minus on left */}
                   {editMode && (
-                    <button
-                      onClick={(e) => { e.stopPropagation(); onRemoveExercise(routine.id, ex) }}
-                      className="w-7 h-7 rounded-full bg-accent-red/20 border border-accent-red/40 flex items-center justify-center active:scale-95 transition-transform flex-shrink-0 self-center"
-                    >
-                      <svg className="w-3.5 h-3.5 text-accent-red" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 12h-15" />
-                      </svg>
-                    </button>
+                    <>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); onRemoveExercise(routine.id, ex) }}
+                        className="w-7 h-7 rounded-full bg-accent-red/20 border border-accent-red/40 flex items-center justify-center active:scale-95 transition-transform flex-shrink-0 self-center"
+                      >
+                        <svg className="w-3.5 h-3.5 text-accent-red" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 12h-15" />
+                        </svg>
+                      </button>
+                      <button
+                        draggable
+                        onDragStart={() => setDragIndex(index)}
+                        onClick={(e) => e.stopPropagation()}
+                        className="w-8 h-8 rounded-xl bg-surface2 flex items-center justify-center text-text-secondary active:scale-95 transition-transform flex-shrink-0 self-center"
+                        title="Drag to reorder"
+                      >
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M8 6h.01M8 12h.01M8 18h.01M16 6h.01M16 12h.01M16 18h.01" />
+                        </svg>
+                      </button>
+                    </>
                   )}
 
                   {/* Left: name + session info (top) / PR (bottom) */}
@@ -517,7 +602,7 @@ function RoutineDetail({ routine, onClose, onAddExercise, onRemoveExercise, onDe
 
                   {/* Status dot — bottom-right corner */}
                   <span className={`absolute bottom-2.5 right-2.5 w-2.5 h-2.5 rounded-full ${stats.dotColor}`} />
-                </button>
+                </div>
               )
             })
           )}
@@ -724,6 +809,18 @@ export default function Routines() {
     })
   }
 
+  async function reorderExercises(routineId, nextExercises) {
+    await updateDoc(routineDoc(user.uid, routineId), {
+      exercises: nextExercises,
+      updatedAt: serverTimestamp(),
+    })
+    setSelectedRoutine((prev) => (
+      prev && prev.id === routineId
+        ? { ...prev, exercises: nextExercises }
+        : prev
+    ))
+  }
+
   async function renameRoutine(routineId, name) {
     await updateDoc(routineDoc(user.uid, routineId), {
       name,
@@ -819,6 +916,7 @@ export default function Routines() {
           onClose={() => setSelectedRoutine(null)}
           onAddExercise={addExercise}
           onRemoveExercise={removeExercise}
+          onReorderExercises={reorderExercises}
           onDeleteRoutine={deleteRoutine}
           onRenameRoutine={renameRoutine}
         />

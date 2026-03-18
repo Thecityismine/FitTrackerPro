@@ -2,6 +2,7 @@
 import { lazy, Suspense } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './context/AuthContext'
+import { ActiveWorkoutProvider } from './context/ActiveWorkoutContext'
 import { TimerProvider } from './context/TimerContext'
 
 // If a lazy chunk fails to load (stale URL after a new deploy), reload the page
@@ -78,9 +79,11 @@ export default function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
-        <TimerProvider>
-          <AppRoutes />
-        </TimerProvider>
+        <ActiveWorkoutProvider>
+          <TimerProvider>
+            <AppRoutes />
+          </TimerProvider>
+        </ActiveWorkoutProvider>
       </AuthProvider>
     </BrowserRouter>
   )
