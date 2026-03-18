@@ -1,132 +1,42 @@
-export const AI_SETUP_MESSAGE = 'Add your Anthropic or OpenAI API key in Profile to get started.'
+import { httpsCallable } from 'firebase/functions'
+import { functions } from '../firebase/config'
 
-export function getAiCredentials(profile) {
-  return {
-    anthropicApiKey: profile?.anthropicApiKey?.trim() || '',
-    openAiApiKey: profile?.openAiApiKey?.trim() || '',
+export const AI_SERVER_MESSAGE = 'AI analysis runs securely through the app server.'
+export const AI_UNAVAILABLE_MESSAGE = 'AI is not configured on the server yet. Ask the app admin to add the Firebase Functions AI secret.'
+
+const aiProxy = httpsCallable(functions, 'aiProxy')
+
+function getCallableErrorMessage(error) {
+  if (typeof error?.details === 'string' && error.details.trim()) return error.details
+  if (typeof error?.message === 'string' && error.message.trim()) {
+    return error.message.replace(/^internal\s*/i, '').replace(/^failed-precondition\s*/i, '').trim()
+  }
+  return 'AI request failed.'
+}
+
+async function callAiProxy(payload) {
+  try {
+    const result = await aiProxy(payload)
+    return result.data?.text || 'No response received.'
+  } catch (error) {
+    throw new Error(getCallableErrorMessage(error))
   }
 }
 
-export function hasAiCredentials(profile) {
-  const { anthropicApiKey, openAiApiKey } = getAiCredentials(profile)
-  return Boolean(anthropicApiKey || openAiApiKey)
+export async function generateAiText({ prompt, systemPrompt = '', maxTokens = 500 }) {
+  return callAiProxy({
+    mode: 'text',
+    prompt,
+    systemPrompt,
+    maxTokens,
+  })
 }
 
-async function parseJsonResponse(response) {
-  const data = await response.json()
-  if (!response.ok) {
-    throw new Error(data?.error?.message || 'AI request failed.')
-  }
-  if (data?.error) {
-    throw new Error(data.error.message || 'AI request failed.')
-  }
-  return data
-}
-
-export async function generateAiText({ prompt, systemPrompt = '', profile, maxTokens = 500 }) {
-  const { anthropicApiKey, openAiApiKey } = getAiCredentials(profile)
-
-  if (anthropicApiKey) {
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'x-api-key': anthropicApiKey,
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true',
-        'content-type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
-        max_tokens: maxTokens,
-        system: systemPrompt || undefined,
-        messages: [{ role: 'user', content: prompt }],
-      }),
-    })
-
-    const data = await parseJsonResponse(response)
-    return data.content?.[0]?.text || 'No response received.'
-  }
-
-  if (openAiApiKey) {
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${openAiApiKey}`,
-        'content-type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'gpt-4o-mini',
-        max_tokens: maxTokens,
-        messages: [
-          ...(systemPrompt ? [{ role: 'system', content: systemPrompt }] : []),
-          { role: 'user', content: prompt },
-        ],
-      }),
-    })
-
-    const data = await parseJsonResponse(response)
-    return data.choices?.[0]?.message?.content || 'No response received.'
-  }
-
-  throw new Error(AI_SETUP_MESSAGE)
-}
-
-export async function analyzeImageWithAi({ prompt, dataUrl, profile, maxTokens = 500 }) {
-  const { anthropicApiKey, openAiApiKey } = getAiCredentials(profile)
-
-  if (anthropicApiKey) {
-    const base64 = dataUrl.split(',')[1]
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'x-api-key': anthropicApiKey,
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true',
-        'content-type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
-        max_tokens: maxTokens,
-        messages: [{
-          role: 'user',
-          content: [
-            {
-              type: 'image',
-              source: { type: 'base64', media_type: 'image/jpeg', data: base64 },
-            },
-            { type: 'text', text: prompt },
-          ],
-        }],
-      }),
-    })
-
-    const data = await parseJsonResponse(response)
-    return data.content?.[0]?.text || 'No response received.'
-  }
-
-  if (openAiApiKey) {
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${openAiApiKey}`,
-        'content-type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'gpt-4o-mini',
-        max_tokens: maxTokens,
-        messages: [{
-          role: 'user',
-          content: [
-            { type: 'text', text: prompt },
-            { type: 'image_url', image_url: { url: dataUrl } },
-          ],
-        }],
-      }),
-    })
-
-    const data = await parseJsonResponse(response)
-    return data.choices?.[0]?.message?.content || 'No response received.'
-  }
-
-  throw new Error(AI_SETUP_MESSAGE)
+export async function analyzeImageWithAi({ prompt, dataUrl, maxTokens = 500 }) {
+  return callAiProxy({
+    mode: 'image',
+    prompt,
+    dataUrl,
+    maxTokens,
+  })
 }

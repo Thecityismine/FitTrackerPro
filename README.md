@@ -1,45 +1,45 @@
 # FitTrack Pro
 
-Personal fitness tracker — React + Firebase + Vite PWA
+Personal fitness tracker built with React, Firebase, and Vite PWA.
 
 ## Stack
-- **React 18** + React Router 6
-- **Firebase** — Auth, Firestore (offline-enabled)
-- **Tailwind CSS** — Dark theme design system
-- **Recharts** — Volume & metrics charts
-- **Vite** + PWA plugin — installable on iOS/Android
-- **Vercel** — Deployment
-
----
+- React 18 + React Router 6
+- Firebase Auth, Firestore, Storage, Functions
+- Tailwind CSS
+- Recharts
+- Vite + `vite-plugin-pwa`
+- Vercel for the web app
 
 ## Setup
 
-### 1. Install dependencies
+### 1. Install web dependencies
 ```bash
 npm install
 ```
 
-### 2. Configure Firebase
+### 2. Configure Firebase web env
 ```bash
 cp .env.example .env.local
 ```
-Fill in your Firebase credentials in `.env.local`
 
-**Firebase Console setup needed:**
-- Authentication → Sign-in methods → Enable: **Email/Password** + **Google**
-- Firestore → Create database (production mode)
-- Firestore → Rules → paste from `firestore.rules`
+Fill in your Firebase web app credentials in `.env.local`.
 
-### 3. Run locally
+Firebase console setup:
+- Enable `Email/Password` and `Google` sign-in
+- Create Firestore
+- Apply [firestore.rules](c:/Users/gmedi/Desktop/FitTrack%20Pro/firestore.rules)
+- Apply [storage.rules](c:/Users/gmedi/Desktop/FitTrack%20Pro/storage.rules)
+
+### 3. Run the web app
 ```bash
 npm run dev
 ```
 
-### 4. Deploy to Vercel
-Push to GitHub — Vercel auto-deploys on every commit.
+### 4. Deploy the web app
+Push to GitHub and Vercel will deploy the frontend.
 
-Add these environment variables in **Vercel Dashboard → Settings → Environment Variables**:
-```
+Required Vercel env vars:
+```bash
 VITE_FIREBASE_API_KEY
 VITE_FIREBASE_AUTH_DOMAIN
 VITE_FIREBASE_PROJECT_ID
@@ -48,30 +48,41 @@ VITE_FIREBASE_MESSAGING_SENDER_ID
 VITE_FIREBASE_APP_ID
 ```
 
----
+### 5. Configure Firebase Functions for AI
+AI requests now run through Firebase Functions instead of direct browser calls.
+
+Install Function dependencies:
+```bash
+cd functions
+npm install
+cd ..
+```
+
+Set the Anthropic provider secret:
+```bash
+firebase functions:secrets:set ANTHROPIC_API_KEY
+```
+
+Deploy the backend:
+```bash
+firebase deploy --only functions
+```
+
+The frontend stays on Vercel. The AI proxy runs on Firebase Functions.
 
 ## Project Structure
-```
+```text
 src/
   components/
-    layout/       ← Header, BottomNav, PageWrapper
-    charts/       ← VolumeChart, WeightChart (Phase 1)
-    workout/      ← SetRow, RestTimer, AddExerciseModal (Phase 2)
-    metrics/      ← MetricCard, EntryModal (Phase 3)
-  pages/          ← Dashboard, WorkoutPage, Routines, Muscles, BodyMetrics, CalendarLog
-  context/        ← AuthContext, TimerContext
-  firebase/       ← config.js, collections.js
-  utils/          ← volumeCalc.js (Phase 2)
+  context/
+  firebase/
+  pages/
+  utils/
+functions/
+  index.js
+public/
+scripts/
 ```
 
-## Build Phases
-- **Phase 1** (current): Scaffold, Auth, all page shells, rest timer, bottom nav
-- **Phase 2**: Live Firestore workout logging, volume charts
-- **Phase 3**: Body metrics entry + trend charts
-- **Phase 4**: PWA polish, calendar, PRs, multi-user profiles
-
----
-
-## Family / Multi-User
-Each family member creates their own account (Google or email).
-All data is isolated under `users/{uid}/...` — zero overlap between accounts.
+## Multi-User
+Each family member creates their own account. Data stays isolated under `users/{uid}/...`.

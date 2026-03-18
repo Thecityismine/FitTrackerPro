@@ -46,7 +46,7 @@ import { routinesCol, routineDoc, sessionsCol, exercisesCol, globalExercisesCol,
 import { db } from '../firebase/config'
 import PageWrapper from '../components/layout/PageWrapper'
 import { getExerciseIcon } from '../utils/exerciseIcons'
-import { AI_SETUP_MESSAGE, generateAiText, hasAiCredentials } from '../utils/aiClient'
+import { AI_SERVER_MESSAGE, generateAiText } from '../utils/aiClient'
 
 // ─── New Routine Bottom Sheet ──────────────────────────────
 function NewRoutineSheet({ onClose, onSave }) {
@@ -325,7 +325,7 @@ function reorderList(list, fromIndex, toIndex) {
   return next
 }
 
-function WeeklySummaryCard({ sessions, profile }) {
+function WeeklySummaryCard({ sessions }) {
   const [report, setReport] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
@@ -363,10 +363,6 @@ function WeeklySummaryCard({ sessions, profile }) {
   const routineNames = [...new Set(weeklySessions.map((session) => session.routineName).filter(Boolean))]
 
   async function handleGenerateReport() {
-    if (!hasAiCredentials(profile)) {
-      setError(AI_SETUP_MESSAGE)
-      return
-    }
     if (!weeklySessions.length) {
       setError('Log at least one workout this week to generate a weekly summary.')
       return
@@ -415,7 +411,7 @@ Format your response as:
 Keep it under 220 words and be concrete.`
 
     try {
-      const text = await generateAiText({ prompt, profile, maxTokens: 500 })
+      const text = await generateAiText({ prompt, maxTokens: 500 })
       setReport(text)
     } catch (err) {
       setError(err.message || 'Failed to generate weekly summary.')
@@ -438,11 +434,9 @@ Keep it under 220 words and be concrete.`
         </div>
       </div>
 
-      {!hasAiCredentials(profile) && (
-        <div className="bg-accent/10 border border-accent/20 rounded-xl p-3">
-          <p className="text-text-secondary text-xs">{AI_SETUP_MESSAGE}</p>
-        </div>
-      )}
+      <div className="bg-accent/10 border border-accent/20 rounded-xl p-3">
+        <p className="text-text-secondary text-xs">{AI_SERVER_MESSAGE}</p>
+      </div>
 
       {error && (
         <div className="bg-accent-red/10 border border-accent-red/20 rounded-xl p-3">
@@ -846,7 +840,7 @@ function RoutineCard({ routine, onSelect }) {
 
 // ─── Main Page ─────────────────────────────────────────────
 export default function Routines() {
-  const { user, profile } = useAuth()
+  const { user } = useAuth()
   const location = useLocation()
   const [routines, setRoutines] = useState([])
   const [loading, setLoading] = useState(true)
@@ -1069,7 +1063,6 @@ export default function Routines() {
           {!sessionsLoading && (
             <WeeklySummaryCard
               sessions={sessions}
-              profile={profile}
             />
           )}
 
