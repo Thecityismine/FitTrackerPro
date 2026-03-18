@@ -24,6 +24,8 @@ export default function Profile() {
   const [legsTarget, setLegsTarget] = useState(profile?.weeklyTargets?.legs ?? 21)
   const [workoutGoal, setWorkoutGoal] = useState(profile?.weeklyWorkoutGoal ?? 3)
   const [volumeGoal, setVolumeGoal]   = useState(profile?.weeklyVolumeGoal ?? 100000)
+  const [anthropicApiKey, setAnthropicApiKey] = useState(profile?.anthropicApiKey || '')
+  const [openAiApiKey, setOpenAiApiKey] = useState(profile?.openAiApiKey || '')
   const [saving, setSaving]       = useState(false)
   const [saved, setSaved]         = useState(false)
 
@@ -90,6 +92,8 @@ export default function Profile() {
         },
         weeklyWorkoutGoal: Number(workoutGoal) || 3,
         weeklyVolumeGoal: Number(volumeGoal) || 100000,
+        anthropicApiKey: anthropicApiKey.trim(),
+        openAiApiKey: openAiApiKey.trim(),
       })
       if (auth.currentUser) {
         await updateProfile(auth.currentUser, { displayName: trimmedName })
@@ -225,6 +229,42 @@ export default function Profile() {
             >
               {saving ? 'Saving…' : saved ? '✓ Saved' : 'Save Changes'}
             </button>
+          </div>
+        </div>
+
+        <div>
+          <p className="section-title">AI Settings</p>
+          <div className="card space-y-4">
+            <p className="text-text-secondary text-xs">
+              Add your Anthropic or OpenAI API key to enable AI Monthly Reports, Scan Scale Photo, and Weekly Summary Reports.
+            </p>
+            <div>
+              <label className="label">Anthropic API Key</label>
+              <input
+                type="password"
+                className="input"
+                placeholder="sk-ant-..."
+                value={anthropicApiKey}
+                onChange={(e) => setAnthropicApiKey(e.target.value)}
+                autoComplete="off"
+                spellCheck="false"
+              />
+            </div>
+            <div>
+              <label className="label">OpenAI API Key</label>
+              <input
+                type="password"
+                className="input"
+                placeholder="sk-..."
+                value={openAiApiKey}
+                onChange={(e) => setOpenAiApiKey(e.target.value)}
+                autoComplete="off"
+                spellCheck="false"
+              />
+            </div>
+            <p className="text-text-secondary text-xs">
+              Save changes after updating your key. The app will use Anthropic first, then OpenAI if Anthropic is empty.
+            </p>
           </div>
         </div>
 

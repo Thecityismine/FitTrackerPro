@@ -207,6 +207,37 @@ export function ActiveWorkoutProvider({ children }) {
     moveExerciseToDone(exerciseId, 'skipped')
   }
 
+  function reopenExercise(exerciseId) {
+    setActiveWorkout((current) => {
+      if (!current || current.kind !== 'routine') return current
+      if (current.dayKey !== getLocalDayKey()) return null
+      if (!current.exercises.some((exercise) => exercise.id === exerciseId)) return current
+
+      const completed = current.completed.filter((id) => id !== exerciseId)
+      const skipped = current.skipped.filter((id) => id !== exerciseId)
+      const completionOrder = current.completionOrder.filter((id) => id !== exerciseId)
+
+      if (
+        sameArray(completed, current.completed) &&
+        sameArray(skipped, current.skipped) &&
+        sameArray(completionOrder, current.completionOrder) &&
+        current.currentExerciseId === exerciseId &&
+        current.summaryReady === false
+      ) {
+        return current
+      }
+
+      return {
+        ...current,
+        completed,
+        skipped,
+        completionOrder,
+        currentExerciseId: exerciseId,
+        summaryReady: false,
+      }
+    })
+  }
+
   function hydrateCompletedExercises(exerciseIds = []) {
     setActiveWorkout((current) => {
       if (!current || current.kind !== 'routine') return current
@@ -264,6 +295,7 @@ export function ActiveWorkoutProvider({ children }) {
         setCurrentExercise,
         completeExercise,
         skipExercise,
+        reopenExercise,
         hydrateCompletedExercises,
         clearActiveWorkout,
       }}

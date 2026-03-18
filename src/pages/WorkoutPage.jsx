@@ -115,6 +115,7 @@ function GuidedWorkoutPage() {
     setCurrentExercise,
     completeExercise,
     skipExercise,
+    reopenExercise,
     hydrateCompletedExercises,
     clearActiveWorkout,
   } = useActiveWorkout()
@@ -314,6 +315,9 @@ function GuidedWorkoutPage() {
 
   function addSet(exercise) {
     appendSet(exercise, (template) => template)
+    clearTimeout(timerRestartTimeoutRef.current)
+    reset()
+    start()
   }
 
   function updateSet(exercise, updatedSet) {
@@ -387,6 +391,13 @@ function GuidedWorkoutPage() {
 
   function openExercise(exerciseId) {
     setCurrentExercise(exerciseId)
+    requestAnimationFrame(() => {
+      cardRefs.current[exerciseId]?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    })
+  }
+
+  function continueExercise(exerciseId) {
+    reopenExercise(exerciseId)
     requestAnimationFrame(() => {
       cardRefs.current[exerciseId]?.scrollIntoView({ behavior: 'smooth', block: 'start' })
     })
@@ -510,14 +521,32 @@ function GuidedWorkoutPage() {
                 (sum, set) => sum + (set.reps || 0) * (set.weight || 0),
                 0
               )
+              const isReopenable = status === 'completed' || status === 'skipped'
+              const isOpenable = status === 'next' || status === 'upcoming'
+              const topStatusLabel =
+                status === 'completed'
+                  ? (completedToday ? 'Completed today' : 'Completed')
+                  : status === 'next'
+                    ? 'Next'
+                    : status === 'skipped'
+                      ? 'Skipped'
+                      : status === 'active'
+                        ? 'Active'
+                        : 'Up Next'
 
               return (
                 <section
                   key={exercise.id}
                   ref={(node) => { cardRefs.current[exercise.id] = node }}
-                  onClick={status === 'next' || status === 'upcoming' ? () => openExercise(exercise.id) : undefined}
+                  onClick={
+                    isOpenable
+                      ? () => openExercise(exercise.id)
+                      : isReopenable
+                        ? () => continueExercise(exercise.id)
+                        : undefined
+                  }
                   className={`rounded-[28px] border bg-surface px-4 py-4 transition-all ${getCardClasses(status)} ${
-                    status === 'next' || status === 'upcoming' ? 'active:scale-[0.99]' : ''
+                    isOpenable || isReopenable ? 'active:scale-[0.99]' : ''
                   }`}
                 >
                   <div className="flex items-start gap-3">
@@ -528,11 +557,11 @@ function GuidedWorkoutPage() {
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
                           <p className="text-text-secondary text-[11px] uppercase tracking-[0.24em]">
-                            {status === 'active' ? 'Active' : status === 'next' ? 'Next' : status === 'completed' ? 'Completed' : status === 'skipped' ? 'Skipped' : 'Up Next'}
+                            {topStatusLabel}
                           </p>
                           <div className="flex flex-wrap items-center gap-2 mt-1">
                             <h2 className="font-display text-xl font-bold text-text-primary truncate">{exercise.name}</h2>
-                            {completedToday && status !== 'active' && (
+                            {completedToday && !isReopenable && status !== 'active' && (
                               <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-red-400 bg-red-500/10 px-2 py-1 rounded-full">
                                 Complete today
                               </span>
@@ -557,21 +586,6 @@ function GuidedWorkoutPage() {
                           </div>
                         </div>
 
-                        {(status === 'completed' || status === 'skipped') && (
-                          <div className={`w-10 h-10 rounded-2xl flex items-center justify-center ${
-                            status === 'completed' ? 'bg-accent-green/15 text-accent-green' : 'bg-surface2 text-text-secondary'
-                          }`}>
-                            {status === 'completed' ? (
-                              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-                              </svg>
-                            ) : (
-                              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M18 6L6 18M6 6l12 12" />
-                              </svg>
-                            )}
-                          </div>
-                        )}
                       </div>
 
                       {status === 'active' ? (
@@ -632,7 +646,7 @@ function GuidedWorkoutPage() {
                             </div>
                           </div>
                         </>
-                      ) : (
+                      ) : isReopenable ? null : (
                         <div className="flex items-center justify-between gap-3 mt-4">
                           <div className="text-sm text-text-secondary">
                             {status === 'completed'

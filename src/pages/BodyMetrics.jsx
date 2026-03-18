@@ -6,6 +6,7 @@ import { AreaChart, Area, XAxis, Tooltip, ResponsiveContainer } from 'recharts'
 import PageWrapper from '../components/layout/PageWrapper'
 import { useAuth } from '../context/AuthContext'
 import { bodyMetricsCol, sessionsCol } from '../firebase/collections'
+import { AI_SETUP_MESSAGE, analyzeImageWithAi, generateAiText, hasAiCredentials } from '../utils/aiClient'
 
 const TODAY = format(new Date(), 'yyyy-MM-dd')
 
@@ -384,16 +385,14 @@ function ProgressPhotoCard({ entries }) {
 }
 
 // ── AI Monthly Report Card ─────────────────────────────────
-function AiReportCard({ entries, sessions }) {
+function AiReportCard({ entries, sessions, profile }) {
   const [report, setReport] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
 
-  const apiKey = import.meta.env.VITE_ANTHROPIC_API_KEY
-
   async function generateReport() {
-    if (!apiKey) {
-      setError('Add VITE_ANTHROPIC_API_KEY to your Vercel environment variables to enable AI reports.')
+    if (!hasAiCredentials(profile)) {
+      setError(AI_SETUP_MESSAGE)
       return
     }
     setLoading(true)
@@ -445,26 +444,11 @@ Format your response as:
 2. [recommendation]
 3. [recommendation]
 
-Keep your total response under 200 words.`
+	Keep your total response under 200 words.`
 
     try {
-      const res = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-          'x-api-key': apiKey,
-          'anthropic-version': '2023-06-01',
-          'anthropic-dangerous-direct-browser-access': 'true',
-          'content-type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'claude-haiku-4-5-20251001',
-          max_tokens: 400,
-          messages: [{ role: 'user', content: prompt }],
-        }),
-      })
-      const data = await res.json()
-      if (data.error) throw new Error(data.error.message)
-      setReport(data.content?.[0]?.text ?? 'No response received.')
+      const text = await generateAiText({ prompt, profile, maxTokens: 400 })
+      setReport(text)
     } catch (e) {
       setError(e.message || 'Failed to generate report.')
     } finally {
@@ -485,6 +469,12 @@ Keep your total response under 200 words.`
           </svg>
         </div>
       </div>
+
+      {!hasAiCredentials(profile) && (
+        <div className="bg-accent/10 border border-accent/20 rounded-xl p-3 mb-3">
+          <p className="text-text-secondary text-xs">{AI_SETUP_MESSAGE}</p>
+        </div>
+      )}
 
       {error && (
         <div className="bg-accent-red/10 border border-accent-red/20 rounded-xl p-3 mb-3">
@@ -539,7 +529,7 @@ function WeightTooltip({ active, payload, label }) {
 
 // ── Main Page ──────────────────────────────────────────────
 export default function BodyMetrics() {
-  const { user } = useAuth()
+  const { user, profile } = useAuth()
   const [entries, setEntries] = useState([])
   const [sessions, setSessions] = useState([])
   const [loading, setLoading] = useState(true)
@@ -548,8 +538,6 @@ export default function BodyMetrics() {
   const [showAll, setShowAll] = useState(false)
   const [scanning, setScanning] = useState(false)
   const scanInputRef = useRef(null)
-
-  const apiKey = import.meta.env.VITE_ANTHROPIC_API_KEY
 
   useEffect(() => {
     if (!user?.uid) return
@@ -589,48 +577,23 @@ export default function BodyMetrics() {
     if (!file) return
     e.target.value = ''
 
-    if (!apiKey) {
-      alert('Add VITE_ANTHROPIC_API_KEY to your Vercel environment variables to enable scan.')
+    if (!hasAiCredentials(profile)) {
+      alert(AI_SETUP_MESSAGE)
       return
     }
 
     setScanning(true)
     try {
       const compressed = await compressImage(file, 1400, 0.85)
-      const b64data = compressed.split(',')[1]
 
-      const res = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-          'x-api-key': apiKey,
-          'anthropic-version': '2023-06-01',
-          'anthropic-dangerous-direct-browser-access': 'true',
-          'content-type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'claude-haiku-4-5-20251001',
-          max_tokens: 400,
-          messages: [{
-            role: 'user',
-            content: [
-              {
-                type: 'image',
-                source: { type: 'base64', media_type: 'image/jpeg', data: b64data },
-              },
-              {
-                type: 'text',
-                text: `Extract all body metrics from this smart scale screenshot. Return ONLY a valid JSON object with these exact keys (use null for any value not found):
+      const text = await analyzeImageWithAi({
+        profile,
+        dataUrl: compressed,
+        maxTokens: 400,
+        prompt: `Extract all body metrics from this smart scale screenshot. Return ONLY a valid JSON object with these exact keys (use null for any value not found):
 {"weight":null,"bodyFat":null,"bmi":null,"muscleMassLbs":null,"visceralFat":null,"bodyWater":null,"subcutaneousFat":null,"skeletalMuscle":null,"boneMass":null,"fatFreeBodyWeight":null,"bmr":null,"protein":null,"metabolicAge":null}
 Notes: weight/boneMass/fatFreeBodyWeight/muscleMassLbs are in lbs; bodyFat/bodyWater/subcutaneousFat/skeletalMuscle/protein are percentages; bmr is kcal; metabolicAge is years; visceralFat is a score.`,
-              },
-            ],
-          }],
-        }),
       })
-
-      const data = await res.json()
-      if (data.error) throw new Error(data.error.message)
-      const text = data.content?.[0]?.text ?? ''
       const jsonMatch = text.match(/\{[\s\S]*\}/)
       if (!jsonMatch) throw new Error('Could not parse metrics from photo.')
       const metrics = JSON.parse(jsonMatch[0])
@@ -760,6 +723,9 @@ Notes: weight/boneMass/fatFreeBodyWeight/muscleMassLbs are in lbs; bodyFat/bodyW
             )}
           </button>
         </div>
+        <p className="text-text-secondary text-xs">
+          Add your Anthropic or OpenAI API key in Profile to use Scan Scale Photo and AI reports.
+        </p>
 
         {/* Metric cards — single collapsible card */}
         <div className="card">
@@ -826,7 +792,7 @@ Notes: weight/boneMass/fatFreeBodyWeight/muscleMassLbs are in lbs; bodyFat/bodyW
         )}
 
         {/* AI Monthly Report */}
-        <AiReportCard entries={entries} sessions={sessions} />
+        <AiReportCard entries={entries} sessions={sessions} profile={profile} />
 
       </div>
 

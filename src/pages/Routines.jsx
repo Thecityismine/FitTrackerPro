@@ -46,6 +46,7 @@ import { routinesCol, routineDoc, sessionsCol, exercisesCol, globalExercisesCol,
 import { db } from '../firebase/config'
 import PageWrapper from '../components/layout/PageWrapper'
 import { getExerciseIcon } from '../utils/exerciseIcons'
+import { AI_SETUP_MESSAGE, generateAiText, hasAiCredentials } from '../utils/aiClient'
 
 // ─── New Routine Bottom Sheet ──────────────────────────────
 function NewRoutineSheet({ onClose, onSave }) {
@@ -324,6 +325,154 @@ function reorderList(list, fromIndex, toIndex) {
   return next
 }
 
+function WeeklySummaryCard({ routine, exercises, sessions, profile }) {
+  const [report, setReport] = useState(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState(null)
+
+  const weekStart = format(new Date(Date.now() - (6 * 86400000)), 'yyyy-MM-dd')
+  const weeklySessions = useMemo(
+    () => sessions.filter((session) => (
+      (session.routineId === routine.id || session.routineName === routine.name) &&
+      session.date >= weekStart
+    )),
+    [routine.id, routine.name, sessions, weekStart]
+  )
+
+  const routineMuscleGroups = [...new Set(exercises.map((exercise) => exercise.muscleGroup).filter(Boolean))]
+  const exerciseSummaries = exercises.map((exercise) => {
+    const relatedSessions = weeklySessions.filter((session) => session.exerciseId === exercise.id)
+    const totalSets = relatedSessions.reduce((sum, session) => sum + (session.sets?.length || 0), 0)
+    const totalVolume = relatedSessions.reduce((sum, session) => sum + (session.totalVolume || 0), 0)
+    const maxLoad = relatedSessions.reduce((maxValue, session) => (
+      Math.max(maxValue, ...(session.sets || []).map((set) => Number(set.weight) || 0))
+    ), 0)
+
+    return {
+      name: exercise.name,
+      muscleGroup: exercise.muscleGroup || 'Unknown',
+      type: exercise.type || 'weight',
+      totalSets,
+      totalVolume,
+      maxLoad,
+    }
+  })
+
+  async function handleGenerateReport() {
+    if (!hasAiCredentials(profile)) {
+      setError(AI_SETUP_MESSAGE)
+      return
+    }
+    if (!weeklySessions.length) {
+      setError('Log at least one workout this week to generate a weekly summary.')
+      return
+    }
+
+    setLoading(true)
+    setError(null)
+
+    const weeklyWorkoutDays = [...new Set(weeklySessions.map((session) => session.date))].length
+    const muscleSummary = exerciseSummaries
+      .map((summary) => `${summary.name} (${summary.muscleGroup}, ${summary.type}) - ${summary.totalSets} sets, ${summary.totalVolume} total volume, best load/time ${summary.maxLoad}`)
+      .join('\n')
+
+    const prompt = `You are a strength coach reviewing my weekly routine performance.
+
+ROUTINE:
+- Name: ${routine.name}
+- Planned exercises: ${exercises.map((exercise) => `${exercise.name} (${exercise.muscleGroup || 'Unknown'}, ${exercise.type || 'weight'})`).join(', ')}
+- Planned muscle groups: ${routineMuscleGroups.join(', ') || 'None'}
+
+THIS WEEK:
+- Workout days completed: ${weeklyWorkoutDays}
+- Sessions logged in this routine: ${weeklySessions.length}
+
+PER-EXERCISE BREAKDOWN:
+${muscleSummary}
+
+Please provide:
+1. A short weekly summary
+2. Which muscle groups were most impacted this week
+3. Which muscle groups were least impacted or under-trained
+4. Specific recommendations for next week, including where to increase weight or add sets
+
+Format your response as:
+**Weekly Summary**
+[summary]
+
+**Most Impacted**
+- [point]
+
+**Least Impacted**
+- [point]
+
+**Next Week Recommendations**
+1. [recommendation]
+2. [recommendation]
+3. [recommendation]
+
+Keep it under 220 words and be concrete.`
+
+    try {
+      const text = await generateAiText({ prompt, profile, maxTokens: 500 })
+      setReport(text)
+    } catch (err) {
+      setError(err.message || 'Failed to generate weekly summary.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className="card space-y-3">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="section-title mb-0">Weekly Summary Report</p>
+          <p className="text-text-secondary text-xs mt-0.5">Review this week and plan the next one.</p>
+        </div>
+        <div className="w-9 h-9 rounded-xl bg-accent/10 flex items-center justify-center flex-shrink-0">
+          <svg className="w-5 h-5 text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9 17.25v-10.5m6 10.5v-6m-9 6v-3m12 3V9" />
+          </svg>
+        </div>
+      </div>
+
+      {!hasAiCredentials(profile) && (
+        <div className="bg-accent/10 border border-accent/20 rounded-xl p-3">
+          <p className="text-text-secondary text-xs">{AI_SETUP_MESSAGE}</p>
+        </div>
+      )}
+
+      {error && (
+        <div className="bg-accent-red/10 border border-accent-red/20 rounded-xl p-3">
+          <p className="text-accent-red text-xs">{error}</p>
+        </div>
+      )}
+
+      {report ? (
+        <div className="space-y-3">
+          {report.split('\n').filter((line) => line.trim()).map((line, index) => {
+            if (line.startsWith('**') && line.endsWith('**')) {
+              return <p key={index} className="text-text-primary font-semibold text-sm">{line.replace(/\*\*/g, '')}</p>
+            }
+            if (/^[-\d]/.test(line.trim())) {
+              return <p key={index} className="text-text-secondary text-sm leading-relaxed">{line}</p>
+            }
+            return <p key={index} className="text-text-secondary text-sm leading-relaxed">{line}</p>
+          })}
+          <button onClick={() => { setReport(null); handleGenerateReport() }} className="text-accent text-xs font-semibold">
+            Regenerate
+          </button>
+        </div>
+      ) : (
+        <button onClick={handleGenerateReport} disabled={loading} className="btn-primary w-full disabled:opacity-50">
+          {loading ? 'Generating weekly report…' : 'Generate Weekly Summary Report'}
+        </button>
+      )}
+    </div>
+  )
+}
+
 // ─── Routine Detail (full-screen overlay) ─────────────────
 function RoutineDetail({
   routine,
@@ -336,6 +485,7 @@ function RoutineDetail({
   sessions = [],
 }) {
   const navigate = useNavigate()
+  const { profile } = useAuth()
   const { activeWorkout, startRoutineWorkout, syncRoutine } = useActiveWorkout()
   const [showAddExercise, setShowAddExercise] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
@@ -619,6 +769,15 @@ function RoutineDetail({
                 </div>
               )
             })
+          )}
+
+          {exercises.length > 0 && (
+            <WeeklySummaryCard
+              routine={routine}
+              exercises={exercises}
+              sessions={sessions}
+              profile={profile}
+            />
           )}
         </div>
 
