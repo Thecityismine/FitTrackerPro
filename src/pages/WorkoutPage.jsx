@@ -530,16 +530,7 @@ function GuidedWorkoutPage() {
 
                       {status === 'active' ? (
                         <>
-                          <div className="mt-2 flex items-center justify-end">
-                            <div className="text-right">
-                              <p className="text-text-secondary text-[11px] uppercase tracking-[0.22em]">Best</p>
-                              <p className="text-text-primary text-sm font-semibold mt-1">
-                                {state.bestWeight > 0 ? `${formatWeight(state.bestWeight)} lbs` : 'No PR yet'}
-                              </p>
-                            </div>
-                          </div>
-
-                          <div className="mt-4 rounded-2xl bg-bg/40 border border-white/5 px-3 py-3">
+                          <div className="mt-3 rounded-2xl bg-bg/40 border border-white/5 px-3 py-3">
                             <div className="grid grid-cols-[30px_1fr_1fr_56px_28px] gap-2 pb-2 border-b border-surface2 mb-1">
                               {['#', 'Reps', cardio ? 'Min' : 'Lbs', cardio ? 'Time' : 'Vol', ''].map((label) => (
                                 <span key={label} className="text-text-secondary text-xs font-semibold text-center uppercase tracking-[0.18em]">
