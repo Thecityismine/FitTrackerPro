@@ -251,46 +251,23 @@ export default function Dashboard() {
   // Resets at midnight — "Continue Workout" only if they trained today
   const trainedToday = lastDate === TODAY
   const routineInProgress = activeWorkout?.kind === 'routine' && !activeWorkout.summaryReady ? activeWorkout : null
-  const routineProgressCount = routineInProgress?.completed.length || 0
-  const routineExerciseTotal = routineInProgress?.exercises.length || 0
-  const routineCurrentExercise = routineInProgress?.exercises.find(
-    (exercise) => exercise.id === routineInProgress?.currentExerciseId
-  ) || null
-  const recentRoutineName = lastSessions.find((session) => session.routineName)?.routineName || null
 
-  const todayPlan = routineInProgress
-    ? {
-        eyebrow: 'Today’s Plan',
-        title: `Continue ${routineInProgress.routine.name}`,
-        detail: `${routineProgressCount} of ${routineExerciseTotal} exercises completed`,
-        subdetail: routineCurrentExercise?.name ? `Next: ${routineCurrentExercise.name}` : 'Jump back into workout mode',
-        cta: 'Resume Workout',
-        active: true,
-        onClick: () => navigate(`/workout/${routineInProgress.currentExerciseId}`, {
-          state: {
-            workoutMode: true,
-            routine: {
-              ...routineInProgress.routine,
-              exercises: routineInProgress.exercises,
-            },
+  function handleWorkoutCta() {
+    if (routineInProgress?.currentExerciseId) {
+      navigate(`/workout/${routineInProgress.currentExerciseId}`, {
+        state: {
+          workoutMode: true,
+          routine: {
+            ...routineInProgress.routine,
+            exercises: routineInProgress.exercises,
           },
-        }),
-      }
-    : {
-        eyebrow: 'Today’s Plan',
-        title: recentRoutineName ? `Train ${recentRoutineName}` : 'Choose Your Next Workout',
-        detail: trainedToday
-          ? 'You already logged work today'
-          : streak > 0
-            ? `Keep your ${streak}-day streak alive`
-            : 'Start a session and build momentum',
-        subdetail: recentRoutineName
-          ? 'Open routines and keep the plan moving'
-          : 'Pick a routine and start training',
-        cta: recentRoutineName ? 'Open Routines' : 'Start Workout',
-        active: false,
-        onClick: () => navigate('/routines'),
-      }
+        },
+      })
+      return
+    }
+
+    navigate('/routines')
+  }
 
   // ── Error / Empty state ──────────────────────────────────
   if (!loading && (sessions.length === 0 || loadError)) {
@@ -343,48 +320,29 @@ export default function Dashboard() {
       <PageWrapper showSettings>
         <div className="px-4 pt-2 space-y-4">
 
-        {/* Command Center */}
-        <div className="space-y-3">
+        {/* Greeting */}
+        <div className="flex items-start justify-between gap-3">
           <div>
             <p className="text-text-secondary text-sm">{format(new Date(), 'EEE, MMM d')}</p>
+            <h1 className="font-display text-2xl font-bold text-text-primary mt-3">
+              Hey, {firstName} 👋
+            </h1>
+            <p className="text-text-secondary text-sm mt-0.5">Here's your fitness overview</p>
           </div>
-
           <button
-            onClick={todayPlan.onClick}
-            className={`w-full text-left rounded-[28px] border px-5 py-5 active:scale-[0.985] transition-all ${
-              todayPlan.active
-                ? 'border-accent/35 bg-gradient-to-br from-[#2F6BFF] via-accent to-[#123D9C] shadow-[0_18px_50px_rgba(37,99,235,0.35)]'
-                : 'border-accent-green/30 bg-gradient-to-br from-accent-green via-[#1DAA65] to-[#126B49] shadow-[0_16px_40px_rgba(34,197,94,0.22)]'
+            onClick={handleWorkoutCta}
+            className={`flex-shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold active:scale-95 transition-transform mt-7 ${
+              routineInProgress
+                ? 'bg-accent text-white shadow-lg shadow-accent/25'
+                : trainedToday
+                  ? 'bg-surface2 text-text-secondary'
+                  : 'bg-accent-green text-white shadow-lg shadow-accent-green/25'
             }`}
           >
-            <div className="flex items-start justify-between gap-4">
-              <div className="min-w-0">
-                <p className="text-white/70 text-[11px] font-semibold uppercase tracking-[0.24em]">
-                  {todayPlan.eyebrow}
-                </p>
-                <h1 className="font-display text-[1.85rem] leading-tight font-bold text-white mt-2">
-                  {todayPlan.title}
-                </h1>
-                <p className="text-white/90 text-sm font-semibold mt-3">
-                  {todayPlan.detail}
-                </p>
-                <p className="text-white/70 text-sm mt-1">
-                  {todayPlan.subdetail}
-                </p>
-              </div>
-
-              <div className="flex flex-col items-end gap-3 flex-shrink-0">
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-white/12 px-3 py-1.5 text-[11px] font-semibold text-white/90 backdrop-blur">
-                  <span className={`w-2 h-2 rounded-full ${todayPlan.active ? 'bg-white' : 'bg-white/80'}`} />
-                  {todayPlan.cta}
-                </span>
-                <div className="w-12 h-12 rounded-2xl bg-black/15 border border-white/10 flex items-center justify-center shadow-[0_0_24px_rgba(255,255,255,0.08)]">
-                  <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M5.25 5.653c0-1.427 1.529-2.33 2.779-1.643l9.42 5.173c1.295.711 1.295 2.575 0 3.286l-9.42 5.173c-1.25.687-2.779-.216-2.779-1.643V5.653z" />
-                  </svg>
-                </div>
-              </div>
-            </div>
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.348a1.125 1.125 0 010 1.971l-11.54 6.347a1.125 1.125 0 01-1.667-.985V5.653z" />
+            </svg>
+            {routineInProgress ? 'Resume Workout' : 'Start Workout'}
           </button>
         </div>
 
