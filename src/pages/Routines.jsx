@@ -448,12 +448,12 @@ Keep it under 220 words and be concrete.`
         <div className="space-y-3">
           {report.split('\n').filter((line) => line.trim()).map((line, index) => {
             if (line.startsWith('**') && line.endsWith('**')) {
-              return <p key={index} className="text-text-primary font-semibold text-sm">{line.replace(/\*\*/g, '')}</p>
+              return <p key={index} className="text-text-primary font-semibold text-base">{line.replace(/\*\*/g, '')}</p>
             }
             if (/^[-\d]/.test(line.trim())) {
-              return <p key={index} className="text-text-secondary text-sm leading-relaxed">{line}</p>
+              return <p key={index} className="text-text-secondary text-base leading-relaxed">{line}</p>
             }
-            return <p key={index} className="text-text-secondary text-sm leading-relaxed">{line}</p>
+            return <p key={index} className="text-text-secondary text-base leading-relaxed">{line}</p>
           })}
           <button onClick={() => { setReport(null); handleGenerateReport() }} className="text-accent text-xs font-semibold">
             Regenerate
