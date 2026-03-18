@@ -18,7 +18,7 @@ const MAX_IMAGE_DATA_URL_CHARS = 6_000_000
 
 function getSecretValue(secret) {
   try {
-    return secret.value() || ''
+    return String(secret.value() || '').trim()
   } catch {
     return ''
   }
