@@ -333,7 +333,6 @@ function RoutineDetail({
   const [newName, setNewName] = useState(routine.name)
   const [saving, setSaving] = useState(false)
   const [editMode, setEditMode] = useState(false)
-  const [dragIndex, setDragIndex] = useState(null)
 
   const exercises = routine.exercises || []
   const existingIds = exercises.map((ex) => ex.id)
@@ -409,7 +408,6 @@ function RoutineDetail({
   async function handleReorder(fromIndex, toIndex) {
     if (fromIndex === toIndex || fromIndex == null || toIndex == null) return
     const nextExercises = reorderList(exercises, fromIndex, toIndex)
-    setDragIndex(null)
     await onReorderExercises(routine.id, nextExercises)
   }
 
@@ -542,15 +540,10 @@ function RoutineDetail({
               return (
                 <div
                   key={ex.id}
-                  draggable={editMode}
-                  onDragStart={() => setDragIndex(index)}
-                  onDragOver={(e) => { if (editMode) e.preventDefault() }}
-                  onDrop={(e) => { e.preventDefault(); if (editMode) handleReorder(dragIndex, index) }}
-                  onDragEnd={() => setDragIndex(null)}
                   onClick={() => !editMode && navigate(`/workout/${ex.id}`, { state: { exercise: ex, routine } })}
                   className={`card w-full flex items-stretch gap-3 py-4 pr-3 text-left overflow-hidden relative ${
-                    editMode ? 'cursor-move' : 'active:scale-[0.98] transition-transform'
-                  } ${dragIndex === index ? 'opacity-60' : ''}`}
+                    editMode ? 'cursor-default' : 'active:scale-[0.98] transition-transform'
+                  }`}
                 >
                   {editMode && (
                     <>
@@ -560,17 +553,6 @@ function RoutineDetail({
                       >
                         <svg className="w-3.5 h-3.5 text-accent-red" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 12h-15" />
-                        </svg>
-                      </button>
-                      <button
-                        draggable
-                        onDragStart={() => setDragIndex(index)}
-                        onClick={(e) => e.stopPropagation()}
-                        className="w-8 h-8 rounded-xl bg-surface2 flex items-center justify-center text-text-secondary active:scale-95 transition-transform flex-shrink-0 self-center"
-                        title="Drag to reorder"
-                      >
-                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M8 6h.01M8 12h.01M8 18h.01M16 6h.01M16 12h.01M16 18h.01" />
                         </svg>
                       </button>
                       <div className="flex flex-col gap-1 self-center">
