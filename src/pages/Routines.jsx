@@ -550,8 +550,20 @@ function RoutineDetail({
 
   function startWorkout() {
     if (!exercises.length) return
-    startRoutineWorkout(routine, { startExerciseId: exercises[0].id })
-    navigate(`/workout/${exercises[0].id}`, {
+    const isResumingCurrentRoutine =
+      activeWorkout?.kind === 'routine' &&
+      activeWorkout.routine.id === routine.id &&
+      !activeWorkout.summaryReady
+
+    const startExerciseId = isResumingCurrentRoutine
+      ? (activeWorkout.currentExerciseId || exercises[0].id)
+      : exercises[0].id
+
+    if (!isResumingCurrentRoutine) {
+      startRoutineWorkout(routine, { startExerciseId })
+    }
+
+    navigate(`/workout/${startExerciseId}`, {
       state: {
         workoutMode: true,
         routine,

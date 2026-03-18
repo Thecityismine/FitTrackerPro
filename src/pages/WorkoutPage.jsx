@@ -154,7 +154,14 @@ function GuidedWorkoutPage() {
       return
     }
     syncRoutine(routeRoutine)
-  }, [exerciseId, guidedWorkout, routeRoutine, routeWantsWorkoutMode, startRoutineWorkout, syncRoutine])
+    if (
+      exerciseId &&
+      guidedWorkout.currentExerciseId !== exerciseId &&
+      !guidedWorkout.summaryReady
+    ) {
+      setCurrentExercise(exerciseId)
+    }
+  }, [exerciseId, guidedWorkout, routeRoutine, routeWantsWorkoutMode, setCurrentExercise, startRoutineWorkout, syncRoutine])
 
   useEffect(() => {
     if (!user?.uid || !guidedWorkout?.exercises?.length) return
