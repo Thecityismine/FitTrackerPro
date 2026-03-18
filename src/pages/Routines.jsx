@@ -325,38 +325,42 @@ function reorderList(list, fromIndex, toIndex) {
   return next
 }
 
-function WeeklySummaryCard({ routine, exercises, sessions, profile }) {
+function WeeklySummaryCard({ sessions, profile }) {
   const [report, setReport] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
 
   const weekStart = format(new Date(Date.now() - (6 * 86400000)), 'yyyy-MM-dd')
   const weeklySessions = useMemo(
-    () => sessions.filter((session) => (
-      (session.routineId === routine.id || session.routineName === routine.name) &&
-      session.date >= weekStart
-    )),
-    [routine.id, routine.name, sessions, weekStart]
+    () => sessions.filter((session) => session.date >= weekStart),
+    [sessions, weekStart]
   )
 
-  const routineMuscleGroups = [...new Set(exercises.map((exercise) => exercise.muscleGroup).filter(Boolean))]
-  const exerciseSummaries = exercises.map((exercise) => {
-    const relatedSessions = weeklySessions.filter((session) => session.exerciseId === exercise.id)
-    const totalSets = relatedSessions.reduce((sum, session) => sum + (session.sets?.length || 0), 0)
-    const totalVolume = relatedSessions.reduce((sum, session) => sum + (session.totalVolume || 0), 0)
-    const maxLoad = relatedSessions.reduce((maxValue, session) => (
-      Math.max(maxValue, ...(session.sets || []).map((set) => Number(set.weight) || 0))
-    ), 0)
+  const exerciseSummaries = useMemo(() => {
+    const byExercise = new Map()
 
-    return {
-      name: exercise.name,
-      muscleGroup: exercise.muscleGroup || 'Unknown',
-      type: exercise.type || 'weight',
-      totalSets,
-      totalVolume,
-      maxLoad,
-    }
-  })
+    weeklySessions.forEach((session) => {
+      const key = session.exerciseId || session.exerciseName || `session-${session.id}`
+      const current = byExercise.get(key) || {
+        name: session.exerciseName || 'Unknown exercise',
+        muscleGroup: session.muscleGroup || 'Unknown',
+        type: session.type || 'weight',
+        totalSets: 0,
+        totalVolume: 0,
+        maxLoad: 0,
+      }
+
+      current.totalSets += session.sets?.length || 0
+      current.totalVolume += session.totalVolume || 0
+      current.maxLoad = Math.max(current.maxLoad, ...(session.sets || []).map((set) => Number(set.weight) || 0))
+      byExercise.set(key, current)
+    })
+
+    return [...byExercise.values()].sort((a, b) => b.totalSets - a.totalSets)
+  }, [weeklySessions])
+
+  const weeklyMuscleGroups = [...new Set(weeklySessions.map((session) => session.muscleGroup).filter(Boolean))]
+  const routineNames = [...new Set(weeklySessions.map((session) => session.routineName).filter(Boolean))]
 
   async function handleGenerateReport() {
     if (!hasAiCredentials(profile)) {
@@ -376,16 +380,13 @@ function WeeklySummaryCard({ routine, exercises, sessions, profile }) {
       .map((summary) => `${summary.name} (${summary.muscleGroup}, ${summary.type}) - ${summary.totalSets} sets, ${summary.totalVolume} total volume, best load/time ${summary.maxLoad}`)
       .join('\n')
 
-    const prompt = `You are a strength coach reviewing my weekly routine performance.
-
-ROUTINE:
-- Name: ${routine.name}
-- Planned exercises: ${exercises.map((exercise) => `${exercise.name} (${exercise.muscleGroup || 'Unknown'}, ${exercise.type || 'weight'})`).join(', ')}
-- Planned muscle groups: ${routineMuscleGroups.join(', ') || 'None'}
+    const prompt = `You are a strength coach reviewing my weekly training performance across all workouts, including free workouts outside routines.
 
 THIS WEEK:
 - Workout days completed: ${weeklyWorkoutDays}
-- Sessions logged in this routine: ${weeklySessions.length}
+- Sessions logged: ${weeklySessions.length}
+- Routines used: ${routineNames.join(', ') || 'Free workouts only'}
+- Muscle groups trained: ${weeklyMuscleGroups.join(', ') || 'None'}
 
 PER-EXERCISE BREAKDOWN:
 ${muscleSummary}
@@ -428,7 +429,7 @@ Keep it under 220 words and be concrete.`
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="section-title mb-0">Weekly Summary Report</p>
-          <p className="text-text-secondary text-xs mt-0.5">Review this week and plan the next one.</p>
+          <p className="text-text-secondary text-xs mt-0.5">Review the full week across routines and free workouts.</p>
         </div>
         <div className="w-9 h-9 rounded-xl bg-accent/10 flex items-center justify-center flex-shrink-0">
           <svg className="w-5 h-5 text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -485,7 +486,6 @@ function RoutineDetail({
   sessions = [],
 }) {
   const navigate = useNavigate()
-  const { profile } = useAuth()
   const { activeWorkout, startRoutineWorkout, syncRoutine } = useActiveWorkout()
   const [showAddExercise, setShowAddExercise] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
@@ -770,15 +770,6 @@ function RoutineDetail({
               )
             })
           )}
-
-          {exercises.length > 0 && (
-            <WeeklySummaryCard
-              routine={routine}
-              exercises={exercises}
-              sessions={sessions}
-              profile={profile}
-            />
-          )}
         </div>
 
         {/* Dot legend */}
@@ -853,7 +844,7 @@ function RoutineCard({ routine, onSelect }) {
 
 // ─── Main Page ─────────────────────────────────────────────
 export default function Routines() {
-  const { user } = useAuth()
+  const { user, profile } = useAuth()
   const location = useLocation()
   const [routines, setRoutines] = useState([])
   const [loading, setLoading] = useState(true)
@@ -1071,6 +1062,13 @@ export default function Routines() {
 
               </div>
             </div>
+          )}
+
+          {!sessionsLoading && (
+            <WeeklySummaryCard
+              sessions={sessions}
+              profile={profile}
+            />
           )}
 
           {loading ? (
