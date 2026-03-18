@@ -131,6 +131,7 @@ function GuidedWorkoutPage() {
   const [containerHeight, setContainerHeight] = useState(() => window.visualViewport?.height ?? window.innerHeight)
 
   const saveTimeoutsRef = useRef({})
+  const timerRestartTimeoutRef = useRef(null)
   const exerciseStateRef = useRef(exerciseState)
   const cardRefs = useRef({})
 
@@ -185,6 +186,7 @@ function GuidedWorkoutPage() {
 
   useEffect(() => () => {
     Object.values(saveTimeoutsRef.current).forEach((timeoutId) => clearTimeout(timeoutId))
+    clearTimeout(timerRestartTimeoutRef.current)
   }, [])
 
   useEffect(() => {
@@ -308,8 +310,6 @@ function GuidedWorkoutPage() {
     const nextSet = normalizeSet(transform(template), template)
     const nextSets = [...(exerciseState[exercise.id]?.sets || []), nextSet]
     updateSets(exercise, nextSets)
-    reset()
-    start()
   }
 
   function addSet(exercise) {
@@ -317,8 +317,23 @@ function GuidedWorkoutPage() {
   }
 
   function updateSet(exercise, updatedSet) {
-    const nextSets = (exerciseState[exercise.id]?.sets || []).map((set) => (set.id === updatedSet.id ? updatedSet : set))
+    const currentSets = exerciseState[exercise.id]?.sets || []
+    const previousSet = currentSets.find((set) => set.id === updatedSet.id)
+    const nextSets = currentSets.map((set) => (set.id === updatedSet.id ? updatedSet : set))
     updateSets(exercise, nextSets)
+
+    const changed = previousSet && (
+      previousSet.reps !== updatedSet.reps ||
+      previousSet.weight !== updatedSet.weight
+    )
+
+    if (changed && activeExercise?.id === exercise.id) {
+      clearTimeout(timerRestartTimeoutRef.current)
+      timerRestartTimeoutRef.current = setTimeout(() => {
+        reset()
+        start()
+      }, 500)
+    }
   }
 
   function deleteSet(exercise, setId) {
@@ -329,7 +344,9 @@ function GuidedWorkoutPage() {
   function finishExercise() {
     if (!activeExercise) return
     clearTimeout(saveTimeoutsRef.current[activeExercise.id])
+    clearTimeout(timerRestartTimeoutRef.current)
     const currentSets = exerciseStateRef.current[activeExercise.id]?.sets || []
+    pause()
     completeExercise(activeExercise.id)
     if (currentSets.length > 0) {
       persistExerciseSets(activeExercise, currentSets).catch((error) => {
@@ -341,6 +358,8 @@ function GuidedWorkoutPage() {
   function handleSkipExercise() {
     if (!activeExercise) return
     clearTimeout(saveTimeoutsRef.current[activeExercise.id])
+    clearTimeout(timerRestartTimeoutRef.current)
+    pause()
     skipExercise(activeExercise.id)
   }
 
