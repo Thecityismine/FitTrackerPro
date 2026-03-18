@@ -200,20 +200,23 @@ function GuidedWorkoutPage() {
   const orderedExercises = useMemo(() => {
     if (!guidedWorkout) return []
     const doneIds = new Set([...guidedWorkout.completed, ...guidedWorkout.skipped])
-    const activeExercise = guidedWorkout.currentExerciseId ? exerciseById.get(guidedWorkout.currentExerciseId) : null
-    const upcoming = guidedWorkout.exercises.filter(
-      (exercise) => exercise.id !== guidedWorkout.currentExerciseId && !doneIds.has(exercise.id)
-    )
+    const pending = guidedWorkout.exercises.filter((exercise) => !doneIds.has(exercise.id))
     const completed = guidedWorkout.completionOrder.map((id) => exerciseById.get(id)).filter(Boolean)
-    return [activeExercise, ...upcoming, ...completed].filter(Boolean)
+    return [...pending, ...completed]
   }, [exerciseById, guidedWorkout])
 
-  const activeExercise = guidedWorkout?.currentExerciseId ? exerciseById.get(guidedWorkout.currentExerciseId) : null
+  const pendingExercises = useMemo(() => {
+    if (!guidedWorkout) return []
+    const doneIds = new Set([...guidedWorkout.completed, ...guidedWorkout.skipped])
+    return guidedWorkout.exercises.filter((exercise) => !doneIds.has(exercise.id))
+  }, [guidedWorkout])
+
+  const activeExercise = guidedWorkout?.currentExerciseId
+    ? exerciseById.get(guidedWorkout.currentExerciseId)
+    : pendingExercises[0] || null
   const nextExercise = guidedWorkout?.summaryReady
     ? null
-    : orderedExercises.find(
-        (exercise) => exercise.id !== activeExercise?.id && !guidedWorkout.completed.includes(exercise.id) && !guidedWorkout.skipped.includes(exercise.id)
-      ) || null
+    : pendingExercises[pendingExercises.findIndex((exercise) => exercise.id === activeExercise?.id) + 1] || null
   const totalExercises = guidedWorkout?.exercises.length || 0
   const completedCount = guidedWorkout?.completed.length || 0
   const skippedCount = guidedWorkout?.skipped.length || 0
@@ -601,7 +604,7 @@ function GuidedWorkoutPage() {
                                 ? 'Skipped for this workout'
                                 : `${state.lastTemplate.reps} reps x ${formatWeight(state.lastTemplate.weight)} lbs ready`}
                           </div>
-                          {status === 'next' && (
+                          {(status === 'next' || status === 'upcoming') && (
                             <button
                               onClick={() => {
                                 setCurrentExercise(exercise.id)
