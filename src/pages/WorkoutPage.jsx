@@ -294,6 +294,7 @@ function GuidedWorkoutPage() {
     const nextSet = normalizeSet(transform(template), template)
     const nextSets = [...(exerciseState[exercise.id]?.sets || []), nextSet]
     updateSets(exercise, nextSets)
+    reset()
     start()
   }
 
@@ -515,13 +516,7 @@ function GuidedWorkoutPage() {
 
                       {status === 'active' ? (
                         <>
-                          <div className="mt-4 rounded-2xl bg-bg/55 border border-white/5 px-3 py-3 flex items-center justify-between gap-3">
-                            <div>
-                              <p className="text-text-secondary text-[11px] uppercase tracking-[0.22em]">Next Up</p>
-                              <p className="text-text-primary text-sm font-semibold mt-1">
-                                {nextExercise ? nextExercise.name : 'Finish here'}
-                              </p>
-                            </div>
+                          <div className="mt-4 flex items-center justify-end">
                             <div className="text-right">
                               <p className="text-text-secondary text-[11px] uppercase tracking-[0.22em]">Best</p>
                               <p className="text-text-primary text-sm font-semibold mt-1">
@@ -560,7 +555,21 @@ function GuidedWorkoutPage() {
                             )}
                           </div>
 
-                          <div className="flex items-center justify-end mt-4 pt-3 border-t border-surface2">
+                          <div className="flex items-center justify-between mt-4 pt-3 border-t border-surface2">
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={() => addSet(exercise)}
+                                className="px-3 py-2 rounded-xl bg-surface2 text-text-primary text-sm font-semibold active:scale-95 transition-transform"
+                              >
+                                Add Set
+                              </button>
+                              <button
+                                onClick={handleSkipExercise}
+                                className="px-3 py-2 rounded-xl bg-surface2 text-text-secondary text-sm font-semibold active:scale-95 transition-transform"
+                              >
+                                Skip
+                              </button>
+                            </div>
                             <div className="text-right">
                               <p className="text-text-secondary text-xs">{cardio ? 'Total Time' : 'Total Volume'}</p>
                               <p className="font-display font-bold text-accent-green text-xl leading-tight">
@@ -605,7 +614,7 @@ function GuidedWorkoutPage() {
             </button>
           ) : (
             <>
-              <div className="grid grid-cols-[1.35fr_1fr_1fr] gap-2">
+              <div className="grid grid-cols-[1.4fr_1fr] gap-2">
                 <div className="rounded-2xl border border-surface2 bg-surface px-3 py-2.5">
                   <div className="flex items-center gap-2">
                     <svg className="w-4 h-4 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -623,18 +632,10 @@ function GuidedWorkoutPage() {
                   </div>
                 </div>
 
-                <button onClick={() => activeExercise && addSet(activeExercise)} disabled={!activeExercise} className="btn-secondary disabled:opacity-50">
-                  Add Set
-                </button>
-
                 <button onClick={finishExercise} disabled={!activeExercise} className="btn-primary disabled:opacity-50">
                   Finish
                 </button>
               </div>
-
-              <button onClick={handleSkipExercise} disabled={!activeExercise} className="w-full text-center text-sm font-semibold text-text-secondary py-3 disabled:opacity-50">
-                Skip Exercise
-              </button>
             </>
           )}
         </div>
