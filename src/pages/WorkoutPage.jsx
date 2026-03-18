@@ -516,7 +516,7 @@ function GuidedWorkoutPage() {
 
                       {status === 'active' ? (
                         <>
-                          <div className="mt-4 flex items-center justify-end">
+                          <div className="mt-2 flex items-center justify-end">
                             <div className="text-right">
                               <p className="text-text-secondary text-[11px] uppercase tracking-[0.22em]">Best</p>
                               <p className="text-text-primary text-sm font-semibold mt-1">
@@ -556,11 +556,14 @@ function GuidedWorkoutPage() {
                           </div>
 
                           <div className="flex items-center justify-between mt-4 pt-3 border-t border-surface2">
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-3">
                               <button
                                 onClick={() => addSet(exercise)}
-                                className="px-3 py-2 rounded-xl bg-surface2 text-text-primary text-sm font-semibold active:scale-95 transition-transform"
+                                className="text-accent-green text-sm font-semibold flex items-center gap-1.5 active:scale-95 transition-transform"
                               >
+                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                                </svg>
                                 Add Set
                               </button>
                               <button
@@ -568,6 +571,12 @@ function GuidedWorkoutPage() {
                                 className="px-3 py-2 rounded-xl bg-surface2 text-text-secondary text-sm font-semibold active:scale-95 transition-transform"
                               >
                                 Skip
+                              </button>
+                              <button
+                                onClick={finishExercise}
+                                className="px-3 py-2 rounded-xl bg-accent text-white text-sm font-semibold active:scale-95 transition-transform"
+                              >
+                                Finish
                               </button>
                             </div>
                             <div className="text-right">
