@@ -66,6 +66,21 @@ async function parseProviderResponse(response) {
   return data
 }
 
+function normalizeProviderErrorMessage(message) {
+  const normalized = String(message || '').trim()
+  if (!normalized) return 'AI request failed.'
+
+  if (/invalid x-api-key/i.test(normalized) || /authentication_error/i.test(normalized)) {
+    return 'AI is temporarily unavailable because the server Anthropic key is invalid. Update the Firebase Functions secret and try again.'
+  }
+
+  if (/rate limit/i.test(normalized)) {
+    return 'AI is temporarily rate-limited. Please try again in a minute.'
+  }
+
+  return normalized
+}
+
 async function callAnthropicText({ apiKey, prompt, systemPrompt, maxTokens }) {
   const response = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
@@ -157,12 +172,14 @@ export const aiProxy = onCall(
         provider: 'anthropic',
       }
     } catch (error) {
+      const friendlyMessage = normalizeProviderErrorMessage(error?.message)
       logger.error('AI proxy request failed', {
         uid: request.auth.uid,
         mode,
-        error: error?.message || String(error),
+        error: friendlyMessage,
+        providerError: error?.message || String(error),
       })
-      throw new HttpsError('internal', error?.message || 'AI request failed.')
+      throw new HttpsError('internal', friendlyMessage)
     }
   }
 )
