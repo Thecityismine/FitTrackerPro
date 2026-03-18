@@ -366,6 +366,13 @@ function GuidedWorkoutPage() {
     navigate('/routines', { state: { openRoutineId: routine.id } })
   }
 
+  function openExercise(exerciseId) {
+    setCurrentExercise(exerciseId)
+    requestAnimationFrame(() => {
+      cardRefs.current[exerciseId]?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    })
+  }
+
   function getStatus(exercise) {
     if (guidedWorkout?.currentExerciseId === exercise.id && !guidedWorkout.summaryReady) return 'active'
     if (guidedWorkout?.completed.includes(exercise.id)) return 'completed'
@@ -489,7 +496,10 @@ function GuidedWorkoutPage() {
                 <section
                   key={exercise.id}
                   ref={(node) => { cardRefs.current[exercise.id] = node }}
-                  className={`rounded-[28px] border bg-surface px-4 py-4 transition-all ${getCardClasses(status)}`}
+                  onClick={status === 'next' || status === 'upcoming' ? () => openExercise(exercise.id) : undefined}
+                  className={`rounded-[28px] border bg-surface px-4 py-4 transition-all ${getCardClasses(status)} ${
+                    status === 'next' || status === 'upcoming' ? 'active:scale-[0.99]' : ''
+                  }`}
                 >
                   <div className="flex items-start gap-3">
                     <div className={`mt-1 h-10 w-1.5 rounded-full ${
@@ -614,10 +624,11 @@ function GuidedWorkoutPage() {
                           </div>
                           {(status === 'next' || status === 'upcoming') && (
                             <button
-                              onClick={() => {
-                                setCurrentExercise(exercise.id)
+                              onClick={(event) => {
+                                event.stopPropagation()
+                                openExercise(exercise.id)
                               }}
-                              className="text-accent text-sm font-semibold"
+                              className="text-accent text-sm font-semibold px-2 py-1 -mr-2"
                             >
                               Open
                             </button>
