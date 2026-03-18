@@ -122,6 +122,7 @@ function GuidedWorkoutPage() {
   const routeWantsWorkoutMode = Boolean(location.state?.workoutMode || routeRoutine)
   const guidedWorkout = activeWorkout?.kind === 'routine' ? activeWorkout : null
   const routine = routeRoutine || (guidedWorkout ? { ...guidedWorkout.routine, exercises: guidedWorkout.exercises } : null)
+  const exerciseIdsKey = guidedWorkout?.exercises?.map((exercise) => exercise.id).join('|') || ''
 
   const [exerciseState, setExerciseState] = useState({})
   const [loading, setLoading] = useState(true)
@@ -182,7 +183,7 @@ function GuidedWorkoutPage() {
       })
 
     return () => { isMounted = false }
-  }, [guidedWorkout, user])
+  }, [exerciseIdsKey, guidedWorkout?.routine.id, user?.uid])
 
   useEffect(() => () => {
     Object.values(saveTimeoutsRef.current).forEach((timeoutId) => clearTimeout(timeoutId))
@@ -318,21 +319,6 @@ function GuidedWorkoutPage() {
     appendSet(exercise, (template) => template)
   }
 
-  function applyQuickAction(exercise, mode) {
-    const cardio = isCardioExercise(exercise)
-    appendSet(exercise, (template) => {
-      if (cardio) {
-        if (mode === 'plus-five') return { ...template, weight: (template.weight || 0) + 5, reps: 1 }
-        if (mode === 'plus-one') return { ...template, weight: (template.weight || 0) + 1, reps: 1 }
-        return { ...template, reps: 1 }
-      }
-      if (mode === 'plus-five') return { ...template, weight: (template.weight || 0) + 5 }
-      if (mode === 'plus-two-point-five') return { ...template, weight: (template.weight || 0) + 2.5 }
-      if (mode === 'plus-one') return { ...template, reps: (template.reps || 0) + 1 }
-      return template
-    })
-  }
-
   function updateSet(exercise, updatedSet) {
     const nextSets = (exerciseState[exercise.id]?.sets || []).map((set) => (set.id === updatedSet.id ? updatedSet : set))
     updateSets(exercise, nextSets)
@@ -343,14 +329,16 @@ function GuidedWorkoutPage() {
     updateSets(exercise, nextSets)
   }
 
-  async function finishExercise() {
+  function finishExercise() {
     if (!activeExercise) return
     clearTimeout(saveTimeoutsRef.current[activeExercise.id])
     const currentSets = exerciseStateRef.current[activeExercise.id]?.sets || []
-    if (currentSets.length > 0) {
-      await persistExerciseSets(activeExercise, currentSets)
-    }
     completeExercise(activeExercise.id)
+    if (currentSets.length > 0) {
+      persistExerciseSets(activeExercise, currentSets).catch((error) => {
+        console.error('finishExercise persist error:', error)
+      })
+    }
   }
 
   function handleSkipExercise() {
@@ -573,7 +561,7 @@ function GuidedWorkoutPage() {
                               <div className="py-6 text-center">
                                 <p className="text-text-secondary text-sm">No sets yet</p>
                                 <p className="text-text-secondary text-xs mt-1">
-                                  Quick log from {formatWeight(state.lastTemplate.weight)} lbs x {state.lastTemplate.reps}
+                                  Use Add Set below to start with {formatWeight(state.lastTemplate.weight)} lbs x {state.lastTemplate.reps}
                                 </p>
                               </div>
                             ) : (
@@ -590,33 +578,7 @@ function GuidedWorkoutPage() {
                             )}
                           </div>
 
-                          <div className="grid grid-cols-2 gap-2 mt-4">
-                            {[
-                              { key: 'plus-five', label: cardio ? '+5 min' : '+5 lbs' },
-                              { key: 'plus-two-point-five', label: cardio ? 'Same' : '+2.5 lbs' },
-                              { key: 'same', label: 'Same' },
-                              { key: 'plus-one', label: cardio ? '+1 min' : '+1 rep' },
-                            ].map((action) => (
-                              <button
-                                key={action.key}
-                                onClick={() => applyQuickAction(exercise, action.key)}
-                                className="rounded-2xl border border-surface2 bg-bg/55 px-3 py-3 text-sm font-semibold text-text-primary active:scale-95 transition-transform"
-                              >
-                                {action.label}
-                              </button>
-                            ))}
-                          </div>
-
-                          <div className="flex items-center justify-between mt-4 pt-3 border-t border-surface2">
-                            <button
-                              onClick={() => addSet(exercise)}
-                              className="text-accent-green text-sm font-semibold flex items-center gap-1.5 active:scale-95 transition-transform"
-                            >
-                              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-                              </svg>
-                              Add Set
-                            </button>
+                          <div className="flex items-center justify-end mt-4 pt-3 border-t border-surface2">
                             <div className="text-right">
                               <p className="text-text-secondary text-xs">{cardio ? 'Total Time' : 'Total Volume'}</p>
                               <p className="font-display font-bold text-accent-green text-xl leading-tight">
@@ -681,7 +643,7 @@ function GuidedWorkoutPage() {
                 </div>
 
                 <button onClick={() => activeExercise && addSet(activeExercise)} disabled={!activeExercise} className="btn-secondary disabled:opacity-50">
-                  + Add Set
+                  Add Set
                 </button>
 
                 <button onClick={finishExercise} disabled={!activeExercise} className="btn-primary disabled:opacity-50">

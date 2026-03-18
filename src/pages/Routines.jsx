@@ -573,6 +573,28 @@ function RoutineDetail({
                           <path strokeLinecap="round" strokeLinejoin="round" d="M8 6h.01M8 12h.01M8 18h.01M16 6h.01M16 12h.01M16 18h.01" />
                         </svg>
                       </button>
+                      <div className="flex flex-col gap-1 self-center">
+                        <button
+                          onClick={(e) => { e.stopPropagation(); handleReorder(index, index - 1) }}
+                          disabled={index === 0}
+                          className="w-8 h-8 rounded-xl bg-surface2 flex items-center justify-center text-text-secondary disabled:opacity-35 active:scale-95 transition-transform"
+                          title="Move up"
+                        >
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M5.25 14.25L12 7.5l6.75 6.75" />
+                          </svg>
+                        </button>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); handleReorder(index, index + 1) }}
+                          disabled={index === exercises.length - 1}
+                          className="w-8 h-8 rounded-xl bg-surface2 flex items-center justify-center text-text-secondary disabled:opacity-35 active:scale-95 transition-transform"
+                          title="Move down"
+                        >
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M18.75 9.75L12 16.5 5.25 9.75" />
+                          </svg>
+                        </button>
+                      </div>
                     </>
                   )}
 
