@@ -121,6 +121,7 @@ export const aiProxy = onCall(
     cors: true,
     timeoutSeconds: 60,
     memory: '512MiB',
+    invoker: 'public',
   },
   async (request) => {
     if (!request.auth?.uid) {
