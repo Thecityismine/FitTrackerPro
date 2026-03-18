@@ -119,6 +119,10 @@ export function ActiveWorkoutProvider({ children }) {
       const remaining = exercises
         .map((exercise) => exercise.id)
         .filter((id) => !completed.includes(id) && !skipped.includes(id))
+      const nextCurrentExerciseId = remaining.includes(current.currentExerciseId)
+        ? current.currentExerciseId
+        : (remaining[0] || null)
+      const nextSummaryReady = current.summaryReady || remaining.length === 0
 
       const sameExercises =
         current.exercises.length === exercises.length &&
@@ -129,7 +133,7 @@ export function ActiveWorkoutProvider({ children }) {
           exercise.type === exercises[index]?.type
         ))
       const sameName = current.routine.name === (routine.name || current.routine.name)
-      const sameCurrent = (current.summaryReady ? null : (remaining[0] || null)) === current.currentExerciseId
+      const sameCurrent = (nextSummaryReady ? null : nextCurrentExerciseId) === current.currentExerciseId
       const sameCompleted = sameArray(completed, current.completed)
       const sameSkipped = sameArray(skipped, current.skipped)
       const sameOrder = sameArray(completionOrder, current.completionOrder)
@@ -148,8 +152,8 @@ export function ActiveWorkoutProvider({ children }) {
         completed,
         skipped,
         completionOrder,
-        currentExerciseId: current.summaryReady ? null : (remaining[0] || null),
-        summaryReady: current.summaryReady || remaining.length === 0,
+        currentExerciseId: nextSummaryReady ? null : nextCurrentExerciseId,
+        summaryReady: nextSummaryReady,
       }
     })
   }
