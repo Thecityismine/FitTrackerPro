@@ -154,14 +154,6 @@ function GuidedWorkoutPage() {
   }, [exerciseId, guidedWorkout, routeRoutine, routeWantsWorkoutMode, startRoutineWorkout, syncRoutine])
 
   useEffect(() => {
-    if (!guidedWorkout || guidedWorkout.summaryReady || !exerciseId) return
-    if (guidedWorkout.currentExerciseId === exerciseId) return
-    if (guidedWorkout.exercises.some((exercise) => exercise.id === exerciseId)) {
-      setCurrentExercise(exerciseId)
-    }
-  }, [exerciseId, guidedWorkout, setCurrentExercise])
-
-  useEffect(() => {
     if (!user?.uid || !guidedWorkout?.exercises?.length) return
     let isMounted = true
     setLoading(true)
@@ -195,16 +187,6 @@ function GuidedWorkoutPage() {
       cardRefs.current[guidedWorkout.currentExerciseId]?.scrollIntoView({ behavior: 'smooth', block: 'start' })
     })
   }, [guidedWorkout?.currentExerciseId, guidedWorkout?.summaryReady])
-
-  useEffect(() => {
-    if (!guidedWorkout || guidedWorkout.summaryReady) return
-    const currentExerciseId = guidedWorkout.currentExerciseId || guidedWorkout.exercises[0]?.id
-    if (!currentExerciseId || currentExerciseId === exerciseId) return
-    navigate(`/workout/${currentExerciseId}`, {
-      replace: true,
-      state: { workoutMode: true, routine },
-    })
-  }, [exerciseId, guidedWorkout, navigate, routine])
 
   useEffect(() => {
     if (guidedWorkout?.summaryReady) pause()
@@ -600,7 +582,6 @@ function GuidedWorkoutPage() {
                             <button
                               onClick={() => {
                                 setCurrentExercise(exercise.id)
-                                navigate(`/workout/${exercise.id}`, { replace: true, state: { workoutMode: true, routine } })
                               }}
                               className="text-accent text-sm font-semibold"
                             >
