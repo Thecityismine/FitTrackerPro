@@ -4,10 +4,9 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { getDocs, setDoc, updateDoc, query, where, writeBatch, serverTimestamp, doc } from 'firebase/firestore'
 import {
   format, differenceInDays, parseISO,
-  startOfWeek, endOfWeek, subWeeks,
+  startOfWeek, endOfWeek,
 } from 'date-fns'
 import PageWrapper from '../components/layout/PageWrapper'
-import HexRing from '../components/HexRing'
 import { useAuth } from '../context/AuthContext'
 import { sessionsCol, exercisesCol, exerciseDoc, globalExercisesCol, routinesCol } from '../firebase/collections'
 import { db } from '../firebase/config'
@@ -31,7 +30,7 @@ const PPL = [
     ],
   },
   {
-    id: 'legs', label: 'Leg Muscles', color: '#1F4D3A', targetTotal: 21,
+    id: 'legs', label: 'Leg Muscles', color: '#22C55E', targetTotal: 21,
     muscles: [
       { id: 'quads',      label: 'Quadriceps', target: 7 },
       { id: 'hamstrings', label: 'Hamstrings', target: 7 },
@@ -39,7 +38,6 @@ const PPL = [
     ],
   },
 ]
-const TOTAL_TARGET = PPL.reduce((s, g) => s + g.targetTotal, 0) // 63
 const RECOVERY_SILHOUETTE_SRC = '/man-silhouette.png'
 
 // Map muscleGroup / exerciseName → { groupId, muscleId }
@@ -310,20 +308,27 @@ function CircleProgress({ pct, color, size = 44, strokeWidth = 5 }) {
   )
 }
 
-function GroupRow({ group, sets, expanded, onToggle }) {
+function GroupRow({ group, sets, expanded, onToggle, isLowest }) {
   const totalActual = group.muscles.reduce((s, m) => s + (sets[group.id]?.[m.id] || 0), 0)
   const pct = Math.min(totalActual / group.targetTotal, 1)
   const toGo = Math.max(group.targetTotal - totalActual, 0)
 
   return (
-    <div className="card overflow-hidden">
+    <div className={`card overflow-hidden transition-shadow ${isLowest ? 'ring-1 ring-[#22C55E]/30 shadow-[0_0_0_1px_rgba(34,197,94,0.12)]' : ''}`}>
       <button onClick={onToggle} className="flex items-center gap-3 w-full text-left">
         {/* Circle icon */}
         <div className="flex-shrink-0">
           <CircleProgress pct={pct} color={group.color} size={44} strokeWidth={5} />
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-text-primary font-semibold text-sm">{group.label}</p>
+          <div className="flex items-center gap-2 flex-wrap">
+            <p className="text-text-primary font-semibold text-sm">{group.label}</p>
+            {isLowest && (
+              <span className="rounded-full bg-[#22C55E]/16 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#62E38D]">
+                Needs focus
+              </span>
+            )}
+          </div>
           <p className="text-text-secondary text-xs">
             {totalActual} / {group.targetTotal} Sets
           </p>
@@ -332,7 +337,7 @@ function GroupRow({ group, sets, expanded, onToggle }) {
           {toGo > 0 && (
             <div className="text-right">
               <p className="text-text-primary font-bold text-sm">{toGo}</p>
-              <p className="text-text-secondary text-xs">to go</p>
+              <p className="text-text-secondary text-xs">sets to hit goal</p>
             </div>
           )}
           {toGo === 0 && (
@@ -354,17 +359,14 @@ function GroupRow({ group, sets, expanded, onToggle }) {
             const mPct = Math.min(actual / muscle.target, 1)
             return (
               <div key={muscle.id} className="flex items-center gap-3">
-                <HexRing
-                  segments={[{ pct: mPct, color: group.color }, { pct: 0, color: 'transparent' }, { pct: 0, color: 'transparent' }]}
-                  size={32} strokeWidth={4}
-                />
+                <CircleProgress pct={mPct} color={group.color} size={32} strokeWidth={4} />
                 <div className="flex-1 min-w-0">
                   <p className="text-text-primary text-sm font-medium">{muscle.label}</p>
                   <p className="text-text-secondary text-xs">{actual} / {muscle.target} Sets</p>
                 </div>
                 <div className="text-right flex-shrink-0">
                   <p className="text-text-primary font-bold text-sm">{Math.max(muscle.target - actual, 0)}</p>
-                  <p className="text-text-secondary text-xs">to go</p>
+                  <p className="text-text-secondary text-xs">sets to hit goal</p>
                 </div>
               </div>
             )
@@ -379,29 +381,7 @@ function GroupRow({ group, sets, expanded, onToggle }) {
 }
 
 // ─── Small hex for history ─────────────────────────────────
-function HistoryHex({ pct, label, color }) {
-  const overall = Math.round(pct * 100)
-  return (
-    <div className="flex flex-col items-center gap-1.5">
-      <div className="relative w-16 h-16">
-        <HexRing
-          segments={[
-            { pct, color },
-            { pct, color: color + 'aa' },
-            { pct, color: color + '66' },
-          ]}
-          size={64} strokeWidth={6}
-        />
-        <div className="absolute inset-0 flex items-center justify-center">
-          <p className="text-xs font-bold text-text-primary">{overall}%</p>
-        </div>
-      </div>
-      <p className="text-text-secondary text-xs">{label}</p>
-    </div>
-  )
-}
-
-function RecoveryHero({ groups, sets, totalActual, totalTarget }) {
+function RecoveryHero({ groups, sets, totalActual, totalTarget, paceLabel, paceTone }) {
   const segments = groups.map((group) => {
     const actual = getGroupActualSets(group, sets)
     return {
@@ -478,6 +458,9 @@ function RecoveryHero({ groups, sets, totalActual, totalTarget }) {
         <p className="font-display text-4xl font-bold text-text-primary leading-none">{Math.round(overallPct * 100)}%</p>
         <p className="text-text-primary text-sm font-semibold mt-1">{totalActual}/{totalTarget} sets</p>
         <p className="text-text-secondary text-xs">completed</p>
+        <p className={`mt-1 text-xs font-semibold ${paceTone}`}>
+          {Math.round(overallPct * 100)}% Complete • {paceLabel}
+        </p>
       </div>
 
       <div className="flex items-center justify-center gap-6 mt-4">
@@ -614,18 +597,6 @@ export default function Muscles() {
     const ws = sessions.filter(s => s.date >= weekStartStr && s.date <= weekEndStr)
     return computeWeekSets(ws)
   }, [sessions, weekStartStr, weekEndStr])
-
-  const history = useMemo(() => {
-    return Array.from({ length: 4 }, (_, i) => {
-      const ws  = format(startOfWeek(subWeeks(new Date(), i + 1), { weekStartsOn: 0 }), 'yyyy-MM-dd')
-      const we  = format(endOfWeek(subWeeks(new Date(),   i + 1), { weekStartsOn: 0 }), 'yyyy-MM-dd')
-      const wl  = format(new Date(we + 'T12:00:00'), 'MMM d')
-      const wSessions = sessions.filter(s => s.date >= ws && s.date <= we)
-      const wSets = computeWeekSets(wSessions)
-      const wTotal = pplConfig.reduce((s, g) => s + g.muscles.reduce((ms, m) => ms + (wSets[g.id]?.[m.id] || 0), 0), 0)
-      return { label: wl, pct: wTotal / totalTarget }
-    }).reverse()
-  }, [sessions, pplConfig, totalTarget])
 
   // ── Detail view (/muscles/:groupId) ──────────────────────
   if (groupId) {
@@ -780,6 +751,31 @@ export default function Muscles() {
   // ── Main view: Weekly Set Targets ─────────────────────────
   const totalActual = pplConfig.reduce((s, g) =>
     s + g.muscles.reduce((ms, m) => ms + (weeklySets[g.id]?.[m.id] || 0), 0), 0)
+  const weekEndDate = new Date(`${weekEndStr}T12:00:00`)
+  const daysLeft = Math.max(differenceInDays(weekEndDate, new Date()) + 1, 1)
+  const overallPct = clampPct(totalActual / totalTarget)
+  const groupProgress = pplConfig.map(group => {
+    const actual = getGroupActualSets(group, weeklySets)
+    const pct = clampPct(actual / group.targetTotal)
+    return {
+      ...group,
+      actual,
+      pct,
+      toGo: Math.max(group.targetTotal - actual, 0),
+    }
+  })
+  const lowestGroup = [...groupProgress].sort((a, b) => a.pct - b.pct || b.toGo - a.toGo)[0]
+  const expectedPct = clampPct((7 - daysLeft) / 7)
+  const paceLabel = overallPct >= expectedPct + 0.08
+    ? 'Ahead of pace'
+    : overallPct >= expectedPct - 0.08
+      ? 'On Track'
+      : 'Slightly Behind'
+  const paceTone = overallPct >= expectedPct - 0.08 ? 'text-[#62E38D]' : 'text-[#F2C14E]'
+  const lowestWorkoutCount = lowestGroup?.toGo > 0 ? Math.max(Math.ceil(lowestGroup.toGo / 7), 1) : 0
+  const focusInsight = lowestWorkoutCount > 0
+    ? `You need ${lowestWorkoutCount} more ${lowestGroup.id} workout${lowestWorkoutCount === 1 ? '' : 's'} this week`
+    : 'All weekly muscle targets are on pace'
   return (
     <PageWrapper showHeader>
       <div className="px-4 pt-2 space-y-4 pb-6">
@@ -787,7 +783,12 @@ export default function Muscles() {
         {/* Header */}
         <div>
           <h1 className="font-display text-2xl font-bold text-text-primary">Weekly Set Targets</h1>
-          <p className="text-text-secondary text-sm mt-0.5">{weekLabel}</p>
+          <div className="mt-0.5 flex items-center gap-2 flex-wrap text-sm">
+            <p className="text-text-secondary">{weekLabel}</p>
+            <span className="text-text-secondary/50">•</span>
+            <p className="text-[#62E38D] font-semibold">{daysLeft} day{daysLeft === 1 ? '' : 's'} left</p>
+          </div>
+          <p className="mt-2 text-sm font-medium text-[#62E38D]">{focusInsight}</p>
         </div>
 
         {/* Weekly target hero */}
@@ -797,6 +798,8 @@ export default function Muscles() {
             sets={weeklySets}
             totalActual={totalActual}
             totalTarget={totalTarget}
+            paceLabel={paceLabel}
+            paceTone={paceTone}
           />
         )}
 
@@ -816,6 +819,7 @@ export default function Muscles() {
               group={group}
               sets={weeklySets}
               expanded={expandedId === group.id}
+              isLowest={lowestGroup?.id === group.id && lowestGroup?.toGo > 0}
               onToggle={() => setExpandedId(prev => prev === group.id ? null : group.id)}
             />
           ))}
@@ -823,7 +827,7 @@ export default function Muscles() {
 
         {/* Browse exercises by muscle group */}
         <div>
-          <p className="section-title">Browse Exercises</p>
+          <p className="section-title">Browse or Add New Exercises</p>
           <div className="grid grid-cols-2 gap-3">
             {GROUPS_META.map(g => {
               const gSessions = sessions.filter(s => s.muscleGroup?.toLowerCase() === g.id.toLowerCase())
