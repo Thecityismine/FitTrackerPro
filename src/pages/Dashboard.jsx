@@ -614,12 +614,14 @@ export default function Dashboard() {
 
         {!loading && lastSessions.length > 0 && (
           <div className="card">
-            <div className="flex items-center justify-between mb-3">
-              <div>
+            <div className="flex items-start justify-between gap-4 mb-3">
+              <div className="min-w-0">
                 <p className="section-title mb-0">Recovery Status</p>
                 <p className="text-text-secondary text-xs mt-1">Tap a zone to see what to train or rest.</p>
               </div>
-              <span className="text-text-secondary text-[11px]">Ready / Recovery / Overworked</span>
+              <span className="text-text-secondary text-[11px] text-right leading-5 max-w-[132px] flex-shrink-0">
+                Ready / Recovery / Overworked
+              </span>
             </div>
 
             <div className="grid grid-cols-4 gap-2">
