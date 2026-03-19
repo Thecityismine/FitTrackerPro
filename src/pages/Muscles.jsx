@@ -433,7 +433,7 @@ function RecoveryHero({ groups, sets, totalActual, totalTarget }) {
         ))}
       </div>
 
-      <div className="relative -mt-[84px] w-[352px] max-w-full px-3">
+      <div className="relative -mt-[70px] w-[352px] max-w-full px-3">
         <div className="h-4 rounded-full bg-slate-700/70 overflow-hidden shadow-[inset_0_0_0_1px_rgba(148,163,184,0.08)]">
           <div
             className="h-full rounded-full bg-[#F2C14E]"
