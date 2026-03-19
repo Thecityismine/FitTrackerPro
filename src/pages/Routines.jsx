@@ -114,6 +114,32 @@ function formatRoutineName(name = '') {
     .replace(/^(.*?)(\sDay \d+)$/, '$1 -$2')
 }
 
+function parseRoutineDay(name = '') {
+  const match = name.match(/^(.*?)(?:\s*[-•]?\s*)Day[- ]?(\d+)$/i)
+  if (!match) return null
+  return {
+    base: match[1].replace(/\s*[-•]\s*$/, '').trim().toLowerCase(),
+    day: Number(match[2]),
+  }
+}
+
+function getNextRoutineInSeries(currentRoutine, routines = []) {
+  const parsedCurrent = parseRoutineDay(currentRoutine?.name || '')
+  if (!parsedCurrent) return null
+
+  const series = routines
+    .map((routine) => ({ routine, parsed: parseRoutineDay(routine.name) }))
+    .filter(({ parsed }) => parsed && parsed.base === parsedCurrent.base)
+    .sort((a, b) => a.parsed.day - b.parsed.day)
+
+  if (series.length < 2) return null
+
+  const currentIndex = series.findIndex(({ routine }) => routine.id === currentRoutine.id)
+  if (currentIndex === -1) return null
+
+  return series[(currentIndex + 1) % series.length].routine
+}
+
 function getTimestampMs(value) {
   if (!value) return null
   if (typeof value?.toMillis === 'function') return value.toMillis()
@@ -943,10 +969,7 @@ function RoutineCard({
           />
         </div>
       )}
-      <div className="mt-4 pt-3 border-t border-surface2 flex items-center justify-between gap-3">
-        <p className="text-text-secondary text-[11px]">
-          {detailText || `${exercises.length} exercise${exercises.length !== 1 ? 's' : ''}`}
-        </p>
+      <div className="mt-4 pt-3 border-t border-surface2 flex items-center justify-end">
         <button
           onClick={(event) => {
             event.stopPropagation()
@@ -1115,12 +1138,22 @@ export default function Routines() {
       return routines.find((routine) => routine.id === routineInProgress.routine.id) || null
     }
 
+    const lastRoutine = lastSessionSummary?.routineId
+      ? routines.find((routine) => routine.id === lastSessionSummary.routineId)
+      : null
+
+    const nextInSeries = lastRoutine ? getNextRoutineInSeries(lastRoutine, routines) : null
+    if (nextInSeries) return nextInSeries
+
     return [...routines].sort((a, b) => {
-      const aDate = routineSessionStats[a.id]?.lastDate || ''
-      const bDate = routineSessionStats[b.id]?.lastDate || ''
-      return bDate.localeCompare(aDate)
+      const aDate = routineSessionStats[a.id]?.lastDate
+      const bDate = routineSessionStats[b.id]?.lastDate
+      if (!aDate && !bDate) return formatRoutineName(a.name).localeCompare(formatRoutineName(b.name))
+      if (!aDate) return -1
+      if (!bDate) return 1
+      return aDate.localeCompare(bDate)
     })[0] || null
-  }, [routineInProgress, routineSessionStats, routines])
+  }, [lastSessionSummary?.routineId, routineInProgress, routineSessionStats, routines])
 
   function launchRoutine(routine, options = {}) {
     const exercises = routine?.exercises || []
@@ -1281,6 +1314,36 @@ export default function Routines() {
             </button>
           )}
 
+          {!sessionsLoading && lastSessionSummary && (
+            <button
+              onClick={() => {
+                if (!lastSessionSummary.routineId) return
+                const match = routines.find((routine) => routine.id === lastSessionSummary.routineId)
+                if (match) setSelectedRoutine(match)
+              }}
+              disabled={!lastSessionSummary.routineId}
+              className={`card w-full text-left ${lastSessionSummary.routineId ? 'active:scale-[0.99] transition-transform' : ''}`}
+            >
+              <div className="flex items-start justify-between gap-3">
+                <p className="section-title mb-0">Last Session</p>
+                <p className="text-text-secondary text-xs flex-shrink-0">
+                  {format(parseISO(lastSessionSummary.lastDate), 'MM/dd')}
+                </p>
+              </div>
+              <div className="mt-3 space-y-1.5">
+                {lastSessionSummary.exerciseNames.slice(0, 4).map((name) => (
+                  <div key={name} className="flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-accent flex-shrink-0" />
+                    <p className="text-text-primary text-sm line-clamp-1">{name}</p>
+                  </div>
+                ))}
+                {lastSessionSummary.exerciseNames.length > 4 && (
+                  <p className="text-text-secondary text-sm pl-4">+{lastSessionSummary.exerciseNames.length - 4} more</p>
+                )}
+              </div>
+            </button>
+          )}
+
           {loading ? (
             <div className="flex justify-center py-16">
               <div className="w-8 h-8 border-2 border-accent border-t-transparent rounded-full animate-spin" />
@@ -1339,69 +1402,6 @@ export default function Routines() {
                 ))}
               </div>
             </>
-          )}
-
-          {!sessionsLoading && lastSessionSummary && (
-            <button
-              onClick={() => {
-                if (!lastSessionSummary.routineId) return
-                const match = routines.find((routine) => routine.id === lastSessionSummary.routineId)
-                if (match) setSelectedRoutine(match)
-              }}
-              disabled={!lastSessionSummary.routineId}
-              className={`card w-full text-left ${lastSessionSummary.routineId ? 'active:scale-[0.99] transition-transform' : ''}`}
-            >
-              <div className="flex items-start justify-between gap-4">
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center justify-between gap-3">
-                    <p className="section-title mb-0">Last Session</p>
-                    <p className="text-text-secondary text-xs">
-                      {format(parseISO(lastSessionSummary.lastDate), 'MM/dd')}
-                    </p>
-                  </div>
-                  <p className="text-text-primary font-semibold text-base mt-1 line-clamp-1">
-                    {formatRoutineName(lastSessionSummary.label)}
-                  </p>
-                  <p className="text-text-secondary text-xs mt-1">
-                    {[
-                      `${lastSessionSummary.exerciseCount} exercise${lastSessionSummary.exerciseCount !== 1 ? 's' : ''}`,
-                      lastSessionSummary.durationLabel,
-                      `${lastSessionSummary.totalSets} sets`,
-                    ].filter(Boolean).join(' | ')}
-                  </p>
-                  <div className="mt-3 space-y-1.5">
-                    {lastSessionSummary.exerciseNames.slice(0, 3).map((name) => (
-                      <div key={name} className="flex items-center gap-2">
-                        <span className="w-2 h-2 rounded-full bg-accent flex-shrink-0" />
-                        <p className="text-text-primary text-sm line-clamp-1">{name}</p>
-                      </div>
-                    ))}
-                    {lastSessionSummary.exerciseNames.length > 3 && (
-                      <p className="text-text-secondary text-sm pl-4">+{lastSessionSummary.exerciseNames.length - 3} more</p>
-                    )}
-                  </div>
-                </div>
-                <div className="w-24 h-24 flex-shrink-0 self-center relative">
-                  <svg viewBox="0 0 120 120" className="w-full h-full -rotate-90">
-                    <circle cx="60" cy="60" r="50" stroke="rgba(61,75,102,0.55)" strokeWidth="10" fill="none" />
-                    <circle
-                      cx="60"
-                      cy="60"
-                      r="50"
-                      stroke="#16C15F"
-                      strokeWidth="10"
-                      fill="none"
-                      strokeLinecap="round"
-                      strokeDasharray={`${Math.min((lastSessionSummary.volume / 100000) * 314, 314)} 314`}
-                    />
-                  </svg>
-                  <div className="absolute inset-0 flex flex-col items-center justify-center">
-                    <p className="text-text-primary font-mono font-bold text-xl leading-none">{formatCompactVolume(lastSessionSummary.volume)}</p>
-                    <p className="text-text-secondary text-[10px] mt-1">lbs</p>
-                  </div>
-                </div>
-              </div>
-            </button>
           )}
 
           {!sessionsLoading && (
