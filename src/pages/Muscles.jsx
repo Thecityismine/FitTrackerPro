@@ -278,6 +278,38 @@ function AddExerciseSheet({ group, onClose, onAdd }) {
 }
 
 // ─── PPL Group Row ─────────────────────────────────────────
+function CircleProgress({ pct, color, size = 44, strokeWidth = 5 }) {
+  const clamped = clampPct(pct)
+  const radius = (size - strokeWidth) / 2
+  const circumference = 2 * Math.PI * radius
+  const dashOffset = circumference * (1 - clamped)
+
+  return (
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="block">
+      <circle
+        cx={size / 2}
+        cy={size / 2}
+        r={radius}
+        fill="none"
+        stroke="rgba(51,65,85,0.85)"
+        strokeWidth={strokeWidth}
+      />
+      <circle
+        cx={size / 2}
+        cy={size / 2}
+        r={radius}
+        fill="none"
+        stroke={color}
+        strokeWidth={strokeWidth}
+        strokeLinecap="round"
+        strokeDasharray={circumference}
+        strokeDashoffset={dashOffset}
+        transform={`rotate(-90 ${size / 2} ${size / 2})`}
+      />
+    </svg>
+  )
+}
+
 function GroupRow({ group, sets, expanded, onToggle }) {
   const totalActual = group.muscles.reduce((s, m) => s + (sets[group.id]?.[m.id] || 0), 0)
   const pct = Math.min(totalActual / group.targetTotal, 1)
@@ -286,12 +318,9 @@ function GroupRow({ group, sets, expanded, onToggle }) {
   return (
     <div className="card overflow-hidden">
       <button onClick={onToggle} className="flex items-center gap-3 w-full text-left">
-        {/* Hex icon */}
+        {/* Circle icon */}
         <div className="flex-shrink-0">
-          <HexRing
-            segments={[{ pct, color: group.color }, { pct: 0, color: 'transparent' }, { pct: 0, color: 'transparent' }]}
-            size={44} strokeWidth={5}
-          />
+          <CircleProgress pct={pct} color={group.color} size={44} strokeWidth={5} />
         </div>
         <div className="flex-1 min-w-0">
           <p className="text-text-primary font-semibold text-sm">{group.label}</p>
@@ -791,18 +820,6 @@ export default function Muscles() {
             />
           ))}
         </div>
-
-        {/* History */}
-        {!loading && history.some(h => h.pct > 0) && (
-          <div>
-            <p className="section-title">History</p>
-            <div className="flex gap-4 justify-around">
-              {history.map((h, i) => (
-                <HistoryHex key={i} pct={h.pct} label={h.label} color="#22c55e" />
-              ))}
-            </div>
-          </div>
-        )}
 
         {/* Browse exercises by muscle group */}
         <div>
