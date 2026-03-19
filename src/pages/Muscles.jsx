@@ -40,6 +40,7 @@ const PPL = [
   },
 ]
 const TOTAL_TARGET = PPL.reduce((s, g) => s + g.targetTotal, 0) // 63
+const RECOVERY_SILHOUETTE_SRC = '/man-silhouette.png'
 
 // Map muscleGroup / exerciseName → { groupId, muscleId }
 const PPL_MAP = {
@@ -88,6 +89,35 @@ function getMuscleCategory(muscleGroup, exerciseName) {
     if (new RegExp(`\\b${key}\\b`).test(search)) return val
   }
   return null
+}
+
+function clampPct(value) {
+  return Math.max(0, Math.min(value || 0, 1))
+}
+
+function getGroupActualSets(group, sets) {
+  return group.muscles.reduce((sum, muscle) => sum + (sets[group.id]?.[muscle.id] || 0), 0)
+}
+
+function hexToRgba(hex, alpha) {
+  const clean = (hex || '').replace('#', '')
+  if (clean.length !== 6) return `rgba(255,255,255,${alpha})`
+  const r = Number.parseInt(clean.slice(0, 2), 16)
+  const g = Number.parseInt(clean.slice(2, 4), 16)
+  const b = Number.parseInt(clean.slice(4, 6), 16)
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`
+}
+
+function buildSilhouetteGradient(segments, alphaBase = 0.26, alphaRange = 0.48) {
+  return `linear-gradient(
+    to bottom,
+    ${hexToRgba(segments[0].color, alphaBase + segments[0].pct * alphaRange)} 0%,
+    ${hexToRgba(segments[0].color, alphaBase + segments[0].pct * alphaRange)} 33.333%,
+    ${hexToRgba(segments[1].color, alphaBase + segments[1].pct * alphaRange)} 33.333%,
+    ${hexToRgba(segments[1].color, alphaBase + segments[1].pct * alphaRange)} 66.666%,
+    ${hexToRgba(segments[2].color, alphaBase + segments[2].pct * alphaRange)} 66.666%,
+    ${hexToRgba(segments[2].color, alphaBase + segments[2].pct * alphaRange)} 100%
+  )`
 }
 
 function computeWeekSets(weekSessions) {
@@ -338,6 +368,114 @@ function HistoryHex({ pct, label, color }) {
         </div>
       </div>
       <p className="text-text-secondary text-xs">{label}</p>
+    </div>
+  )
+}
+
+function RecoveryHero({ groups, sets, totalActual, totalTarget }) {
+  const segments = groups.map((group) => {
+    const actual = getGroupActualSets(group, sets)
+    return {
+      ...group,
+      actual,
+      pct: clampPct(actual / group.targetTotal),
+      displayPct: Math.round(clampPct(actual / group.targetTotal) * 100),
+      shortLabel: group.id === 'legs' ? 'Legs' : group.id === 'pull' ? 'Pull' : 'Push',
+    }
+  })
+
+  const overallPct = clampPct(totalActual / totalTarget)
+  const mainGradient = buildSilhouetteGradient(segments, 0.28, 0.42)
+  const glowGradient = buildSilhouetteGradient(segments, 0.18, 0.36)
+  const maskStyle = {
+    WebkitMaskImage: `url("${RECOVERY_SILHOUETTE_SRC}")`,
+    maskImage: `url("${RECOVERY_SILHOUETTE_SRC}")`,
+    WebkitMaskSize: 'contain',
+    maskSize: 'contain',
+    WebkitMaskRepeat: 'no-repeat',
+    maskRepeat: 'no-repeat',
+    WebkitMaskPosition: 'center',
+    maskPosition: 'center',
+  }
+  const bandLabels = [
+    { top: '20%', value: segments[0].displayPct },
+    { top: '47%', value: segments[1].displayPct },
+    { top: '72%', value: segments[2].displayPct },
+  ]
+
+  return (
+    <div className="flex flex-col items-center py-2">
+      <div className="relative w-[230px] h-[330px]">
+        <div
+          className="absolute inset-0 scale-95 blur-[20px] opacity-95"
+          style={{ ...maskStyle, background: glowGradient }}
+        />
+        <div
+          className="absolute inset-0"
+          style={{ ...maskStyle, background: mainGradient }}
+        />
+        <img
+          src={RECOVERY_SILHOUETTE_SRC}
+          alt=""
+          loading="lazy"
+          decoding="async"
+          className="absolute inset-0 w-full h-full object-contain opacity-90 pointer-events-none"
+        />
+
+        {bandLabels.map((band) => (
+          <div
+            key={band.top}
+            className="absolute left-1/2 -translate-x-1/2 text-center"
+            style={{ top: band.top, textShadow: '0 0 18px rgba(255,255,255,0.2)' }}
+          >
+            <p className="font-display text-2xl font-bold text-white">{band.value}%</p>
+          </div>
+        ))}
+      </div>
+
+      <div className="relative -mt-10 w-[250px] h-[150px]">
+        <svg viewBox="0 0 220 120" className="w-full h-full">
+          <path
+            d="M 24 96 Q 110 10 196 96"
+            fill="none"
+            stroke="rgba(51,65,85,0.85)"
+            strokeWidth="12"
+            strokeLinecap="round"
+            pathLength="100"
+          />
+          <path
+            d="M 24 96 Q 110 10 196 96"
+            fill="none"
+            stroke="#F2C14E"
+            strokeWidth="12"
+            strokeLinecap="round"
+            pathLength="100"
+            strokeDasharray={`${overallPct * 100} 100`}
+            style={{ filter: 'drop-shadow(0 0 10px rgba(242,193,78,0.45))' }}
+          />
+        </svg>
+
+        <div className="absolute inset-0 flex flex-col items-center justify-center pt-5">
+          <p className="font-display text-4xl font-bold text-text-primary leading-none">{Math.round(overallPct * 100)}%</p>
+          <p className="text-text-primary text-sm font-semibold mt-1">{totalActual}/{totalTarget} sets</p>
+          <p className="text-text-secondary text-xs">completed</p>
+        </div>
+      </div>
+
+      <div className="flex items-center justify-center gap-6 -mt-3">
+        {segments.map((segment) => (
+          <div key={segment.id} className="flex items-center gap-2">
+            <span
+              className="w-3 h-3 rounded-full"
+              style={{
+                backgroundColor: segment.color,
+                boxShadow: `0 0 10px ${hexToRgba(segment.color, 0.55)}`,
+              }}
+            />
+            <p className="text-text-primary text-sm font-medium">{segment.shortLabel}</p>
+          </div>
+        ))}
+      </div>
     </div>
   )
 }
@@ -624,9 +762,6 @@ export default function Muscles() {
   // ── Main view: Weekly Set Targets ─────────────────────────
   const totalActual = pplConfig.reduce((s, g) =>
     s + g.muscles.reduce((ms, m) => ms + (weeklySets[g.id]?.[m.id] || 0), 0), 0)
-  const overallPct  = totalActual / totalTarget
-  const overallDisp = Math.round(overallPct * 100)
-
   return (
     <PageWrapper showHeader>
       <div className="px-4 pt-2 space-y-4 pb-6">
@@ -637,43 +772,21 @@ export default function Muscles() {
           <p className="text-text-secondary text-sm mt-0.5">{weekLabel}</p>
         </div>
 
-        {/* Big hex ring */}
+        {/* Weekly target hero */}
         {!loading && (
-          <div className="flex flex-col items-center py-2">
-            <div className="relative">
-              <HexRing
-                segments={pplConfig.map(g => ({
-                  pct: Math.min(
-                    g.muscles.reduce((s, m) => s + (weeklySets[g.id]?.[m.id] || 0), 0) / g.targetTotal,
-                    1
-                  ),
-                  color: g.color,
-                }))}
-                size={200}
-                strokeWidth={16}
-              />
-              <div className="absolute inset-0 flex flex-col items-center justify-center">
-                <p className="font-display text-4xl font-bold text-text-primary leading-tight">{overallDisp}%</p>
-                <p className="text-text-secondary text-xs">{totalActual} / {totalTarget} sets</p>
-              </div>
-            </div>
-
-            {/* Color legend */}
-            <div className="flex gap-4 mt-3">
-              {pplConfig.map(g => (
-                <div key={g.id} className="flex items-center gap-1.5">
-                  <div className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: g.color }} />
-                  <p className="text-text-secondary text-xs">{g.id === 'push' ? 'Push' : g.id === 'pull' ? 'Pull' : 'Legs'}</p>
-                </div>
-              ))}
-            </div>
-          </div>
+          <RecoveryHero
+            groups={pplConfig}
+            sets={weeklySets}
+            totalActual={totalActual}
+            totalTarget={totalTarget}
+          />
         )}
 
         {/* Loading skeleton */}
         {loading && (
-          <div className="flex justify-center py-8">
-            <div className="w-[200px] h-[200px] rounded-full animate-pulse bg-surface2" />
+          <div className="flex flex-col items-center py-4 gap-4">
+            <div className="w-[230px] h-[330px] rounded-[36px] animate-pulse bg-surface2" />
+            <div className="w-[250px] h-[150px] rounded-[32px] animate-pulse bg-surface2" />
           </div>
         )}
 
