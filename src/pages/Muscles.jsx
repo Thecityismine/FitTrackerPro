@@ -398,9 +398,9 @@ function RecoveryHero({ groups, sets, totalActual, totalTarget }) {
     maskPosition: 'top center',
   }
   const bandLabels = [
-    { top: '31%', value: segments[0].displayPct },
-    { top: '53%', value: segments[1].displayPct },
-    { top: '69%', value: segments[2].displayPct },
+    { top: '28%', value: segments[0].displayPct },
+    { top: '50%', value: segments[1].displayPct },
+    { top: '66%', value: segments[2].displayPct },
   ]
 
   return (
@@ -433,7 +433,7 @@ function RecoveryHero({ groups, sets, totalActual, totalTarget }) {
         ))}
       </div>
 
-      <div className="relative -mt-[96px] w-[320px] h-[142px]">
+      <div className="relative -mt-[108px] w-[320px] h-[142px]">
         <svg viewBox="0 0 276 132" className="w-full h-full">
           <path
             d="M 14 108 Q 138 2 262 108"
@@ -456,13 +456,13 @@ function RecoveryHero({ groups, sets, totalActual, totalTarget }) {
         </svg>
       </div>
 
-      <div className="-mt-8 flex flex-col items-center">
+      <div className="-mt-10 flex flex-col items-center">
         <p className="font-display text-4xl font-bold text-text-primary leading-none">{Math.round(overallPct * 100)}%</p>
         <p className="text-text-primary text-sm font-semibold mt-1">{totalActual}/{totalTarget} sets</p>
         <p className="text-text-secondary text-xs">completed</p>
       </div>
 
-      <div className="flex items-center justify-center gap-6 mt-1">
+      <div className="flex items-center justify-center gap-6 mt-0">
         {segments.map((segment) => (
           <div key={segment.id} className="flex items-center gap-2">
             <span
