@@ -136,6 +136,7 @@ function GuidedWorkoutPage() {
   const exerciseStateRef = useRef(exerciseState)
   const cardRefs = useRef({})
   const lastScrolledExerciseRef = useRef(null)
+  const handledRouteSelectionRef = useRef(null)
 
   exerciseStateRef.current = exerciseState
 
@@ -151,15 +152,19 @@ function GuidedWorkoutPage() {
   useEffect(() => {
     if (!routeWantsWorkoutMode || !routeRoutine?.id) return
     if (!guidedWorkout || guidedWorkout.routine.id !== routeRoutine.id) {
+      handledRouteSelectionRef.current = null
       startRoutineWorkout(routeRoutine, { startExerciseId: exerciseId })
       return
     }
     syncRoutine(routeRoutine)
+    const routeSelectionKey = `${routeRoutine.id}:${exerciseId || ''}`
     if (
       exerciseId &&
+      handledRouteSelectionRef.current !== routeSelectionKey &&
       guidedWorkout.currentExerciseId !== exerciseId &&
       !guidedWorkout.summaryReady
     ) {
+      handledRouteSelectionRef.current = routeSelectionKey
       setCurrentExercise(exerciseId)
     }
   }, [exerciseId, guidedWorkout, routeRoutine, routeWantsWorkoutMode, setCurrentExercise, startRoutineWorkout, syncRoutine])
