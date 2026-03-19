@@ -394,18 +394,18 @@ function RecoveryHero({ groups, sets, totalActual, totalTarget }) {
     maskSize: 'contain',
     WebkitMaskRepeat: 'no-repeat',
     maskRepeat: 'no-repeat',
-    WebkitMaskPosition: 'center',
-    maskPosition: 'center',
+    WebkitMaskPosition: 'top center',
+    maskPosition: 'top center',
   }
   const bandLabels = [
-    { top: '28%', value: segments[0].displayPct },
-    { top: '53%', value: segments[1].displayPct },
+    { top: '34%', value: segments[0].displayPct },
+    { top: '56%', value: segments[1].displayPct },
     { top: '72%', value: segments[2].displayPct },
   ]
 
   return (
     <div className="flex flex-col items-center pt-2 pb-1">
-      <div className="relative w-[230px] h-[312px]">
+      <div className="relative w-[230px] h-[288px]">
         <div
           className="absolute inset-0 scale-95 blur-[20px] opacity-95"
           style={{ ...maskStyle, background: glowGradient }}
@@ -419,7 +419,7 @@ function RecoveryHero({ groups, sets, totalActual, totalTarget }) {
           alt=""
           loading="lazy"
           decoding="async"
-          className="absolute inset-0 w-full h-full object-contain opacity-90 pointer-events-none"
+          className="absolute inset-0 w-full h-full object-contain object-top opacity-90 pointer-events-none"
         />
 
         {bandLabels.map((band) => (
@@ -428,15 +428,15 @@ function RecoveryHero({ groups, sets, totalActual, totalTarget }) {
             className="absolute left-1/2 -translate-x-1/2 text-center"
             style={{ top: band.top, textShadow: '0 0 18px rgba(255,255,255,0.2)' }}
           >
-            <p className="font-display text-xl font-bold text-white">{band.value}%</p>
+            <p className="font-display text-lg font-bold text-white">{band.value}%</p>
           </div>
         ))}
       </div>
 
-      <div className="relative -mt-[54px] w-[250px] h-[138px]">
-        <svg viewBox="0 0 220 120" className="w-full h-full">
+      <div className="relative -mt-[60px] w-[296px] h-[126px]">
+        <svg viewBox="0 0 260 118" className="w-full h-full">
           <path
-            d="M 24 96 Q 110 10 196 96"
+            d="M 18 98 Q 130 6 242 98"
             fill="none"
             stroke="rgba(51,65,85,0.85)"
             strokeWidth="12"
@@ -444,7 +444,7 @@ function RecoveryHero({ groups, sets, totalActual, totalTarget }) {
             pathLength="100"
           />
           <path
-            d="M 24 96 Q 110 10 196 96"
+            d="M 18 98 Q 130 6 242 98"
             fill="none"
             stroke="#F2C14E"
             strokeWidth="12"
@@ -454,15 +454,15 @@ function RecoveryHero({ groups, sets, totalActual, totalTarget }) {
             style={{ filter: 'drop-shadow(0 0 10px rgba(242,193,78,0.45))' }}
           />
         </svg>
-
-        <div className="absolute inset-0 flex flex-col items-center justify-center pt-7">
-          <p className="font-display text-4xl font-bold text-text-primary leading-none">{Math.round(overallPct * 100)}%</p>
-          <p className="text-text-primary text-sm font-semibold mt-1">{totalActual}/{totalTarget} sets</p>
-          <p className="text-text-secondary text-xs">completed</p>
-        </div>
       </div>
 
-      <div className="flex items-center justify-center gap-6 -mt-1">
+      <div className="-mt-2 flex flex-col items-center">
+        <p className="font-display text-4xl font-bold text-text-primary leading-none">{Math.round(overallPct * 100)}%</p>
+        <p className="text-text-primary text-sm font-semibold mt-1">{totalActual}/{totalTarget} sets</p>
+        <p className="text-text-secondary text-xs">completed</p>
+      </div>
+
+      <div className="flex items-center justify-center gap-6 mt-3">
         {segments.map((segment) => (
           <div key={segment.id} className="flex items-center gap-2">
             <span
