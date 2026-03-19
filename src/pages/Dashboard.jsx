@@ -578,7 +578,8 @@ export default function Dashboard() {
             <div className="flex items-end gap-3">
               <div className="flex-1 min-w-0 space-y-2">
                 {lastSessionExerciseRows.slice(0, 3).map((row) => (
-                  <div key={row.exerciseName} className="min-w-0">
+                  <div key={row.exerciseName} className="min-w-0 flex items-center gap-2">
+                    <div className="w-1.5 h-1.5 rounded-full bg-accent flex-shrink-0" />
                     <p className="text-text-primary text-sm font-medium truncate">{row.exerciseName}</p>
                   </div>
                 ))}
