@@ -517,7 +517,7 @@ export default function Dashboard() {
       <div className="px-4 pt-2 space-y-4">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <h1 className="font-display text-2xl font-bold text-text-primary mt-3">
+            <h1 className="font-display text-2xl font-bold text-text-primary mt-1">
               Hey, {firstName}
             </h1>
             <p className="text-text-secondary text-sm mt-0.5">Here&apos;s your fitness overview</p>
