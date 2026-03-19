@@ -48,7 +48,7 @@ import PageWrapper from '../components/layout/PageWrapper'
 import { getExerciseIcon } from '../utils/exerciseIcons'
 import { AI_SERVER_MESSAGE, generateAiText } from '../utils/aiClient'
 
-// ─── New Routine Bottom Sheet ──────────────────────────────
+// New Routine Sheet
 function NewRoutineSheet({ onClose, onSave }) {
   const [name, setName] = useState('')
   const [saving, setSaving] = useState(false)
@@ -86,14 +86,14 @@ function NewRoutineSheet({ onClose, onSave }) {
           disabled={!name.trim() || saving}
           className="btn-primary w-full disabled:opacity-50"
         >
-          {saving ? 'Creating…' : 'Create Routine'}
+          {saving ? 'Creating...' : 'Create Routine'}
         </button>
       </div>
     </div>
   )
 }
 
-// ─── Infer muscle group from exercise name (fallback) ─────
+// Infer muscle group from exercise name
 function inferMuscleGroup(name) {
   const n = (name || '').toLowerCase()
   if (/\b(cardio|walking|walk|run|running|jog|jogging|bike|cycling|elliptical|swim|swimming|treadmill|stair|hiit)\b/.test(n)) return 'Cardio'
@@ -108,6 +108,58 @@ function inferMuscleGroup(name) {
   return ''
 }
 
+function formatRoutineName(name = '') {
+  return name
+    .replace(/\bDay-(\d+)\b/g, 'Day $1')
+    .replace(/^(.*?)(\sDay \d+)$/, '$1 -$2')
+}
+
+function getTimestampMs(value) {
+  if (!value) return null
+  if (typeof value?.toMillis === 'function') return value.toMillis()
+  if (typeof value?.seconds === 'number') return value.seconds * 1000
+  const parsed = new Date(value).getTime()
+  return Number.isFinite(parsed) ? parsed : null
+}
+
+function formatCompactVolume(value) {
+  if (!value) return '0'
+  if (value >= 1000) {
+    const compact = value >= 10000 ? Math.round(value / 1000).toString() : (value / 1000).toFixed(1)
+    return `${compact.replace('.0', '')}k`
+  }
+  return Math.round(value).toLocaleString()
+}
+
+function formatDurationMinutes(minutes) {
+  if (!Number.isFinite(minutes) || minutes <= 0) return null
+  if (minutes > 240) return null
+  if (minutes < 60) return `${minutes}m`
+  const hours = Math.floor(minutes / 60)
+  const remaining = minutes % 60
+  return remaining > 0 ? `${hours}h ${remaining}m` : `${hours}h`
+}
+
+function calcSessionVolume(sessionList = []) {
+  return sessionList.reduce((sum, session) => {
+    if ((session.muscleGroup || '').toLowerCase() === 'cardio') return sum
+    const fromSets = (session.sets || []).reduce((sessionVolume, set) => (
+      sessionVolume + ((Number(set.reps) || 0) * (Number(set.weight) || 0))
+    ), 0)
+    return sum + (fromSets > 0 ? fromSets : (session.totalVolume || 0))
+  }, 0)
+}
+
+function getRelativeDayLabel(dateValue) {
+  if (!dateValue) return null
+  const todayMs = new Date().setHours(0, 0, 0, 0)
+  const targetMs = parseISO(dateValue).setHours(0, 0, 0, 0)
+  const diff = Math.round((todayMs - targetMs) / 86400000)
+  if (diff === 0) return 'today'
+  if (diff === 1) return 'yesterday'
+  return `${diff}d ago`
+}
+
 function mergeRoutineExerciseTypes(routine, exerciseTypeMap = {}) {
   return {
     ...routine,
@@ -118,7 +170,7 @@ function mergeRoutineExerciseTypes(routine, exerciseTypeMap = {}) {
   }
 }
 
-// ─── Add Exercise Sheet (Library Picker) ──────────────────
+// Add Exercise Sheet
 function AddExerciseSheet({ onClose, onAdd, existingIds = [] }) {
   const { user } = useAuth()
   const [library, setLibrary] = useState([])
@@ -218,7 +270,7 @@ function AddExerciseSheet({ onClose, onAdd, existingIds = [] }) {
               autoFocus
               type="text"
               className="input pl-9"
-              placeholder="Search exercises…"
+              placeholder="Search exercises..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
@@ -294,7 +346,7 @@ function AddExerciseSheet({ onClose, onAdd, existingIds = [] }) {
   )
 }
 
-// ─── Delete Confirm Dialog ─────────────────────────────────
+// Delete Confirm Dialog
 function DeleteConfirm({ routineName, onCancel, onConfirm }) {
   return (
     <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/70 px-6 animate-fade-in">
@@ -325,7 +377,7 @@ function reorderList(list, fromIndex, toIndex) {
   return next
 }
 
-function WeeklySummaryCard({ sessions }) {
+function WeeklySummaryCard({ sessions, previewText }) {
   const [report, setReport] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
@@ -424,7 +476,7 @@ Keep it under 220 words and be concrete.`
     <div className="card space-y-3">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="section-title mb-0">Weekly Summary Report</p>
+          <p className="section-title mb-0">Weekly Insights</p>
           <p className="text-text-secondary text-xs mt-0.5">Review the full week across routines and free workouts.</p>
         </div>
         <div className="w-9 h-9 rounded-xl bg-accent/10 flex items-center justify-center flex-shrink-0">
@@ -433,6 +485,12 @@ Keep it under 220 words and be concrete.`
           </svg>
         </div>
       </div>
+
+      {previewText && (
+        <div className="bg-accent-green/10 border border-accent-green/20 rounded-xl px-3 py-2.5">
+          <p className="text-accent-green text-sm font-semibold">{previewText}</p>
+        </div>
+      )}
 
       <div className="bg-accent/10 border border-accent/20 rounded-xl p-3">
         <p className="text-text-secondary text-xs">{AI_SERVER_MESSAGE}</p>
@@ -461,14 +519,14 @@ Keep it under 220 words and be concrete.`
         </div>
       ) : (
         <button onClick={handleGenerateReport} disabled={loading} className="btn-primary w-full disabled:opacity-50">
-          {loading ? 'Generating weekly report…' : 'Generate Weekly Summary Report'}
+          {loading ? 'Analyzing your week...' : 'Analyze Your Week'}
         </button>
       )}
     </div>
   )
 }
 
-// ─── Routine Detail (full-screen overlay) ─────────────────
+// Routine Detail
 function RoutineDetail({
   routine,
   onClose,
@@ -752,7 +810,7 @@ function RoutineDetail({
                       <p className="text-text-primary text-sm font-semibold truncate">{ex.name}</p>
                       {stats.count > 0 && (
                         <p className="text-text-secondary text-xs mt-1">
-                          {stats.count} session{stats.count !== 1 ? 's' : ''} · {stats.daysAgoStr}
+                          {stats.count} session{stats.count !== 1 ? 's' : ''} | {stats.daysAgoStr}
                         </p>
                       )}
                     </div>
@@ -772,7 +830,7 @@ function RoutineDetail({
                     />
                   )}
 
-                  {/* Status dot — bottom-right corner */}
+                  {/* Status dot in the bottom-right corner */}
                   <span className={`absolute bottom-2.5 right-2.5 w-2.5 h-2.5 rounded-full ${stats.dotColor}`} />
                 </div>
               )
@@ -824,35 +882,89 @@ function RoutineDetail({
   )
 }
 
-// ─── Routine Card ──────────────────────────────────────────
-function RoutineCard({ routine, onSelect }) {
+// Routine Card
+function RoutineCard({
+  routine,
+  onSelect,
+  onStart,
+  tag,
+  detailText,
+  progressText,
+  progressRatio = 0,
+  highlight = false,
+}) {
   const exercises = routine.exercises || []
   return (
-    <button
+    <div
+      role="button"
+      tabIndex={0}
       onClick={() => onSelect(routine)}
-      className="card text-left active:scale-95 transition-transform w-full"
+      onKeyDown={(event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault()
+          onSelect(routine)
+        }
+      }}
+      className={`card text-left active:scale-95 transition-transform w-full border ${
+        highlight ? 'border-accent/50 shadow-lg shadow-accent/10' : 'border-transparent'
+      }`}
     >
-      <div className="flex items-start justify-between mb-3">
+      <div className="flex items-start justify-between gap-3 mb-3">
         <div className="w-8 h-8 rounded-lg bg-accent/20 flex items-center justify-center">
           <svg className="w-4 h-4 text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25H12" />
           </svg>
         </div>
-        <svg className="w-4 h-4 text-text-secondary mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
-        </svg>
+        {tag ? (
+          <span className={`px-2 py-1 rounded-full text-[10px] font-semibold uppercase tracking-[0.18em] ${
+            tag === 'In Progress'
+              ? 'bg-accent/20 text-accent'
+              : tag === 'Recommended'
+                ? 'bg-accent-green/15 text-accent-green'
+                : 'bg-surface2 text-text-secondary'
+          }`}>
+            {tag}
+          </span>
+        ) : (
+          <svg className="w-4 h-4 text-text-secondary mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+          </svg>
+        )}
       </div>
-      <h3 className="font-display font-semibold text-text-primary text-base leading-tight">{routine.name}</h3>
+      <h3 className="font-display font-semibold text-text-primary text-base leading-tight">{formatRoutineName(routine.name)}</h3>
       <p className="text-text-secondary text-xs mt-1">
-        {exercises.length} exercise{exercises.length !== 1 ? 's' : ''}
+        {progressText || detailText || `${exercises.length} exercise${exercises.length !== 1 ? 's' : ''}`}
       </p>
-    </button>
+      {progressRatio > 0 && (
+        <div className="mt-3 h-1.5 rounded-full bg-surface2 overflow-hidden">
+          <div
+            className="h-full rounded-full bg-accent transition-all duration-500"
+            style={{ width: `${Math.max(8, Math.min(progressRatio * 100, 100))}%` }}
+          />
+        </div>
+      )}
+      <div className="mt-4 pt-3 border-t border-surface2 flex items-center justify-between gap-3">
+        <p className="text-text-secondary text-[11px]">
+          {detailText || `${exercises.length} exercise${exercises.length !== 1 ? 's' : ''}`}
+        </p>
+        <button
+          onClick={(event) => {
+            event.stopPropagation()
+            onStart(routine)
+          }}
+          className="px-3 py-1.5 rounded-lg bg-accent text-white text-xs font-semibold active:scale-95 transition-transform flex-shrink-0"
+        >
+          Start
+        </button>
+      </div>
+    </div>
   )
 }
 
-// ─── Main Page ─────────────────────────────────────────────
+// Main Page
 export default function Routines() {
   const { user } = useAuth()
+  const navigate = useNavigate()
   const location = useLocation()
   const [routines, setRoutines] = useState([])
   const [loading, setLoading] = useState(true)
@@ -860,8 +972,9 @@ export default function Routines() {
   const [selectedRoutine, setSelectedRoutine] = useState(null)
   const autoOpenedRef = useRef(false)
   const [exerciseTypeMap, setExerciseTypeMap] = useState({})
+  const { activeWorkout, startRoutineWorkout } = useActiveWorkout()
 
-  // ── Sessions for metrics summary ──────────────────────────
+  // Sessions for metrics summary
   const [sessions, setSessions] = useState([])
   const [sessionsLoading, setSessLoading] = useState(true)
 
@@ -898,50 +1011,137 @@ export default function Routines() {
       .catch((error) => console.error('Routine exercise types load error:', error))
   }, [user?.uid])
 
-  const metrics = useMemo(() => {
+  const routineInProgress = activeWorkout?.kind === 'routine' && !activeWorkout.summaryReady
+    ? activeWorkout
+    : null
+
+  const routineSessionStats = useMemo(() => {
+    return routines.reduce((acc, routine) => {
+      const routineSessions = sessions.filter((session) => (
+        session.routineId === routine.id ||
+        (!session.routineId && session.routineName === routine.name)
+      ))
+      const byDate = {}
+      routineSessions.forEach((session) => {
+        if (!session.date) return
+        if (!byDate[session.date]) byDate[session.date] = []
+        byDate[session.date].push(session)
+      })
+      const lastDate = Object.keys(byDate).sort().reverse()[0] || null
+      const lastDaySessions = lastDate ? byDate[lastDate] : []
+      const exerciseNames = [...new Set(lastDaySessions.map((session) => session.exerciseName).filter(Boolean))]
+      const totalSets = lastDaySessions.reduce((sum, session) => sum + (session.sets?.length || 0), 0)
+      const timestamps = lastDaySessions.flatMap((session) => [
+        getTimestampMs(session.createdAt),
+        getTimestampMs(session.updatedAt),
+        getTimestampMs(session.startedAt),
+      ]).filter(Boolean)
+      const durationMinutes = timestamps.length > 1
+        ? Math.max(1, Math.round((Math.max(...timestamps) - Math.min(...timestamps)) / 60000))
+        : null
+
+      acc[routine.id] = {
+        lastDate,
+        lastUsedLabel: getRelativeDayLabel(lastDate),
+        lastVolume: calcSessionVolume(lastDaySessions),
+        totalSets,
+        exerciseCount: exerciseNames.length,
+        durationLabel: durationMinutes ? formatDurationMinutes(durationMinutes) : null,
+      }
+      return acc
+    }, {})
+  }, [routines, sessions])
+
+  const lastSessionSummary = useMemo(() => {
     if (!sessions.length) return null
 
-    function calcVolume(sessionList) {
-      return sessionList.reduce((sum, s) => {
-        if ((s.muscleGroup || '').toLowerCase() === 'cardio') return sum
-        const fromSets = (s.sets || []).reduce((sv, set) => sv + (set.reps || 0) * (set.weight || 0), 0)
-        return sum + (fromSets > 0 ? fromSets : (s.totalVolume || 0))
-      }, 0)
-    }
-
     const byDate = {}
-    for (const s of sessions) {
-      if (!s.date) continue
-      if (!byDate[s.date]) byDate[s.date] = []
-      byDate[s.date].push(s)
-    }
+    sessions.forEach((session) => {
+      if (!session.date) return
+      if (!byDate[session.date]) byDate[session.date] = []
+      byDate[session.date].push(session)
+    })
     const sortedDates = Object.keys(byDate).sort().reverse()
     if (!sortedDates.length) return null
 
-    // Prefer the last date that had a named routine; fall back to any last date
-    const lastDate =
-      sortedDates.find((d) => byDate[d].some((s) => s.routineName)) ||
-      sortedDates[0]
+    const lastDate = sortedDates.find((date) => byDate[date].some((session) => session.routineName)) || sortedDates[0]
     const lastSessions = byDate[lastDate]
+    const routineNames = [...new Set(lastSessions.map((session) => session.routineName).filter(Boolean))]
+    const matchedRoutineId = routineNames.length === 1
+      ? (lastSessions.find((session) => session.routineId)?.routineId || routines.find((routine) => routine.name === routineNames[0])?.id || null)
+      : null
+    const exerciseNames = [...new Set(lastSessions.map((session) => session.exerciseName).filter(Boolean))]
+    const totalSets = lastSessions.reduce((sum, session) => sum + (session.sets?.length || 0), 0)
+    const timestamps = lastSessions.flatMap((session) => [
+      getTimestampMs(session.createdAt),
+      getTimestampMs(session.updatedAt),
+      getTimestampMs(session.startedAt),
+    ]).filter(Boolean)
+    const durationMinutes = timestamps.length > 1
+      ? Math.max(1, Math.round((Math.max(...timestamps) - Math.min(...timestamps)) / 60000))
+      : null
 
-    // Collect distinct routine names used that day
-    const routineNames = [...new Set(lastSessions.map((s) => s.routineName).filter(Boolean))]
+    return {
+      lastDate,
+      label: routineNames.length > 1 ? 'Mixed Workout' : (routineNames[0] || 'Free Workout'),
+      volume: calcSessionVolume(lastSessions),
+      totalSets,
+      exerciseCount: exerciseNames.length,
+      durationLabel: durationMinutes ? formatDurationMinutes(durationMinutes) : null,
+      exerciseNames,
+      routineId: matchedRoutineId,
+    }
+  }, [routines, sessions])
 
-    let lastRoutine, volumeSessions
-    if (routineNames.length > 1) {
-      lastRoutine = 'Mixed Workout'
-      volumeSessions = lastSessions
-    } else if (routineNames.length === 1) {
-      lastRoutine = routineNames[0]
-      volumeSessions = lastSessions.filter((s) => s.routineName === lastRoutine)
-    } else {
-      lastRoutine = 'Free Workout'
-      volumeSessions = lastSessions
+  const weeklyPreview = useMemo(() => {
+    const now = new Date()
+    const thisWeekStart = format(new Date(now.getTime() - (6 * 86400000)), 'yyyy-MM-dd')
+    const prevWeekStart = format(new Date(now.getTime() - (13 * 86400000)), 'yyyy-MM-dd')
+    const prevWeekEnd = format(new Date(now.getTime() - (7 * 86400000)), 'yyyy-MM-dd')
+    const thisWeekSessions = sessions.filter((session) => session.date >= thisWeekStart)
+    const prevWeekSessions = sessions.filter((session) => session.date >= prevWeekStart && session.date <= prevWeekEnd)
+    const thisWeekVolume = calcSessionVolume(thisWeekSessions)
+    const prevWeekVolume = calcSessionVolume(prevWeekSessions)
+
+    if (thisWeekVolume <= 0) return 'No workout volume logged this week yet.'
+    if (prevWeekVolume <= 0) return `${formatCompactVolume(thisWeekVolume)} lbs logged this week`
+
+    const deltaPct = Math.round(((thisWeekVolume - prevWeekVolume) / prevWeekVolume) * 100)
+    return `${deltaPct >= 0 ? '+' : ''}${deltaPct}% volume this week`
+  }, [sessions])
+
+  const recommendedRoutine = useMemo(() => {
+    if (routineInProgress?.routine?.id) {
+      return routines.find((routine) => routine.id === routineInProgress.routine.id) || null
     }
 
-    const lastVolume = calcVolume(volumeSessions)
-    return { lastDate, lastRoutine, lastVolume }
-  }, [sessions])
+    return [...routines].sort((a, b) => {
+      const aDate = routineSessionStats[a.id]?.lastDate || ''
+      const bDate = routineSessionStats[b.id]?.lastDate || ''
+      return bDate.localeCompare(aDate)
+    })[0] || null
+  }, [routineInProgress, routineSessionStats, routines])
+
+  function launchRoutine(routine, options = {}) {
+    const exercises = routine?.exercises || []
+    if (!routine?.id || exercises.length === 0) return
+
+    const isResumingCurrentRoutine = routineInProgress?.routine?.id === routine.id
+    const startExerciseId = isResumingCurrentRoutine
+      ? (options.startExerciseId || routineInProgress.currentExerciseId || exercises[0].id)
+      : (options.startExerciseId || exercises[0].id)
+
+    if (!isResumingCurrentRoutine) {
+      startRoutineWorkout(routine, { startExerciseId })
+    }
+
+    navigate(`/workout/${startExerciseId}`, {
+      state: {
+        workoutMode: true,
+        routine,
+      },
+    })
+  }
 
   useEffect(() => {
     if (!user) return
@@ -1026,56 +1226,59 @@ export default function Routines() {
   return (
     <>
       <PageWrapper showHeader>
-        <div className="px-4 pt-2 space-y-4">
-
+        <div className="px-4 pt-2 space-y-5">
           <div className="flex items-center justify-between">
             <h1 className="font-display text-2xl font-bold text-text-primary">Routines</h1>
-            <button onClick={() => setShowNew(true)} className="btn-primary text-sm py-2 px-3">
+            <button onClick={() => setShowNew(true)} className="btn-primary text-sm py-2.5 px-4">
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
               </svg>
-              New
+              New Routine
             </button>
           </div>
 
-          {/* ── Metrics Summary ───────────────────────────── */}
-          {!sessionsLoading && metrics && (
-            <div className="card">
-              <p className="text-text-secondary text-xs font-semibold uppercase tracking-wide mb-3">Last Session</p>
-              <div className="grid grid-cols-2 gap-2.5">
-
-                {/* Routine name */}
-                <div className="bg-surface2 rounded-xl p-3">
-                  <p className="text-text-secondary text-xs mb-1">Routine</p>
-                  <p className="text-text-primary font-semibold text-sm leading-tight line-clamp-2">{metrics.lastRoutine}</p>
-                  <p className="text-text-secondary text-xs mt-1">{format(parseISO(metrics.lastDate), 'MMM d')}</p>
+          {recommendedRoutine ? (
+            <button
+              onClick={() => launchRoutine(recommendedRoutine)}
+              className="w-full rounded-3xl border border-accent/30 bg-gradient-to-r from-accent to-accent-hover px-4 py-4 text-left shadow-xl shadow-accent/20 active:scale-[0.99] transition-transform"
+            >
+              <div className="flex items-start justify-between gap-4">
+                <div className="min-w-0">
+                  <p className="text-white/80 text-[11px] font-semibold uppercase tracking-[0.24em]">
+                    {routineInProgress?.routine?.id === recommendedRoutine.id ? 'Resume workout' : "Start today's workout"}
+                  </p>
+                  <p className="text-white font-display text-xl font-bold mt-1 leading-tight">
+                    {formatRoutineName(recommendedRoutine.name)}
+                  </p>
+                  <p className="text-white/85 text-sm mt-1.5">
+                    {routineInProgress?.routine?.id === recommendedRoutine.id
+                      ? `${routineInProgress.completed.length} of ${routineInProgress.exercises.length} exercises completed`
+                      : `${recommendedRoutine.exercises?.length || 0} exercises ready to train`}
+                  </p>
+                  <p className="text-white/75 text-xs mt-1">
+                    {routineInProgress?.routine?.id === recommendedRoutine.id
+                      ? `Next: ${routineInProgress.exercises.find((exercise) => exercise.id === routineInProgress.currentExerciseId)?.name || 'Continue workout'}`
+                      : (routineSessionStats[recommendedRoutine.id]?.lastUsedLabel
+                        ? `Last used ${routineSessionStats[recommendedRoutine.id].lastUsedLabel}`
+                        : 'Tap to jump straight into training')}
+                  </p>
                 </div>
-
-                {/* Last session volume */}
-                <div className="bg-surface2 rounded-xl p-3">
-                  <p className="text-text-secondary text-xs mb-1">Volume</p>
-                  {metrics.lastVolume > 0 ? (
-                    <>
-                      <p className="text-accent-green font-mono font-bold text-lg leading-none">
-                        {metrics.lastVolume >= 1000
-                          ? `${(metrics.lastVolume / 1000).toFixed(1)}k`
-                          : metrics.lastVolume.toLocaleString()}
-                      </p>
-                      <p className="text-text-secondary text-xs mt-1">lbs</p>
-                    </>
-                  ) : (
-                    <p className="text-text-secondary text-sm">—</p>
-                  )}
+                <div className="w-12 h-12 rounded-2xl bg-white/12 flex items-center justify-center flex-shrink-0 mt-1">
+                  <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5.25 5.653c0-1.427 1.529-2.33 2.779-1.643l9.42 5.173c1.295.711 1.295 2.575 0 3.286l-9.42 5.173c-1.25.687-2.779-.216-2.779-1.643V5.653z" />
+                  </svg>
                 </div>
-
               </div>
-            </div>
-          )}
-
-          {!sessionsLoading && (
-            <WeeklySummaryCard
-              sessions={sessions}
-            />
+            </button>
+          ) : (
+            <button
+              onClick={() => setShowNew(true)}
+              className="card w-full text-left active:scale-[0.99] transition-transform"
+            >
+              <p className="text-text-secondary text-[11px] font-semibold uppercase tracking-[0.24em]">Start today's workout</p>
+              <p className="text-text-primary font-display text-xl font-bold mt-1">Create your first routine</p>
+              <p className="text-text-secondary text-sm mt-1.5">Build a routine once, then start from here in one tap.</p>
+            </button>
           )}
 
           {loading ? (
@@ -1090,16 +1293,123 @@ export default function Routines() {
                 </svg>
               </div>
               <p className="text-text-primary font-semibold">No routines yet</p>
-              <p className="text-text-secondary text-sm mt-1">Tap New to create your first routine</p>
+              <p className="text-text-secondary text-sm mt-1">Tap New Routine to create your first plan</p>
             </div>
           ) : (
-            <div className="grid grid-cols-2 gap-3">
-              {routines.map((r) => (
-                <RoutineCard key={r.id} routine={r} onSelect={setSelectedRoutine} />
-              ))}
-            </div>
+            <>
+              <div className="flex items-center justify-between px-1">
+                <p className="section-title mb-0">Your Routines</p>
+                <p className="text-text-secondary text-xs">{routines.length} saved</p>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                {routines.map((r) => (
+                  <RoutineCard
+                    key={r.id}
+                    routine={r}
+                    onSelect={setSelectedRoutine}
+                    onStart={launchRoutine}
+                    tag={
+                      routineInProgress?.routine?.id === r.id
+                        ? 'In Progress'
+                        : recommendedRoutine?.id === r.id
+                          ? 'Recommended'
+                          : routineSessionStats[r.id]?.lastDate
+                            ? 'Last Used'
+                            : null
+                    }
+                    detailText={
+                      routineInProgress?.routine?.id === r.id
+                        ? `${routineInProgress.completed.length} of ${routineInProgress.exercises.length} completed`
+                        : routineSessionStats[r.id]?.lastUsedLabel
+                          ? `Last used ${routineSessionStats[r.id].lastUsedLabel}`
+                          : `${(r.exercises || []).length} exercises`
+                    }
+                    progressText={
+                      routineInProgress?.routine?.id === r.id
+                        ? `${routineInProgress.completed.length} of ${routineInProgress.exercises.length} exercises completed`
+                        : null
+                    }
+                    progressRatio={
+                      routineInProgress?.routine?.id === r.id
+                        ? routineInProgress.completed.length / Math.max(routineInProgress.exercises.length, 1)
+                        : 0
+                    }
+                    highlight={routineInProgress?.routine?.id === r.id || recommendedRoutine?.id === r.id}
+                  />
+                ))}
+              </div>
+            </>
           )}
 
+          {!sessionsLoading && lastSessionSummary && (
+            <button
+              onClick={() => {
+                if (!lastSessionSummary.routineId) return
+                const match = routines.find((routine) => routine.id === lastSessionSummary.routineId)
+                if (match) setSelectedRoutine(match)
+              }}
+              disabled={!lastSessionSummary.routineId}
+              className={`card w-full text-left ${lastSessionSummary.routineId ? 'active:scale-[0.99] transition-transform' : ''}`}
+            >
+              <div className="flex items-start justify-between gap-4">
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="section-title mb-0">Last Session</p>
+                    <p className="text-text-secondary text-xs">
+                      {format(parseISO(lastSessionSummary.lastDate), 'MM/dd')}
+                    </p>
+                  </div>
+                  <p className="text-text-primary font-semibold text-base mt-1 line-clamp-1">
+                    {formatRoutineName(lastSessionSummary.label)}
+                  </p>
+                  <p className="text-text-secondary text-xs mt-1">
+                    {[
+                      `${lastSessionSummary.exerciseCount} exercise${lastSessionSummary.exerciseCount !== 1 ? 's' : ''}`,
+                      lastSessionSummary.durationLabel,
+                      `${lastSessionSummary.totalSets} sets`,
+                    ].filter(Boolean).join(' | ')}
+                  </p>
+                  <div className="mt-3 space-y-1.5">
+                    {lastSessionSummary.exerciseNames.slice(0, 3).map((name) => (
+                      <div key={name} className="flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-accent flex-shrink-0" />
+                        <p className="text-text-primary text-sm line-clamp-1">{name}</p>
+                      </div>
+                    ))}
+                    {lastSessionSummary.exerciseNames.length > 3 && (
+                      <p className="text-text-secondary text-sm pl-4">+{lastSessionSummary.exerciseNames.length - 3} more</p>
+                    )}
+                  </div>
+                </div>
+                <div className="w-24 h-24 flex-shrink-0 self-center relative">
+                  <svg viewBox="0 0 120 120" className="w-full h-full -rotate-90">
+                    <circle cx="60" cy="60" r="50" stroke="rgba(61,75,102,0.55)" strokeWidth="10" fill="none" />
+                    <circle
+                      cx="60"
+                      cy="60"
+                      r="50"
+                      stroke="#16C15F"
+                      strokeWidth="10"
+                      fill="none"
+                      strokeLinecap="round"
+                      strokeDasharray={`${Math.min((lastSessionSummary.volume / 100000) * 314, 314)} 314`}
+                    />
+                  </svg>
+                  <div className="absolute inset-0 flex flex-col items-center justify-center">
+                    <p className="text-text-primary font-mono font-bold text-xl leading-none">{formatCompactVolume(lastSessionSummary.volume)}</p>
+                    <p className="text-text-secondary text-[10px] mt-1">lbs</p>
+                  </div>
+                </div>
+              </div>
+            </button>
+          )}
+
+          {!sessionsLoading && (
+            <WeeklySummaryCard
+              sessions={sessions}
+              previewText={weeklyPreview}
+            />
+          )}
         </div>
       </PageWrapper>
 
