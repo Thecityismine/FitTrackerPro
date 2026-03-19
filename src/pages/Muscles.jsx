@@ -398,9 +398,9 @@ function RecoveryHero({ groups, sets, totalActual, totalTarget }) {
     maskPosition: 'top center',
   }
   const bandLabels = [
-    { top: '28%', value: segments[0].displayPct },
-    { top: '50%', value: segments[1].displayPct },
-    { top: '66%', value: segments[2].displayPct },
+    { top: '25%', value: segments[0].displayPct },
+    { top: '47%', value: segments[1].displayPct },
+    { top: '63%', value: segments[2].displayPct },
   ]
 
   return (
@@ -433,36 +433,25 @@ function RecoveryHero({ groups, sets, totalActual, totalTarget }) {
         ))}
       </div>
 
-      <div className="relative -mt-[108px] w-[320px] h-[142px]">
-        <svg viewBox="0 0 276 132" className="w-full h-full">
-          <path
-            d="M 14 108 Q 138 2 262 108"
-            fill="none"
-            stroke="rgba(51,65,85,0.85)"
-            strokeWidth="12"
-            strokeLinecap="round"
-            pathLength="100"
+      <div className="relative -mt-[98px] w-[352px] max-w-full px-3">
+        <div className="h-5 rounded-full bg-slate-700/70 overflow-hidden shadow-[inset_0_0_0_1px_rgba(148,163,184,0.08)]">
+          <div
+            className="h-full rounded-full bg-[#F2C14E]"
+            style={{
+              width: `${Math.round(overallPct * 100)}%`,
+              boxShadow: '0 0 14px rgba(242,193,78,0.5)',
+            }}
           />
-          <path
-            d="M 14 108 Q 138 2 262 108"
-            fill="none"
-            stroke="#F2C14E"
-            strokeWidth="12"
-            strokeLinecap="round"
-            pathLength="100"
-            strokeDasharray={`${overallPct * 100} 100`}
-            style={{ filter: 'drop-shadow(0 0 10px rgba(242,193,78,0.45))' }}
-          />
-        </svg>
+        </div>
       </div>
 
-      <div className="-mt-10 flex flex-col items-center">
+      <div className="-mt-6 flex flex-col items-center">
         <p className="font-display text-4xl font-bold text-text-primary leading-none">{Math.round(overallPct * 100)}%</p>
         <p className="text-text-primary text-sm font-semibold mt-1">{totalActual}/{totalTarget} sets</p>
         <p className="text-text-secondary text-xs">completed</p>
       </div>
 
-      <div className="flex items-center justify-center gap-6 mt-0">
+      <div className="flex items-center justify-center gap-6 mt-1">
         {segments.map((segment) => (
           <div key={segment.id} className="flex items-center gap-2">
             <span
