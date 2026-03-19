@@ -256,7 +256,7 @@ export default function Profile() {
           <p className="section-title">Weekly Set Targets</p>
           <div className="card space-y-4">
             <p className="text-text-secondary text-xs">
-              Set your weekly volume goals for each movement pattern. These targets appear on your Dashboard and Muscles tab.
+              Set your weekly set targets and workout volume target. These goals appear on your Dashboard and Recovery tab.
             </p>
             {[
               { label: 'Push (Chest · Shoulders · Triceps)', value: pushTarget, set: setPushTarget },
@@ -308,7 +308,7 @@ export default function Profile() {
               <p className="text-text-secondary text-xs mt-1">Shown as X / {Number(workoutGoal) || 3} days on the Log tab</p>
             </div>
             <div>
-              <label className="label">Weekly Volume Goal</label>
+              <label className="label">Workout Volume Target Goal</label>
               <div className="flex items-center gap-3">
                 <button
                   onClick={() => setVolumeGoal(v => Math.max(10000, Number(v) - 5000))}
@@ -324,7 +324,7 @@ export default function Profile() {
                   className="w-9 h-9 rounded-xl bg-surface2 flex items-center justify-center text-text-primary font-bold active:scale-95 transition-transform flex-shrink-0"
                 >+</button>
               </div>
-              <p className="text-text-secondary text-xs mt-1">Fills the volume ring on your Dashboard · steps of 5k</p>
+              <p className="text-text-secondary text-xs mt-1">Fills the Dashboard volume ring toward this target in 5k steps.</p>
             </div>
             <p className="text-text-secondary text-xs">
               Sets total: <span className="text-text-primary font-semibold">{(Number(pushTarget) || 0) + (Number(pullTarget) || 0) + (Number(legsTarget) || 0)} sets/week</span>
@@ -393,3 +393,4 @@ export default function Profile() {
     </div>
   )
 }
+

@@ -641,7 +641,7 @@ export default function Dashboard() {
                 </svg>
                 <div className="absolute inset-0 flex flex-col items-center justify-center">
                   <p className="font-display text-base font-bold text-text-primary leading-tight">{formatCompactVolume(lastSessionVolume)}</p>
-                  <p className="text-text-secondary text-[9px]">lbs</p>
+                  <p className="text-text-secondary text-[9px]">of goal</p>
                 </div>
               </div>
             </div>
