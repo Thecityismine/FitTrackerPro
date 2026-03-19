@@ -398,14 +398,14 @@ function RecoveryHero({ groups, sets, totalActual, totalTarget }) {
     maskPosition: 'center',
   }
   const bandLabels = [
-    { top: '20%', value: segments[0].displayPct },
-    { top: '47%', value: segments[1].displayPct },
+    { top: '28%', value: segments[0].displayPct },
+    { top: '53%', value: segments[1].displayPct },
     { top: '72%', value: segments[2].displayPct },
   ]
 
   return (
-    <div className="flex flex-col items-center py-2">
-      <div className="relative w-[230px] h-[330px]">
+    <div className="flex flex-col items-center pt-2 pb-1">
+      <div className="relative w-[230px] h-[312px]">
         <div
           className="absolute inset-0 scale-95 blur-[20px] opacity-95"
           style={{ ...maskStyle, background: glowGradient }}
@@ -428,12 +428,12 @@ function RecoveryHero({ groups, sets, totalActual, totalTarget }) {
             className="absolute left-1/2 -translate-x-1/2 text-center"
             style={{ top: band.top, textShadow: '0 0 18px rgba(255,255,255,0.2)' }}
           >
-            <p className="font-display text-2xl font-bold text-white">{band.value}%</p>
+            <p className="font-display text-xl font-bold text-white">{band.value}%</p>
           </div>
         ))}
       </div>
 
-      <div className="relative -mt-10 w-[250px] h-[150px]">
+      <div className="relative -mt-[54px] w-[250px] h-[138px]">
         <svg viewBox="0 0 220 120" className="w-full h-full">
           <path
             d="M 24 96 Q 110 10 196 96"
@@ -455,14 +455,14 @@ function RecoveryHero({ groups, sets, totalActual, totalTarget }) {
           />
         </svg>
 
-        <div className="absolute inset-0 flex flex-col items-center justify-center pt-5">
+        <div className="absolute inset-0 flex flex-col items-center justify-center pt-7">
           <p className="font-display text-4xl font-bold text-text-primary leading-none">{Math.round(overallPct * 100)}%</p>
           <p className="text-text-primary text-sm font-semibold mt-1">{totalActual}/{totalTarget} sets</p>
           <p className="text-text-secondary text-xs">completed</p>
         </div>
       </div>
 
-      <div className="flex items-center justify-center gap-6 -mt-3">
+      <div className="flex items-center justify-center gap-6 -mt-1">
         {segments.map((segment) => (
           <div key={segment.id} className="flex items-center gap-2">
             <span
