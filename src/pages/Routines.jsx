@@ -1293,8 +1293,8 @@ export default function Routines() {
                         : 'Tap to jump straight into training')}
                   </p>
                 </div>
-                <div className="w-14 h-14 rounded-2xl bg-white/14 border border-white/35 shadow-sm shadow-white/10 flex items-center justify-center flex-shrink-0 mt-1">
-                  <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
+                <div className="w-12 h-12 rounded-2xl bg-white/14 border border-white/35 shadow-sm shadow-white/10 flex items-center justify-center flex-shrink-0 mt-1">
+                  <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M5.25 5.653c0-1.427 1.529-2.33 2.779-1.643l9.42 5.173c1.295.711 1.295 2.575 0 3.286l-9.42 5.173c-1.25.687-2.779-.216-2.779-1.643V5.653z" />
                   </svg>
                 </div>
@@ -1327,7 +1327,10 @@ export default function Routines() {
                   {format(parseISO(lastSessionSummary.lastDate), 'MM/dd')}
                 </p>
               </div>
-              <div className="mt-3 space-y-1.5">
+              <p className="text-text-primary font-semibold text-base mt-3 line-clamp-1">
+                {formatRoutineName(lastSessionSummary.label)}
+              </p>
+              <div className="mt-2 space-y-1.5">
                 {lastSessionSummary.exerciseNames.slice(0, 4).map((name) => (
                   <div key={name} className="flex items-center gap-2">
                     <span className="w-2 h-2 rounded-full bg-accent flex-shrink-0" />
