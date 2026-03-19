@@ -522,44 +522,23 @@ export default function Dashboard() {
             </h1>
             <p className="text-text-secondary text-sm mt-0.5">Here&apos;s your fitness overview</p>
           </div>
-          <button
-            onClick={handleWorkoutCta}
-            className={`flex-shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold active:scale-95 transition-transform mt-7 ${
-              routineInProgress
-                ? 'bg-accent text-white shadow-lg shadow-accent/25'
-                : trainedToday
-                  ? 'bg-surface2 text-text-secondary'
-                  : 'bg-accent-green text-white shadow-lg shadow-accent-green/25'
-            }`}
-          >
-            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.348a1.125 1.125 0 010 1.971l-11.54 6.347a1.125 1.125 0 01-1.667-.985V5.653z" />
-            </svg>
-            {routineInProgress ? 'Resume Workout' : 'Start Workout'}
-          </button>
         </div>
 
         <button
           onClick={handleWorkoutCta}
-          className="card w-full text-left active:scale-[0.99] transition-transform border border-accent/20 bg-gradient-to-r from-accent/18 to-accent-green/10"
+          className="card w-full text-left active:scale-[0.99] transition-transform border border-accent/30 bg-gradient-to-r from-accent via-[#245BEB] to-[#1A56DB] shadow-lg shadow-accent/20"
         >
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
-              <p className="section-title mb-1">Today&apos;s Plan</p>
-              <p className="text-text-primary font-semibold text-base leading-tight">{planTitle}</p>
-              <p className="text-text-secondary text-sm mt-1.5">{planDetail}</p>
+              <p className="section-title mb-1 text-white/75">Today&apos;s Plan</p>
+              <p className="text-white font-semibold text-base leading-tight">{planTitle}</p>
+              <p className="text-white/80 text-sm mt-1.5">{planDetail}</p>
             </div>
             <div className="flex flex-col items-end gap-2 flex-shrink-0">
-              <div className="px-2.5 py-1 rounded-full bg-surface2/80 border border-white/5">
-                <span className="text-[11px] font-semibold text-text-primary">Daily Score {dailyScore}%</span>
+              <div className="px-2.5 py-1 rounded-full bg-white/12 border border-white/10 backdrop-blur-sm">
+                <span className="text-[11px] font-semibold text-white">Daily Score {dailyScore}%</span>
               </div>
-              <div
-                className={`w-10 h-10 rounded-2xl flex items-center justify-center ${
-                  routineInProgress
-                    ? 'bg-accent text-white shadow-lg shadow-accent/30'
-                    : 'bg-accent-green text-white shadow-lg shadow-accent-green/30'
-                }`}
-              >
+              <div className="w-10 h-10 rounded-2xl flex items-center justify-center bg-white/12 text-white border border-white/10">
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.4}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.348a1.125 1.125 0 010 1.971l-11.54 6.347a1.125 1.125 0 01-1.667-.985V5.653z" />
                 </svg>
@@ -601,14 +580,6 @@ export default function Dashboard() {
                 {lastSessionExerciseRows.slice(0, 3).map((row) => (
                   <div key={row.exerciseName} className="min-w-0">
                     <p className="text-text-primary text-sm font-medium truncate">{row.exerciseName}</p>
-                    <div className="flex items-center gap-2 mt-1">
-                      {row.bodyPart && (
-                        <span className="px-2 py-0.5 rounded-full bg-accent/15 text-accent text-[10px] font-semibold">
-                          {row.bodyPart}
-                        </span>
-                      )}
-                      <span className="text-text-secondary text-[11px]">{row.sets} sets</span>
-                    </div>
                   </div>
                 ))}
                 {lastSessionExerciseRows.length > 3 && (
