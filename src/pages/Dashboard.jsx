@@ -372,7 +372,7 @@ export default function Dashboard() {
         : 'Start your next workout'
 
   const planDetail = routineInProgress
-    ? `${routineCompletedCount} of ${routineInProgress.exercises.length} complete${routineCurrentExercise?.name ? ` • Next: ${routineCurrentExercise.name}` : ''}`
+    ? `${routineCompletedCount} of ${routineInProgress.exercises.length} complete${routineCurrentExercise?.name ? ` | Next: ${routineCurrentExercise.name}` : ''}`
     : weakestGroup?.remaining > 0
       ? `${weakestGroup.remaining} more ${weakestGroup.label.toLowerCase()} sets to hit this week`
       : trainedToday
@@ -382,7 +382,7 @@ export default function Dashboard() {
           : 'One workout today gets your week moving.'
 
   const weeklyInsight = weakestGroup?.remaining > 0
-    ? `You’re behind on ${weakestGroup.label}. ${weakestGroup.remaining} more sets will put you back on track.`
+    ? `You're behind on ${weakestGroup.label}. ${weakestGroup.remaining} more sets will put you back on track.`
     : 'All weekly set targets are on track.'
   const focusLabel = routineInProgress
     ? `Focus Today: ${routineCurrentExercise?.muscleGroup || 'Current workout'}`
@@ -407,10 +407,10 @@ export default function Dashboard() {
   const chartInsight = chartTrendPct == null
     ? 'A few more sessions will unlock trend insight.'
     : chartTrendPct >= 0
-      ? `↑ Up ${chartTrendPct}% vs last ${chartPeriod === 'weekly' ? 'week' : 'period'}`
-      : `↓ Down ${Math.abs(chartTrendPct)}% vs last ${chartPeriod === 'weekly' ? 'week' : 'period'}`
+      ? `Up ${chartTrendPct}% vs last ${chartPeriod === 'weekly' ? 'week' : 'period'}`
+      : `Down ${Math.abs(chartTrendPct)}% vs last ${chartPeriod === 'weekly' ? 'week' : 'period'}`
   const chartSecondaryInsight = peakIndex >= 0 && dipIndex >= 0 && chartData.length > 2
-    ? `Peak ${chartData[peakIndex]?.week} • Lowest ${chartData[dipIndex]?.week}`
+    ? `Peak ${chartData[peakIndex]?.week} | Lowest ${chartData[dipIndex]?.week}`
     : 'Volume trend updates as more data comes in.'
 
   function getRecoveryMeta(bodyPart) {
@@ -573,8 +573,8 @@ export default function Dashboard() {
               <div className="px-2.5 py-1 rounded-full bg-white/12 border border-white/10 backdrop-blur-sm">
                 <span className="text-[11px] font-semibold text-white">Daily Score {dailyScore}%</span>
               </div>
-              <div className="w-10 h-10 rounded-2xl flex items-center justify-center bg-white/12 text-white border border-white/10">
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.4}>
+              <div className="w-12 h-12 rounded-2xl flex items-center justify-center bg-white/14 text-white border border-white/35 shadow-sm shadow-white/10">
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.4}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.348a1.125 1.125 0 010 1.971l-11.54 6.347a1.125 1.125 0 01-1.667-.985V5.653z" />
                 </svg>
               </div>
@@ -605,10 +605,10 @@ export default function Dashboard() {
             </div>
             <p className="text-text-secondary text-xs mb-3">
               {lastSessionExerciseRows.length} exercises
-              {lastSessionDurationLabel ? ` • ${lastSessionDurationLabel}` : ''}
-              {` • ${lastSessionSetTotal} sets • `}
+              {lastSessionDurationLabel ? ` | ${lastSessionDurationLabel}` : ''}
+              {` | ${lastSessionSetTotal} sets | `}
               <span className="text-text-primary font-semibold text-sm">{formatCompactVolume(lastSessionVolume)} lbs</span>
-              {lastSessionPrCount > 0 ? ` • ${lastSessionPrCount} PR${lastSessionPrCount === 1 ? '' : 's'} achieved` : ''}
+              {lastSessionPrCount > 0 ? ` | ${lastSessionPrCount} PR${lastSessionPrCount === 1 ? '' : 's'} achieved` : ''}
             </p>
 
             <div className="flex items-end gap-3">
@@ -729,18 +729,6 @@ export default function Dashboard() {
                 </div>
                 <div className="flex items-center justify-between gap-3 mb-2">
                   <p className="text-text-primary text-xs font-semibold">{weeklyInsight}</p>
-                  {weakestGroup?.remaining > 0 && (
-                    <button
-                      onClick={(event) => {
-                        event.preventDefault()
-                        event.stopPropagation()
-                        navigate('/routines')
-                      }}
-                      className="text-accent text-xs font-semibold whitespace-nowrap"
-                    >
-                      Train {weakestGroup.label} →
-                    </button>
-                  )}
                 </div>
                 <div className="space-y-1">
                   {weekGroupStats.map((group) => {

@@ -165,7 +165,7 @@ export default function Profile() {
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
             </svg>
             <p className="text-accent-red text-xs flex-1">{uploadError}</p>
-            <button onClick={() => setUploadError(null)} className="text-text-secondary text-xs flex-shrink-0">✕</button>
+            <button onClick={() => setUploadError(null)} className="text-text-secondary text-xs flex-shrink-0">X</button>
           </div>
         )}
 
@@ -223,33 +223,11 @@ export default function Profile() {
               disabled={saving}
               className="btn-primary w-full"
             >
-              {saving ? 'Saving…' : saved ? '✓ Saved' : 'Save Changes'}
+              {saving ? 'Saving...' : saved ? 'Saved' : 'Save Changes'}
             </button>
           </div>
         </div>
 
-        <div>
-          <div className="flex items-center justify-between gap-3 mb-2">
-            <p className="section-title mb-0">AI Security</p>
-            <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-accent-green bg-accent-green/10 border border-accent-green/20 px-2.5 py-1 rounded-full">
-              Server Protected
-            </span>
-          </div>
-          <div className="card space-y-4">
-            <p className="text-text-secondary text-xs">
-              AI Monthly Reports, Scan Scale Photo, and Weekly Summary Reports now run through a protected Firebase Function.
-            </p>
-            <p className="text-text-secondary text-xs">
-              Provider secrets are stored on the server, not in your profile, so nothing sensitive ships in the app bundle or lives in Firestore user data.
-            </p>
-            <div className="rounded-xl border border-surface2 bg-surface2/60 px-4 py-3">
-              <p className="text-text-primary text-sm font-semibold">What changed</p>
-              <p className="text-text-secondary text-xs mt-1">
-                The app now sends AI requests to Firebase Functions first. The Function calls Anthropic or OpenAI with server-side secrets and returns only the result.
-              </p>
-            </div>
-          </div>
-        </div>
 
         {/* ── Weekly Set Targets ─────────────────────────────── */}
         <div>
@@ -259,9 +237,9 @@ export default function Profile() {
               Set your weekly set targets and workout volume target. These goals appear on your Dashboard and Recovery tab.
             </p>
             {[
-              { label: 'Push (Chest · Shoulders · Triceps)', value: pushTarget, set: setPushTarget },
-              { label: 'Pull (Back · Biceps)', value: pullTarget, set: setPullTarget },
-              { label: 'Legs (Quads · Hamstrings · Glutes)', value: legsTarget, set: setLegsTarget },
+              { label: 'Push (Chest - Shoulders - Triceps)', value: pushTarget, set: setPushTarget },
+              { label: 'Pull (Back - Biceps)', value: pullTarget, set: setPullTarget },
+              { label: 'Legs (Quads - Hamstrings - Glutes)', value: legsTarget, set: setLegsTarget },
             ].map(({ label, value, set }) => (
               <div key={label}>
                 <label className="label">{label}</label>
@@ -269,7 +247,7 @@ export default function Profile() {
                   <button
                     onClick={() => set(v => Math.max(1, Number(v) - 1))}
                     className="w-9 h-9 rounded-xl bg-surface2 flex items-center justify-center text-text-primary font-bold active:scale-95 transition-transform flex-shrink-0"
-                  >−</button>
+                  >-</button>
                   <input
                     type="number"
                     min="1"
@@ -291,7 +269,7 @@ export default function Profile() {
                 <button
                   onClick={() => setWorkoutGoal(v => Math.max(1, Number(v) - 1))}
                   className="w-9 h-9 rounded-xl bg-surface2 flex items-center justify-center text-text-primary font-bold active:scale-95 transition-transform flex-shrink-0"
-                >−</button>
+                >-</button>
                 <input
                   type="number"
                   min="1"
@@ -313,7 +291,7 @@ export default function Profile() {
                 <button
                   onClick={() => setVolumeGoal(v => Math.max(10000, Number(v) - 5000))}
                   className="w-9 h-9 rounded-xl bg-surface2 flex items-center justify-center text-text-primary font-bold active:scale-95 transition-transform flex-shrink-0"
-                >−</button>
+                >-</button>
                 <div className="input flex-1 text-center flex items-center justify-center">
                   <span className="text-text-primary font-semibold">
                     {Number(volumeGoal) >= 1000 ? `${Math.round(Number(volumeGoal) / 1000)}k` : Number(volumeGoal)} lbs
@@ -350,7 +328,7 @@ export default function Profile() {
                   disabled={uploadingQr}
                   className="btn-secondary text-sm px-5 py-2"
                 >
-                  {uploadingQr ? 'Uploading…' : 'Replace QR Code'}
+                  {uploadingQr ? 'Uploading...' : 'Replace QR Code'}
                 </button>
               </div>
             ) : (
@@ -380,8 +358,21 @@ export default function Profile() {
             <input ref={qrInputRef} type="file" accept="image/*" className="hidden" onChange={handleQrUpload} />
           </div>
         </div>
+        <div>
+          <div className="flex items-center justify-between gap-3 mb-2">
+            <p className="section-title mb-0">AI Features</p>
+            <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-accent-green bg-accent-green/10 border border-accent-green/20 px-2.5 py-1 rounded-full">
+              Server Protected
+            </span>
+          </div>
+          <div className="card">
+            <p className="text-text-secondary text-xs leading-relaxed">
+              AI reports and scan tools run through the app server, so provider secrets stay on the backend and never live in your profile or app bundle.
+            </p>
+          </div>
+        </div>
 
-        {/* ── Sign Out ───────────────────────────────────────── */}
+        {/* Sign Out */}
         <button
           onClick={handleLogout}
           className="w-full py-3 rounded-xl border border-red-500/30 text-accent-red font-semibold text-sm active:scale-95 transition-transform"

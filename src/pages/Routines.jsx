@@ -46,7 +46,7 @@ import { routinesCol, routineDoc, sessionsCol, exercisesCol, globalExercisesCol,
 import { db } from '../firebase/config'
 import PageWrapper from '../components/layout/PageWrapper'
 import { getExerciseIcon } from '../utils/exerciseIcons'
-import { AI_SERVER_MESSAGE, generateAiText } from '../utils/aiClient'
+import { generateAiText } from '../utils/aiClient'
 
 // New Routine Sheet
 function NewRoutineSheet({ onClose, onSave }) {
@@ -115,10 +115,10 @@ function formatRoutineName(name = '') {
 }
 
 function parseRoutineDay(name = '') {
-  const match = name.match(/^(.*?)(?:\s*[-•]?\s*)Day[- ]?(\d+)$/i)
+  const match = name.match(/^(.*?)(?:\s*-?\s*)Day[- ]?(\d+)$/i)
   if (!match) return null
   return {
-    base: match[1].replace(/\s*[-•]\s*$/, '').trim().toLowerCase(),
+    base: match[1].replace(/\s*-\s*$/, '').trim().toLowerCase(),
     day: Number(match[2]),
   }
 }
@@ -518,9 +518,6 @@ Keep it under 220 words and be concrete.`
         </div>
       )}
 
-      <div className="bg-accent/10 border border-accent/20 rounded-xl p-3">
-        <p className="text-text-secondary text-xs">{AI_SERVER_MESSAGE}</p>
-      </div>
 
       {error && (
         <div className="bg-accent-red/10 border border-accent-red/20 rounded-xl p-3">
@@ -760,7 +757,7 @@ function RoutineDetail({
                   {exercises.length ? `Train ${routine.name}` : 'Add exercises first'}
                 </p>
               </div>
-              <div className="w-12 h-12 rounded-2xl bg-white/12 flex items-center justify-center">
+              <div className="w-14 h-14 rounded-2xl bg-white/14 border border-white/35 shadow-sm shadow-white/10 flex items-center justify-center">
                 <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M5.25 5.653c0-1.427 1.529-2.33 2.779-1.643l9.42 5.173c1.295.711 1.295 2.575 0 3.286l-9.42 5.173c-1.25.687-2.779-.216-2.779-1.643V5.653z" />
                 </svg>
@@ -931,7 +928,7 @@ function RoutineCard({
           onSelect(routine)
         }
       }}
-      className={`card text-left active:scale-95 transition-transform w-full border ${
+      className={`card h-full flex flex-col text-left active:scale-95 transition-transform w-full border ${
         highlight ? 'border-accent/50 shadow-lg shadow-accent/10' : 'border-transparent'
       }`}
     >
@@ -969,7 +966,7 @@ function RoutineCard({
           />
         </div>
       )}
-      <div className="mt-4 pt-3 border-t border-surface2 flex items-center justify-end">
+      <div className="mt-auto pt-3 border-t border-surface2 flex items-center justify-end">
         <button
           onClick={(event) => {
             event.stopPropagation()
@@ -1296,7 +1293,7 @@ export default function Routines() {
                         : 'Tap to jump straight into training')}
                   </p>
                 </div>
-                <div className="w-12 h-12 rounded-2xl bg-white/12 flex items-center justify-center flex-shrink-0 mt-1">
+                <div className="w-14 h-14 rounded-2xl bg-white/14 border border-white/35 shadow-sm shadow-white/10 flex items-center justify-center flex-shrink-0 mt-1">
                   <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M5.25 5.653c0-1.427 1.529-2.33 2.779-1.643l9.42 5.173c1.295.711 1.295 2.575 0 3.286l-9.42 5.173c-1.25.687-2.779-.216-2.779-1.643V5.653z" />
                   </svg>
