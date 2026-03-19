@@ -541,7 +541,13 @@ export default function Muscles() {
                   editMode={editMode}
                   type={ex.type}
                   muscleGroup={groupLabel}
-                  onClick={() => navigate(`/workout/${ex.exerciseId}`, { state: { exercise: { id: ex.exerciseId, name: ex.exerciseName, muscleGroup: groupLabel, type: ex.type } } })}
+                  onClick={() => navigate(`/workout/${ex.exerciseId}`, {
+                    state: {
+                      exercise: { id: ex.exerciseId, name: ex.exerciseName, muscleGroup: groupLabel, type: ex.type },
+                      standaloneWorkout: true,
+                      returnTo: `/muscles/${groupId.toLowerCase()}`,
+                    },
+                  })}
                   onDelete={() => handleDeleteExercise(ex.exerciseId, ex.exerciseName)}
                   onEdit={() => setEditingExercise({ exerciseId: ex.exerciseId, exerciseName: ex.exerciseName, type: ex.type })} />
               ))}

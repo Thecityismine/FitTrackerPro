@@ -264,6 +264,10 @@ export default function LegacyExerciseWorkout() {
       navigate('/routines', { state: { openRoutineId: routine.id } })
       return
     }
+    if (state?.returnTo) {
+      navigate(state.returnTo)
+      return
+    }
     navigate(-1)
   }
 

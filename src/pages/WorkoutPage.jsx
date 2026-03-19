@@ -729,10 +729,16 @@ function GuidedWorkoutPage() {
 }
 
 export default function WorkoutPage() {
+  const { exerciseId } = useParams()
   const location = useLocation()
   const { activeWorkout } = useActiveWorkout()
+  const standaloneWorkout = Boolean(location.state?.standaloneWorkout)
+  const activeRoutineOwnsExercise = Boolean(
+    activeWorkout?.kind === 'routine' &&
+    activeWorkout.exercises?.some((exercise) => exercise.id === exerciseId)
+  )
 
-  if (location.state?.workoutMode || location.state?.routine || activeWorkout?.kind === 'routine') {
+  if (!standaloneWorkout && (location.state?.workoutMode || location.state?.routine || activeRoutineOwnsExercise)) {
     return <GuidedWorkoutPage />
   }
 
