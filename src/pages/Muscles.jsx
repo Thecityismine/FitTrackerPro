@@ -433,8 +433,8 @@ function RecoveryHero({ groups, sets, totalActual, totalTarget }) {
         ))}
       </div>
 
-      <div className="relative -mt-[98px] w-[352px] max-w-full px-3">
-        <div className="h-5 rounded-full bg-slate-700/70 overflow-hidden shadow-[inset_0_0_0_1px_rgba(148,163,184,0.08)]">
+      <div className="relative -mt-[84px] w-[352px] max-w-full px-3">
+        <div className="h-4 rounded-full bg-slate-700/70 overflow-hidden shadow-[inset_0_0_0_1px_rgba(148,163,184,0.08)]">
           <div
             className="h-full rounded-full bg-[#F2C14E]"
             style={{
@@ -445,13 +445,13 @@ function RecoveryHero({ groups, sets, totalActual, totalTarget }) {
         </div>
       </div>
 
-      <div className="-mt-6 flex flex-col items-center">
+      <div className="-mt-1 flex flex-col items-center">
         <p className="font-display text-4xl font-bold text-text-primary leading-none">{Math.round(overallPct * 100)}%</p>
         <p className="text-text-primary text-sm font-semibold mt-1">{totalActual}/{totalTarget} sets</p>
         <p className="text-text-secondary text-xs">completed</p>
       </div>
 
-      <div className="flex items-center justify-center gap-6 mt-1">
+      <div className="flex items-center justify-center gap-6 mt-3">
         {segments.map((segment) => (
           <div key={segment.id} className="flex items-center gap-2">
             <span
