@@ -1,12 +1,12 @@
 // src/pages/BodyMetrics.jsx
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { format, subMonths, startOfMonth, endOfMonth } from 'date-fns'
+import { format, subDays, subMonths, startOfMonth, endOfMonth } from 'date-fns'
 import { getDocs, addDoc, serverTimestamp } from 'firebase/firestore'
 import { AreaChart, Area, XAxis, Tooltip, ResponsiveContainer } from 'recharts'
 import PageWrapper from '../components/layout/PageWrapper'
 import { useAuth } from '../context/AuthContext'
 import { bodyMetricsCol, sessionsCol } from '../firebase/collections'
-import { AI_SERVER_MESSAGE, analyzeImageWithAi, generateAiText } from '../utils/aiClient'
+import { analyzeImageWithAi, generateAiText } from '../utils/aiClient'
 
 const TODAY = format(new Date(), 'yyyy-MM-dd')
 
@@ -184,6 +184,117 @@ function calculateStrengthData(sessions = [], bodyWeight) {
     scaleWeight,
     exerciseCount: exerciseMap.size,
   }
+}
+
+function getWeightInsight(entries = []) {
+  const weightedEntries = [...entries]
+    .filter((entry) => entry?.weight != null && entry?.date)
+    .sort((a, b) => a.date.localeCompare(b.date))
+
+  if (weightedEntries.length < 2) {
+    return {
+      headline: 'Log a few weigh-ins to unlock trends',
+      subline: 'Your weekly insight gets smarter after a couple of entries.',
+    }
+  }
+
+  const latest = weightedEntries[weightedEntries.length - 1]
+  const baseline = [...weightedEntries]
+    .reverse()
+    .find((entry) => getDaysSince(entry.date) >= 7) || weightedEntries[weightedEntries.length - 2]
+
+  const change = parseFloat((latest.weight - baseline.weight).toFixed(1))
+  if (Math.abs(change) < 0.3) {
+    return {
+      headline: 'Stable this week',
+      subline: 'Your weight is holding steady over the last 7 days.',
+      change,
+    }
+  }
+
+  const direction = change > 0 ? 'Up' : 'Down'
+  return {
+    headline: `${direction} ${Math.abs(change).toFixed(1)} lb this week`,
+    subline: change > 0
+      ? 'Good if you are pushing muscle gain. Keep an eye on body fat and strength together.'
+      : 'A steady drop can be useful if fat loss is the goal. Protect muscle mass as you cut.',
+    change,
+  }
+}
+
+function getStrengthTier(score) {
+  if (score == null) return { label: 'Building', detail: 'Keep logging your key lifts.' }
+  if (score >= 85) return { label: 'Advanced', detail: 'You have strong coverage across all major patterns.' }
+  if (score >= 70) return { label: 'Strong', detail: 'You are above average across your main lifts.' }
+  if (score >= 55) return { label: 'Above Average', detail: 'Your base is solid. Keep building consistency.' }
+  if (score >= 40) return { label: 'Foundation', detail: 'You are building a base. More quality sets will lift this fast.' }
+  return { label: 'Early Stage', detail: 'Log more quality training to stabilize the score.' }
+}
+
+function calculateStrengthTrend(sessions = [], bodyWeight) {
+  const now = new Date()
+  const recentStart = format(subDays(now, 14), 'yyyy-MM-dd')
+  const previousStart = format(subDays(now, 28), 'yyyy-MM-dd')
+  const previousEnd = format(subDays(now, 15), 'yyyy-MM-dd')
+
+  const recentSessions = sessions.filter((session) => session?.date >= recentStart)
+  const previousSessions = sessions.filter((session) => session?.date >= previousStart && session?.date <= previousEnd)
+
+  const recentScore = calculateStrengthData(recentSessions, bodyWeight).overallScore
+  const previousScore = calculateStrengthData(previousSessions, bodyWeight).overallScore
+
+  if (recentScore == null || previousScore == null) return null
+  return recentScore - previousScore
+}
+
+function getStrengthGroupRecommendation(group) {
+  if (!group) return null
+  if (!group.unlocked) {
+    return {
+      label: 'Needs attention',
+      message: `Log more ${group.label.toLowerCase()} sets to activate this score.`,
+    }
+  }
+  if (group.score >= 75) {
+    return {
+      label: 'Ready to train',
+      message: `${group.label} is a strength asset right now. Push progressive overload this week.`,
+    }
+  }
+  if (group.score >= 60) {
+    return {
+      label: 'Build this up',
+      message: `${group.label} is trending well. Add one hard top set or a small load increase this week.`,
+    }
+  }
+  return {
+    label: 'Needs attention',
+    message: `${group.label} is lagging. Give it focused volume before the week ends.`,
+  }
+}
+
+function getBodyFocus(latest, previous, strengthData) {
+  const muscleDelta = latest?.muscleMassLbs != null && previous?.muscleMassLbs != null
+    ? latest.muscleMassLbs - previous.muscleMassLbs
+    : null
+  const bodyFatDelta = latest?.bodyFat != null && previous?.bodyFat != null
+    ? latest.bodyFat - previous.bodyFat
+    : null
+
+  if (latest?.bodyFat != null && latest.bodyFat >= 20) return 'Focus: Reduce Body Fat'
+  if (muscleDelta != null && muscleDelta > 0 && (bodyFatDelta == null || bodyFatDelta <= 0)) return 'Focus: Build Muscle'
+  if (strengthData?.overallScore != null && strengthData.overallScore < 70) return 'Focus: Build Strength'
+  return 'Focus: Maintain Momentum'
+}
+
+function WeightHistoryDot({ cx, cy, isLatest }) {
+  if (!Number.isFinite(cx) || !Number.isFinite(cy)) return null
+  return (
+    <g>
+      {isLatest && <circle cx={cx} cy={cy} r={8} fill="#1A56DB" fillOpacity={0.16} />}
+      <circle cx={cx} cy={cy} r={isLatest ? 4.5 : 3} fill="#2563EB" stroke={isLatest ? '#93C5FD' : 'none'} strokeWidth={isLatest ? 1.5 : 0} />
+    </g>
+  )
 }
 
 // Compress image base64 using canvas
@@ -495,8 +606,9 @@ function ProgressPhotoCard({ entries }) {
                 <img src={lastMonthPhoto} alt="Last month" loading="lazy" decoding="async" className="w-full h-40 object-cover rounded-xl" />
               </button>
             ) : (
-              <div className="w-full h-40 bg-surface2 rounded-xl flex items-center justify-center">
-                <p className="text-text-secondary text-xs text-center px-2">No photo last month</p>
+              <div className="w-full h-40 bg-surface2 rounded-xl flex flex-col items-center justify-center px-3">
+                <p className="text-text-primary text-sm font-semibold text-center">Add Last Month Photo</p>
+                <p className="text-text-secondary text-xs text-center mt-1">Log one monthly check-in to unlock side-by-side comparison.</p>
               </div>
             )}
           </div>
@@ -509,8 +621,9 @@ function ProgressPhotoCard({ entries }) {
                 <img src={thisMonthPhoto} alt="This month" loading="lazy" decoding="async" className="w-full h-40 object-cover rounded-xl" />
               </button>
             ) : (
-              <div className="w-full h-40 bg-surface2 rounded-xl flex items-center justify-center">
-                <p className="text-text-secondary text-xs text-center px-2">Add a photo when logging</p>
+              <div className="w-full h-40 bg-surface2 rounded-xl flex flex-col items-center justify-center px-3">
+                <p className="text-text-primary text-sm font-semibold text-center">Add This Month Photo</p>
+                <p className="text-text-secondary text-xs text-center mt-1">Save a body metric entry with a photo to keep your visual timeline current.</p>
               </div>
             )}
           </div>
@@ -553,9 +666,17 @@ function StrengthScoreCard({ sessions, bodyWeight }) {
     () => calculateStrengthData(sessions, bodyWeight),
     [bodyWeight, sessions]
   )
+  const [selectedGroupId, setSelectedGroupId] = useState('push')
+  const strengthTrend = useMemo(
+    () => calculateStrengthTrend(sessions, bodyWeight),
+    [bodyWeight, sessions]
+  )
 
   const hasLoggedStrengthData = strengthData.exerciseCount > 0
   const missingLabel = [...new Set(strengthData.missingMuscles)].join(', ')
+  const overallTier = getStrengthTier(strengthData.overallScore)
+  const selectedGroup = strengthData.groupScores.find((group) => group.id === selectedGroupId) || strengthData.groupScores[0]
+  const selectedRecommendation = getStrengthGroupRecommendation(selectedGroup)
 
   return (
     <div className="card">
@@ -581,11 +702,18 @@ function StrengthScoreCard({ sessions, bodyWeight }) {
               <p className="font-display text-4xl font-bold text-text-primary mt-1">
                 {strengthData.overallScore}
               </p>
-              <p className="text-text-secondary text-xs mt-1">Push, Pull, and Legs unlocked</p>
+              <p className="text-accent-green text-sm font-semibold mt-1">{overallTier.label}</p>
+              <p className="text-text-secondary text-xs mt-1">{overallTier.detail}</p>
             </div>
             <div className="text-right">
-              <p className="text-accent-green text-xs font-semibold">Unlocked</p>
+              <p className="text-accent-green text-xs font-semibold">Fully Activated</p>
+              <p className="text-text-secondary text-xs mt-1">All muscle groups active</p>
               <p className="text-text-secondary text-xs mt-1">Scaled to {Math.round(strengthData.scaleWeight)} lb bodyweight</p>
+              {strengthTrend != null && (
+                <p className={`text-xs font-semibold mt-2 ${strengthTrend >= 0 ? 'text-accent-green' : 'text-accent-red'}`}>
+                  {strengthTrend >= 0 ? '+' : ''}{strengthTrend} this month
+                </p>
+              )}
             </div>
           </div>
         ) : hasLoggedStrengthData ? (
@@ -612,17 +740,28 @@ function StrengthScoreCard({ sessions, bodyWeight }) {
 
       <div className="grid grid-cols-3 gap-2 mt-3">
         {strengthData.groupScores.map((group) => (
-          <div key={group.id} className="bg-surface2 rounded-2xl p-3">
+          <button
+            type="button"
+            key={group.id}
+            onClick={() => setSelectedGroupId(group.id)}
+            className={`bg-surface2 rounded-2xl p-3 text-left transition-colors active:scale-[0.98] ${selectedGroupId === group.id ? 'ring-1 ring-accent/40 bg-accent/5' : ''}`}
+          >
             <p className="text-text-secondary text-xs uppercase tracking-[0.18em]">{group.label}</p>
             <p className={`font-display text-2xl font-bold mt-1 ${group.unlocked ? 'text-text-primary' : 'text-surface2'}`}>
               {group.unlocked ? group.score : '—'}
             </p>
             <p className="text-text-secondary text-[11px] mt-1">
-              {group.unlocked ? 'Ready' : `Need ${group.missingMuscles.join(', ')}`}
+              {getStrengthGroupRecommendation(group)?.label || 'Ready'}
             </p>
-          </div>
+          </button>
         ))}
       </div>
+      {selectedRecommendation && (
+        <div className="mt-3 rounded-2xl border border-surface2 bg-surface2/50 p-3">
+          <p className="text-text-primary text-sm font-semibold">{selectedGroup.label} {selectedRecommendation.label}</p>
+          <p className="text-text-secondary text-xs mt-1">{selectedRecommendation.message}</p>
+        </div>
+      )}
     </div>
   )
 }
@@ -632,13 +771,29 @@ function AiReportCard({ entries, sessions }) {
   const [report, setReport] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
+  const thirtyDaysAgo = format(subMonths(new Date(), 1), 'yyyy-MM-dd')
+  const recentSessions = useMemo(
+    () => sessions.filter((session) => session.date >= thirtyDaysAgo),
+    [sessions, thirtyDaysAgo]
+  )
+  const previousWindowStart = format(subMonths(new Date(), 2), 'yyyy-MM-dd')
+  const previousSessions = useMemo(
+    () => sessions.filter((session) => session.date >= previousWindowStart && session.date < thirtyDaysAgo),
+    [previousWindowStart, sessions, thirtyDaysAgo]
+  )
+  const recentVolume = recentSessions.reduce((sum, session) => sum + (session.totalVolume || 0), 0)
+  const previousVolume = previousSessions.reduce((sum, session) => sum + (session.totalVolume || 0), 0)
+  const volumeDeltaPercent = previousVolume > 0
+    ? Math.round(((recentVolume - previousVolume) / previousVolume) * 100)
+    : null
+  const previewText = volumeDeltaPercent == null
+    ? `${[...new Set(recentSessions.map((session) => session.date))].length} workout days this month`
+    : `${volumeDeltaPercent >= 0 ? '+' : ''}${volumeDeltaPercent}% volume vs last month`
 
   async function generateReport() {
     setLoading(true)
     setError(null)
 
-    const thirtyDaysAgo = format(subMonths(new Date(), 1), 'yyyy-MM-dd')
-    const recentSessions = sessions.filter(s => s.date >= thirtyDaysAgo)
     const totalVolume = recentSessions.reduce((sum, s) => sum + (s.totalVolume || 0), 0)
     const muscleGroups = [...new Set(recentSessions.map(s => s.muscleGroup).filter(Boolean))]
     const uniqueDates = [...new Set(recentSessions.map(s => s.date))]
@@ -699,8 +854,8 @@ Format your response as:
     <div className="card">
       <div className="flex items-center justify-between mb-3">
         <div>
-          <p className="section-title mb-0">AI Monthly Report</p>
-          <p className="text-text-secondary text-xs mt-0.5">Progress analysis + recommendations</p>
+          <p className="section-title mb-0">Monthly Insights</p>
+          <p className="text-text-secondary text-xs mt-0.5">Progress analysis with next-step recommendations</p>
         </div>
         <div className="w-9 h-9 rounded-xl bg-accent/10 flex items-center justify-center flex-shrink-0">
           <svg className="w-5 h-5 text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -709,8 +864,9 @@ Format your response as:
         </div>
       </div>
 
-      <div className="bg-accent/10 border border-accent/20 rounded-xl p-3 mb-3">
-        <p className="text-text-secondary text-xs">{AI_SERVER_MESSAGE}</p>
+      <div className="bg-accent-green/10 border border-accent-green/20 rounded-xl p-3 mb-3">
+        <p className="text-accent-green text-sm font-semibold">{previewText}</p>
+        <p className="text-text-secondary text-xs mt-1">Turn your scans, workouts, and body metrics into one monthly review.</p>
       </div>
 
       {error && (
@@ -746,7 +902,7 @@ Format your response as:
               <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
               Analyzing your data…
             </span>
-          ) : 'Generate Report'}
+          ) : 'Analyze My Progress'}
         </button>
       )}
     </div>
@@ -797,11 +953,37 @@ export default function BodyMetrics() {
   const latest = entries[0]
   const previous = entries[1]
   const strengthWeight = latest?.weight || entries.find((entry) => entry.weight)?.weight || null
+  const strengthSummary = useMemo(
+    () => calculateStrengthData(sessions, strengthWeight),
+    [sessions, strengthWeight]
+  )
+  const bodyFocus = getBodyFocus(latest, previous, strengthSummary)
+  const weightInsight = useMemo(() => getWeightInsight(entries), [entries])
 
-  function delta(key) {
-    if (latest?.[key] == null || previous?.[key] == null) return null
-    return parseFloat((latest[key] - previous[key]).toFixed(1))
+  function deltaValue(currentEntry, previousEntry, key) {
+    if (currentEntry?.[key] == null || previousEntry?.[key] == null) return null
+    return parseFloat((currentEntry[key] - previousEntry[key]).toFixed(1))
   }
+
+  const topMetricCards = [
+    { label: 'Weight', value: latest?.weight, unit: 'lb', delta: deltaValue(latest, previous, 'weight'), lowerIsBetter: false, valueColor: 'text-accent-green' },
+    { label: 'Body Fat', value: latest?.bodyFat, unit: '%', delta: deltaValue(latest, previous, 'bodyFat'), lowerIsBetter: true },
+    { label: 'Muscle Mass', value: latest?.muscleMassLbs, unit: 'lb', delta: deltaValue(latest, previous, 'muscleMassLbs'), lowerIsBetter: false },
+  ]
+  const compositionMetrics = [
+    { label: 'Skeletal Muscle', value: latest?.skeletalMuscle, unit: '%', delta: deltaValue(latest, previous, 'skeletalMuscle'), lowerIsBetter: false },
+    { label: 'Body Water', value: latest?.bodyWater, unit: '%', delta: deltaValue(latest, previous, 'bodyWater'), lowerIsBetter: false },
+    { label: 'Fat-Free Wt', value: latest?.fatFreeBodyWeight, unit: 'lb', delta: deltaValue(latest, previous, 'fatFreeBodyWeight'), lowerIsBetter: false },
+    { label: 'Subcut. Fat', value: latest?.subcutaneousFat, unit: '%', delta: deltaValue(latest, previous, 'subcutaneousFat'), lowerIsBetter: true },
+    { label: 'Protein', value: latest?.protein, unit: '%', delta: deltaValue(latest, previous, 'protein'), lowerIsBetter: false },
+    { label: 'Visceral Fat', value: latest?.visceralFat, delta: deltaValue(latest, previous, 'visceralFat'), lowerIsBetter: true },
+  ]
+  const healthMetrics = [
+    { label: 'BMI', value: latest?.bmi, delta: deltaValue(latest, previous, 'bmi'), lowerIsBetter: true, note: latest?.bmi ? bmiLabel(latest.bmi) : null },
+    { label: 'BMR', value: latest?.bmr, unit: 'kcal', delta: deltaValue(latest, previous, 'bmr'), lowerIsBetter: false },
+    { label: 'Metabolic Age', value: latest?.metabolicAge, unit: 'yr', delta: deltaValue(latest, previous, 'metabolicAge'), lowerIsBetter: true },
+    { label: 'Bone Mass', value: latest?.boneMass, unit: 'lb', delta: deltaValue(latest, previous, 'boneMass'), lowerIsBetter: false },
+  ]
 
   // Weight history chart (last 12 entries, oldest first)
   const chartData = [...entries]
@@ -885,15 +1067,20 @@ Notes: weight/boneMass/fatFreeBodyWeight/muscleMassLbs are in lbs; bodyFat/bodyW
         {/* Header */}
         <div>
           <h1 className="font-display text-2xl font-bold text-text-primary">Body Metrics</h1>
-          <p className="text-text-secondary text-sm mt-0.5">Track your body composition</p>
+          <p className="text-text-secondary text-sm mt-0.5">Improve your body composition</p>
+          <p className="text-accent text-xs font-semibold mt-2 uppercase tracking-[0.18em]">{bodyFocus}</p>
         </div>
 
         {/* Weight history chart */}
         <div className="card">
-          <div className="flex items-center justify-between mb-2">
-            <p className="section-title mb-0">Weight History</p>
+          <div className="flex items-start justify-between gap-3 mb-2">
+            <div>
+              <p className="section-title mb-0">Weight History</p>
+              <p className="text-text-primary text-sm font-semibold mt-0.5">{weightInsight.headline}</p>
+              <p className="text-text-secondary text-xs mt-1">{weightInsight.subline}</p>
+            </div>
             {latest?.weight && (
-              <p className="text-text-secondary text-sm">
+              <p className="text-text-secondary text-sm text-right">
                 <span className="text-text-primary font-semibold">{latest.weight}</span> lb
               </p>
             )}
@@ -912,7 +1099,9 @@ Notes: weight/boneMass/fatFreeBodyWeight/muscleMassLbs are in lbs; bodyFat/bodyW
                 <XAxis dataKey="date" tick={{ fill: '#94A3B8', fontSize: 9 }} axisLine={false} tickLine={false} />
                 <Tooltip content={<WeightTooltip />} />
                 <Area type="monotone" dataKey="weight" stroke="#1A56DB" strokeWidth={2}
-                  fill="url(#weightGrad)" dot={{ fill: '#1A56DB', r: 3, strokeWidth: 0 }} activeDot={{ r: 4 }} />
+                  fill="url(#weightGrad)"
+                  dot={(props) => <WeightHistoryDot {...props} isLatest={props.index === chartData.length - 1} />}
+                  activeDot={{ r: 5, fill: '#2563EB', stroke: '#93C5FD', strokeWidth: 2 }} />
               </AreaChart>
             </ResponsiveContainer>
           ) : (
@@ -927,7 +1116,7 @@ Notes: weight/boneMass/fatFreeBodyWeight/muscleMassLbs are in lbs; bodyFat/bodyW
         <div className="flex gap-2">
           <button
             onClick={() => { setPrefillData(null); setShowLog(true) }}
-            className="flex-1 flex items-center justify-center gap-2 bg-surface border border-surface2 rounded-xl px-4 py-3 text-text-primary text-sm font-semibold active:scale-95 transition-transform"
+            className="flex-1 flex items-center justify-center gap-2 bg-surface2/55 border border-surface2 rounded-2xl px-4 py-3 text-text-primary text-sm font-semibold active:scale-95 transition-transform"
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
@@ -937,7 +1126,7 @@ Notes: weight/boneMass/fatFreeBodyWeight/muscleMassLbs are in lbs; bodyFat/bodyW
           <button
             onClick={() => scanInputRef.current?.click()}
             disabled={scanning}
-            className="flex-1 flex items-center justify-center gap-2 btn-primary disabled:opacity-50"
+            className="flex-1 min-h-[88px] rounded-2xl px-4 py-3 text-left text-white bg-gradient-to-br from-accent to-[#1D4ED8] shadow-[0_12px_30px_rgba(37,99,235,0.24)] disabled:opacity-50 active:scale-[0.98] transition-transform"
           >
             {scanning ? (
               <>
@@ -945,21 +1134,28 @@ Notes: weight/boneMass/fatFreeBodyWeight/muscleMassLbs are in lbs; bodyFat/bodyW
                 Scanning…
               </>
             ) : (
-              <>
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
-                </svg>
-                Scan Scale Photo
-              </>
+              <div className="w-full">
+                <p className="text-[11px] uppercase tracking-[0.18em] text-white/80 mb-1">Smart Scan</p>
+                <div className="flex items-center gap-2">
+                  <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                  <span className="text-lg font-semibold">Scan Scale Photo</span>
+                </div>
+              </div>
             )}
           </button>
         </div>
-        <p className="text-text-secondary text-xs">
-          {AI_SERVER_MESSAGE}
-        </p>
-
         <StrengthScoreCard sessions={sessions} bodyWeight={strengthWeight} />
+
+        {/* Progress photos */}
+        {entries.some(e => e.photoBase64) && (
+          <ProgressPhotoCard entries={entries} />
+        )}
+
+        {/* AI Monthly Report */}
+        <AiReportCard entries={entries} sessions={sessions} />
 
         {/* Metric cards — single collapsible card */}
         <div className="card">
@@ -977,38 +1173,65 @@ Notes: weight/boneMass/fatFreeBodyWeight/muscleMassLbs are in lbs; bodyFat/bodyW
             </div>
           ) : (
             <>
-              <div className="grid grid-cols-3 gap-2">
-                <MetricCard label="Weight" value={latest?.weight} unit="lb"
-                  delta={delta('weight')} lowerIsBetter={false} valueColor="text-accent-green" />
-                <MetricCard label="Body Fat" value={latest?.bodyFat} unit="%"
-                  delta={delta('bodyFat')} lowerIsBetter={true} />
-                <MetricCard label="BMI" value={latest?.bmi}
-                  delta={delta('bmi')} lowerIsBetter={true}
-                  note={latest?.bmi ? bmiLabel(latest.bmi) : null} />
-
-                {showAll && (
-                  <>
-                    <MetricCard label="Muscle Mass" value={latest?.muscleMassLbs} unit="lb"
-                      delta={delta('muscleMassLbs')} lowerIsBetter={false} />
-                    <MetricCard label="Visceral Fat" value={latest?.visceralFat}
-                      delta={delta('visceralFat')} lowerIsBetter={true} />
-                    <MetricCard label="Body Water" value={latest?.bodyWater} unit="%"
-                      delta={delta('bodyWater')} lowerIsBetter={false} />
-                    <MetricCard label="Skeletal Muscle" value={latest?.skeletalMuscle} unit="%"
-                      delta={delta('skeletalMuscle')} lowerIsBetter={false} />
-                    <MetricCard label="Subcut. Fat" value={latest?.subcutaneousFat} unit="%"
-                      delta={delta('subcutaneousFat')} lowerIsBetter={true} />
-                    <MetricCard label="Fat-Free Wt" value={latest?.fatFreeBodyWeight} unit="lb"
-                      delta={delta('fatFreeBodyWeight')} lowerIsBetter={false} />
-                    <MetricCard label="BMR" value={latest?.bmr} unit="kcal"
-                      delta={delta('bmr')} lowerIsBetter={false} />
-                    <MetricCard label="Protein" value={latest?.protein} unit="%"
-                      delta={delta('protein')} lowerIsBetter={false} />
-                    <MetricCard label="Metabolic Age" value={latest?.metabolicAge} unit="yr"
-                      delta={delta('metabolicAge')} lowerIsBetter={true} />
-                  </>
-                )}
+              <div>
+                <p className="text-text-secondary text-xs uppercase tracking-[0.18em] mb-2">Key Metrics</p>
+                <div className="grid grid-cols-3 gap-2">
+                  {topMetricCards.map((metric) => (
+                    <div key={metric.label} className="bg-surface2 rounded-2xl p-3">
+                      <p className="text-text-secondary text-xs leading-tight mb-1.5">{metric.label}</p>
+                      <div className="flex items-baseline gap-1 flex-wrap">
+                        <span className={`font-display text-2xl font-bold ${metric.value != null ? (metric.valueColor || 'text-white') : 'text-surface2'}`}>
+                          {metric.value != null ? metric.value : '—'}
+                        </span>
+                        {metric.unit && metric.value != null && <span className="text-text-secondary text-xs">{metric.unit}</span>}
+                      </div>
+                      {metric.delta != null && metric.value != null && (
+                        <div className="mt-1">
+                          <TrendArrow delta={metric.delta} lowerIsBetter={metric.lowerIsBetter} />
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
               </div>
+
+              {showAll && (
+                <div className="mt-4 space-y-4">
+                  <div>
+                    <p className="text-text-secondary text-xs uppercase tracking-[0.18em] mb-2">Body Composition</p>
+                    <div className="grid grid-cols-3 gap-2">
+                      {compositionMetrics.map((metric) => (
+                        <MetricCard
+                          key={metric.label}
+                          label={metric.label}
+                          value={metric.value}
+                          unit={metric.unit}
+                          delta={metric.delta}
+                          lowerIsBetter={metric.lowerIsBetter}
+                          note={metric.note}
+                        />
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <p className="text-text-secondary text-xs uppercase tracking-[0.18em] mb-2">Health</p>
+                    <div className="grid grid-cols-3 gap-2">
+                      {healthMetrics.map((metric) => (
+                        <MetricCard
+                          key={metric.label}
+                          label={metric.label}
+                          value={metric.value}
+                          unit={metric.unit}
+                          delta={metric.delta}
+                          lowerIsBetter={metric.lowerIsBetter}
+                          note={metric.note}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
 
               <button
                 onClick={() => setShowAll(s => !s)}
@@ -1019,14 +1242,6 @@ Notes: weight/boneMass/fatFreeBodyWeight/muscleMassLbs are in lbs; bodyFat/bodyW
             </>
           )}
         </div>
-
-        {/* Progress photos */}
-        {entries.some(e => e.photoBase64) && (
-          <ProgressPhotoCard entries={entries} />
-        )}
-
-        {/* AI Monthly Report */}
-        <AiReportCard entries={entries} sessions={sessions} />
 
       </div>
 
