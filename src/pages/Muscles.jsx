@@ -843,6 +843,15 @@ export default function Muscles() {
 
     return candidates[0]?.routine || null
   }, [lowestGroup, routineInProgress, routineSessionStats, routines])
+  const recommendedActionLabel = routineInProgress
+    ? 'Resume Workout'
+    : lowestGroup?.id === 'legs'
+      ? 'Start Leg Workout'
+      : lowestGroup?.id === 'pull'
+        ? 'Start Pull Workout'
+        : lowestGroup?.id === 'push'
+          ? 'Start Push Workout'
+          : 'Start Recommended Workout'
 
   function launchRecommendedWorkout() {
     if (routineInProgress?.routine?.id) {
@@ -889,30 +898,12 @@ export default function Muscles() {
           {(routineInProgress || recommendedRoutine) && (
             <button
               onClick={launchRecommendedWorkout}
-              className="mt-3 w-full rounded-2xl border border-accent/30 bg-gradient-to-r from-accent to-accent-hover px-4 py-3 text-left shadow-lg shadow-accent/15 active:scale-[0.99] transition-transform"
+              className="mt-2 inline-flex items-center gap-2 text-accent font-semibold text-sm active:scale-95 transition-transform"
             >
-              <div className="flex items-center justify-between gap-4">
-                <div className="min-w-0">
-                  <p className="text-white/80 text-[11px] font-semibold uppercase tracking-[0.22em]">
-                    {routineInProgress ? 'Resume workout' : 'Start recommended workout'}
-                  </p>
-                  <p className="text-white font-display text-lg font-bold mt-1 leading-tight">
-                    {routineInProgress
-                      ? formatRoutineName(routineInProgress.routine.name)
-                      : formatRoutineName(recommendedRoutine?.name || `${lowestGroup?.label || 'Workout'}`)}
-                  </p>
-                  <p className="text-white/85 text-sm mt-1">
-                    {routineInProgress
-                      ? `Next: ${routineInProgress.exercises.find((exercise) => exercise.id === routineInProgress.currentExerciseId)?.name || 'Continue workout'}`
-                      : `${lowestGroup?.label || 'Workout'} • ${lowestGroup?.toGo || 0} sets to hit goal`}
-                  </p>
-                </div>
-                <div className="w-11 h-11 rounded-2xl bg-white/14 border border-white/35 shadow-sm shadow-white/10 flex items-center justify-center flex-shrink-0">
-                  <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M5.25 5.653c0-1.427 1.529-2.33 2.779-1.643l9.42 5.173c1.295.711 1.295 2.575 0 3.286l-9.42 5.173c-1.25.687-2.779-.216-2.779-1.643V5.653z" />
-                  </svg>
-                </div>
-              </div>
+              <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.3}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5.25 5.653c0-1.427 1.529-2.33 2.779-1.643l9.42 5.173c1.295.711 1.295 2.575 0 3.286l-9.42 5.173c-1.25.687-2.779-.216-2.779-1.643V5.653z" />
+              </svg>
+              <span>{recommendedActionLabel}</span>
             </button>
           )}
         </div>
