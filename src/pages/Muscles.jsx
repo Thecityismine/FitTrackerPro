@@ -797,18 +797,15 @@ export default function Muscles() {
     ? `You need ${lowestWorkoutCount} more ${lowestGroup.id} workout${lowestWorkoutCount === 1 ? '' : 's'} this week`
     : 'All weekly muscle targets are on pace'
   const routineInProgress = activeWorkout?.kind === 'routine' && !activeWorkout.summaryReady ? activeWorkout : null
-  const routineSessionStats = useMemo(() => {
-    const byRoutine = {}
-    sessions.forEach((session) => {
-      const routineId = session.routineId
-      if (!routineId || !session.date) return
-      if (!byRoutine[routineId] || byRoutine[routineId] < session.date) {
-        byRoutine[routineId] = session.date
-      }
-    })
-    return byRoutine
-  }, [sessions])
-  const recommendedRoutine = useMemo(() => {
+  const routineSessionStats = {}
+  sessions.forEach((session) => {
+    const routineId = session.routineId
+    if (!routineId || !session.date) return
+    if (!routineSessionStats[routineId] || routineSessionStats[routineId] < session.date) {
+      routineSessionStats[routineId] = session.date
+    }
+  })
+  const recommendedRoutine = (() => {
     if (routineInProgress?.routine?.id) {
       return routines.find((routine) => routine.id === routineInProgress.routine.id) || {
         id: routineInProgress.routine.id,
@@ -842,7 +839,7 @@ export default function Muscles() {
       })
 
     return candidates[0]?.routine || null
-  }, [lowestGroup, routineInProgress, routineSessionStats, routines])
+  })()
   const recommendedActionLabel = routineInProgress
     ? 'Resume Workout'
     : lowestGroup?.id === 'legs'
