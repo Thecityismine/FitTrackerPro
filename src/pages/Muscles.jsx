@@ -1,6 +1,6 @@
 // src/pages/Muscles.jsx
 import { useState, useEffect, useRef, useMemo } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { Link, useParams, useNavigate } from 'react-router-dom'
 import { getDocs, setDoc, updateDoc, query, where, writeBatch, serverTimestamp, doc } from 'firebase/firestore'
 import {
   format, differenceInDays, parseISO,
@@ -952,13 +952,13 @@ export default function Muscles() {
               const lastDate = gSessions.map(s => s.date).sort().at(-1)
               const days = lastDate ? daysAgo(lastDate) : null
               return (
-                <button
+                <Link
                   key={g.id}
-                  onClick={() => navigate(`/muscles/${g.id.toLowerCase()}`)}
+                  to={`/muscles/${g.id.toLowerCase()}`}
                   className="rounded-2xl border border-surface2 bg-surface p-4 relative overflow-hidden flex flex-col justify-end active:scale-95 transition-transform"
                   style={{ minHeight: '130px' }}
                 >
-                  <img src={g.icon} alt="" loading="lazy" decoding="async" className="absolute right-2 top-2 w-24 h-24 object-contain opacity-90" />
+                  <img src={g.icon} alt="" loading="lazy" decoding="async" className="absolute right-2 top-2 w-24 h-24 object-contain opacity-90 pointer-events-none" />
                   <div className="relative z-10 text-left">
                     <p className="text-base font-bold text-white leading-tight">{g.label}</p>
                     <p className="text-text-secondary text-xs mt-0.5">
@@ -967,7 +967,7 @@ export default function Muscles() {
                         : 'No exercises yet'}
                     </p>
                   </div>
-                </button>
+                </Link>
               )
             })}
           </div>
