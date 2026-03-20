@@ -7,6 +7,7 @@ import {
   startOfWeek, endOfWeek,
 } from 'date-fns'
 import PageWrapper from '../components/layout/PageWrapper'
+import { useActiveWorkout } from '../context/ActiveWorkoutContext'
 import { useAuth } from '../context/AuthContext'
 import { sessionsCol, exercisesCol, exerciseDoc, globalExercisesCol, routinesCol } from '../firebase/collections'
 import { db } from '../firebase/config'
@@ -147,6 +148,12 @@ function lastDoneLabel(days) {
 }
 function toSlug(name) {
   return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
+}
+
+function formatRoutineName(name = '') {
+  return name
+    .replace(/\bDay-(\d+)\b/g, 'Day $1')
+    .replace(/^(.*?)(\sDay \d+)$/, '$1 -$2')
 }
 
 const GROUPS_META = [
@@ -486,9 +493,11 @@ export default function Muscles() {
   const { groupId } = useParams()
   const navigate    = useNavigate()
   const { user, profile } = useAuth()
+  const { activeWorkout, startRoutineWorkout } = useActiveWorkout()
 
   const [sessions, setSessions] = useState([])
   const [savedExercises, setSavedExercises] = useState([])
+  const [routines, setRoutines] = useState([])
   const [loading, setLoading]   = useState(true)
   const [expandedId, setExpandedId] = useState(null)
   const [showAdd, setShowAdd]   = useState(false)
@@ -511,8 +520,9 @@ export default function Muscles() {
         getDocs(sessionsCol(user.uid)),
         getDocs(exercisesCol(user.uid)),
         getDocs(globalExercisesCol()),
+        getDocs(routinesCol(user.uid)),
       ]))
-      .then(async ([sessSnap, exSnap, globalSnap]) => {
+      .then(async ([sessSnap, exSnap, globalSnap, routineSnap]) => {
         setSessions(sessSnap.docs.map(d => ({ id: d.id, ...d.data() })))
 
         // Build map starting from global library so every user sees all exercises
@@ -535,6 +545,16 @@ export default function Muscles() {
         }
 
         setSavedExercises(Object.values(map))
+        setRoutines(routineSnap.docs.map((d) => {
+          const data = { id: d.id, ...d.data() }
+          return {
+            ...data,
+            exercises: (data.exercises || []).map((exercise) => ({
+              ...exercise,
+              type: exercise.type || map[exercise.id]?.type || 'weight',
+            })),
+          }
+        }))
         setLoading(false)
       })
       .catch((err) => { console.error('Muscles load error:', err); setLoading(false) })
@@ -776,6 +796,83 @@ export default function Muscles() {
   const focusInsight = lowestWorkoutCount > 0
     ? `You need ${lowestWorkoutCount} more ${lowestGroup.id} workout${lowestWorkoutCount === 1 ? '' : 's'} this week`
     : 'All weekly muscle targets are on pace'
+  const routineInProgress = activeWorkout?.kind === 'routine' && !activeWorkout.summaryReady ? activeWorkout : null
+  const routineSessionStats = useMemo(() => {
+    const byRoutine = {}
+    sessions.forEach((session) => {
+      const routineId = session.routineId
+      if (!routineId || !session.date) return
+      if (!byRoutine[routineId] || byRoutine[routineId] < session.date) {
+        byRoutine[routineId] = session.date
+      }
+    })
+    return byRoutine
+  }, [sessions])
+  const recommendedRoutine = useMemo(() => {
+    if (routineInProgress?.routine?.id) {
+      return routines.find((routine) => routine.id === routineInProgress.routine.id) || {
+        id: routineInProgress.routine.id,
+        name: routineInProgress.routine.name,
+        exercises: routineInProgress.exercises || [],
+      }
+    }
+    if (!lowestGroup) return null
+
+    const candidates = routines
+      .map((routine) => {
+        const matchCount = (routine.exercises || []).reduce((count, exercise) => {
+          const category = getMuscleCategory(exercise.muscleGroup, exercise.name)
+          return count + (category?.groupId === lowestGroup.id ? 1 : 0)
+        }, 0)
+        return {
+          routine,
+          matchCount,
+          lastDate: routineSessionStats[routine.id] || '',
+        }
+      })
+      .filter((entry) => entry.matchCount > 0)
+      .sort((a, b) => {
+        if (b.matchCount !== a.matchCount) return b.matchCount - a.matchCount
+        if (a.lastDate !== b.lastDate) {
+          if (!a.lastDate) return -1
+          if (!b.lastDate) return 1
+          return a.lastDate.localeCompare(b.lastDate)
+        }
+        return formatRoutineName(a.routine.name).localeCompare(formatRoutineName(b.routine.name))
+      })
+
+    return candidates[0]?.routine || null
+  }, [lowestGroup, routineInProgress, routineSessionStats, routines])
+
+  function launchRecommendedWorkout() {
+    if (routineInProgress?.routine?.id) {
+      const routine = recommendedRoutine
+      const exercises = routine?.exercises || routineInProgress.exercises || []
+      const startExerciseId = routineInProgress.currentExerciseId || exercises[0]?.id
+      if (!startExerciseId) return
+      navigate(`/workout/${startExerciseId}`, {
+        state: {
+          workoutMode: true,
+          routine: routine || {
+            id: routineInProgress.routine.id,
+            name: routineInProgress.routine.name,
+            exercises,
+          },
+        },
+      })
+      return
+    }
+
+    if (!recommendedRoutine?.id || !(recommendedRoutine.exercises || []).length) return
+    const startExerciseId = recommendedRoutine.exercises[0].id
+    startRoutineWorkout(recommendedRoutine, { startExerciseId })
+    navigate(`/workout/${startExerciseId}`, {
+      state: {
+        workoutMode: true,
+        routine: recommendedRoutine,
+      },
+    })
+  }
   return (
     <PageWrapper showHeader>
       <div className="px-4 pt-2 space-y-4 pb-6">
@@ -789,6 +886,35 @@ export default function Muscles() {
             <p className="text-[#62E38D] font-semibold">{daysLeft} day{daysLeft === 1 ? '' : 's'} left</p>
           </div>
           <p className="mt-2 text-sm font-medium text-[#62E38D]">{focusInsight}</p>
+          {(routineInProgress || recommendedRoutine) && (
+            <button
+              onClick={launchRecommendedWorkout}
+              className="mt-3 w-full rounded-2xl border border-accent/30 bg-gradient-to-r from-accent to-accent-hover px-4 py-3 text-left shadow-lg shadow-accent/15 active:scale-[0.99] transition-transform"
+            >
+              <div className="flex items-center justify-between gap-4">
+                <div className="min-w-0">
+                  <p className="text-white/80 text-[11px] font-semibold uppercase tracking-[0.22em]">
+                    {routineInProgress ? 'Resume workout' : 'Start recommended workout'}
+                  </p>
+                  <p className="text-white font-display text-lg font-bold mt-1 leading-tight">
+                    {routineInProgress
+                      ? formatRoutineName(routineInProgress.routine.name)
+                      : formatRoutineName(recommendedRoutine?.name || `${lowestGroup?.label || 'Workout'}`)}
+                  </p>
+                  <p className="text-white/85 text-sm mt-1">
+                    {routineInProgress
+                      ? `Next: ${routineInProgress.exercises.find((exercise) => exercise.id === routineInProgress.currentExerciseId)?.name || 'Continue workout'}`
+                      : `${lowestGroup?.label || 'Workout'} • ${lowestGroup?.toGo || 0} sets to hit goal`}
+                  </p>
+                </div>
+                <div className="w-11 h-11 rounded-2xl bg-white/14 border border-white/35 shadow-sm shadow-white/10 flex items-center justify-center flex-shrink-0">
+                  <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5.25 5.653c0-1.427 1.529-2.33 2.779-1.643l9.42 5.173c1.295.711 1.295 2.575 0 3.286l-9.42 5.173c-1.25.687-2.779-.216-2.779-1.643V5.653z" />
+                  </svg>
+                </div>
+              </div>
+            </button>
+          )}
         </div>
 
         {/* Weekly target hero */}
