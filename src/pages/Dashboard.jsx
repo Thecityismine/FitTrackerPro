@@ -10,7 +10,6 @@ import {
   XAxis,
 } from 'recharts'
 import PageWrapper from '../components/layout/PageWrapper'
-import HexRing from '../components/HexRing'
 import { useAuth } from '../context/AuthContext'
 import { useActiveWorkout } from '../context/ActiveWorkoutContext'
 import { sessionsCol } from '../firebase/collections'
@@ -42,7 +41,7 @@ const MG_MAP = {
 const PPL_DASH = [
   { id: 'push', label: 'Push', color: '#8B7332', targetTotal: 27, muscles: [{ id: 'chest' }, { id: 'shoulders' }, { id: 'triceps' }] },
   { id: 'pull', label: 'Pull', color: '#8B1A2B', targetTotal: 15, muscles: [{ id: 'back' }, { id: 'biceps' }] },
-  { id: 'legs', label: 'Legs', color: '#1F4D3A', targetTotal: 21, muscles: [{ id: 'quads' }, { id: 'hamstrings' }, { id: 'glutes' }] },
+  { id: 'legs', label: 'Legs', color: '#22C55E', targetTotal: 21, muscles: [{ id: 'quads' }, { id: 'hamstrings' }, { id: 'glutes' }] },
 ]
 
 const PPL_MAP_DASH = {
@@ -176,6 +175,54 @@ function StatCard({ label, value, sub, valueClass = 'text-text-primary' }) {
       <p className={`stat-number ${valueClass}`}>{value}</p>
       {sub && <p className="text-text-secondary text-xs mt-0.5">{sub}</p>}
     </div>
+  )
+}
+
+function SegmentedTargetRing({ groups, size = 80, strokeWidth = 8, gapDegrees = 16 }) {
+  const radius = (size - strokeWidth) / 2
+  const circumference = 2 * Math.PI * radius
+  const segmentDegrees = (360 - gapDegrees * groups.length) / groups.length
+  const segmentLength = circumference * (segmentDegrees / 360)
+
+  return (
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="block">
+      {groups.map((group, index) => {
+        const normalized = Math.max(0, Math.min(group.pct || 0, 1))
+        const rotation = -90 + index * (segmentDegrees + gapDegrees)
+        const fillLength = segmentLength * normalized
+        const fillOffset = segmentLength - fillLength
+
+        return (
+          <g key={group.id}>
+            <circle
+              cx={size / 2}
+              cy={size / 2}
+              r={radius}
+              fill="none"
+              stroke="rgba(51,65,85,0.55)"
+              strokeWidth={strokeWidth}
+              strokeLinecap="round"
+              strokeDasharray={`${segmentLength} ${circumference}`}
+              strokeDashoffset={0}
+              transform={`rotate(${rotation} ${size / 2} ${size / 2})`}
+            />
+            <circle
+              cx={size / 2}
+              cy={size / 2}
+              r={radius}
+              fill="none"
+              stroke={group.color}
+              strokeWidth={strokeWidth}
+              strokeLinecap="round"
+              strokeDasharray={`${segmentLength} ${circumference}`}
+              strokeDashoffset={fillOffset}
+              transform={`rotate(${rotation} ${size / 2} ${size / 2})`}
+              style={{ filter: `drop-shadow(0 0 6px ${group.color}55)` }}
+            />
+          </g>
+        )
+      })}
+    </svg>
   )
 }
 
@@ -704,19 +751,20 @@ export default function Dashboard() {
             className="card w-full text-left active:scale-[0.98] transition-transform"
           >
             <div className="flex items-center gap-4">
-              <div className="relative flex-shrink-0">
-                <HexRing
-                  segments={weekGroupStats.map((group) => ({
-                    pct: Math.min(group.actual / Math.max(group.targetTotal, 1), 1),
-                    color: group.color,
-                  }))}
-                  size={80}
-                  strokeWidth={8}
-                />
-                <div className="absolute inset-0 flex flex-col items-center justify-center">
-                  <p className="font-display text-base font-bold text-text-primary leading-none">
-                    {Math.round(weekPct * 100)}%
-                  </p>
+	              <div className="relative flex-shrink-0">
+	                <SegmentedTargetRing
+	                  groups={weekGroupStats.map((group) => ({
+	                    id: group.id,
+	                    pct: Math.min(group.actual / Math.max(group.targetTotal, 1), 1),
+	                    color: group.color,
+	                  }))}
+	                  size={80}
+	                  strokeWidth={8}
+	                />
+	                <div className="absolute inset-0 flex flex-col items-center justify-center">
+	                  <p className="font-display text-base font-bold text-text-primary leading-none">
+	                    {Math.round(weekPct * 100)}%
+	                  </p>
                 </div>
               </div>
 
