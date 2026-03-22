@@ -40,6 +40,10 @@ function formatDurationMinutes(minutes) {
   return remaining > 0 ? `${hours}h ${remaining}m` : `${hours}h`
 }
 
+function getExerciseBestValue(session) {
+  return (session?.sets || []).reduce((max, set) => Math.max(max, Number(set?.weight) || 0), 0)
+}
+
 export default function CalendarLog() {
   const { user, profile } = useAuth()
   const { activeWorkout, startRoutineWorkout } = useActiveWorkout()
@@ -182,6 +186,64 @@ export default function CalendarLog() {
     }
   }, [activeWorkout, navigate, routineMap, selectedDateSummary, startRoutineWorkout])
 
+  const selectedDateInsight = useMemo(() => {
+    const group = selectedDateSummary?.primaryGroup
+    if (!group || !selectedDate) return null
+
+    const comparableDates = Object.keys(grouped)
+      .filter((date) => date < selectedDate)
+      .sort()
+      .reverse()
+
+    const previousGroup = comparableDates
+      .map((date) => Object.values(grouped[date] || {}))
+      .flat()
+      .find((entry) => (
+        group.routineId
+          ? entry.routineId === group.routineId
+          : entry.routineName === group.routineName
+      )) || null
+
+    if (!selectedDateSummary.isAllCardio && previousGroup?.totalVolume > 0 && group.totalVolume > 0) {
+      const deltaPct = Math.round(((group.totalVolume - previousGroup.totalVolume) / previousGroup.totalVolume) * 100)
+      if (deltaPct !== 0) {
+        return {
+          tone: deltaPct > 0 ? 'text-accent-green' : 'text-[#F2C14E]',
+          text: `${deltaPct > 0 ? '+' : ''}${deltaPct}% vs last session`,
+        }
+      }
+    }
+
+    const strongestExercise = (group.exercises || [])
+      .map((session) => ({
+        name: session.exerciseName,
+        bestValue: getExerciseBestValue(session),
+      }))
+      .sort((a, b) => b.bestValue - a.bestValue)[0]
+
+    if (selectedDateSummary.isAllCardio) {
+      if (strongestExercise?.bestValue > 0) {
+        return {
+          tone: 'text-accent',
+          text: `Longest effort: ${strongestExercise.name} ${strongestExercise.bestValue} min`,
+        }
+      }
+      return {
+        tone: 'text-text-secondary',
+        text: `${selectedDateSummary.exerciseCount} cardio exercise${selectedDateSummary.exerciseCount === 1 ? '' : 's'} logged`,
+      }
+    }
+
+    if (strongestExercise?.bestValue > 0) {
+      return {
+        tone: 'text-text-primary',
+        text: `Strongest lift: ${strongestExercise.name} ${strongestExercise.bestValue} lbs`,
+      }
+    }
+
+    return null
+  }, [grouped, selectedDate, selectedDateSummary])
+
   // Bounds for filters
   const monthStartStr = format(startOfMonth(currentMonth), 'yyyy-MM-dd')
   const monthEndStr   = format(endOfMonth(currentMonth),   'yyyy-MM-dd')
@@ -320,6 +382,14 @@ export default function CalendarLog() {
                   </p>
                 </div>
               </div>
+              {selectedDateInsight && (
+                <div className="mt-3 rounded-2xl border border-surface2 bg-surface2/60 px-3 py-2.5">
+                  <p className="text-text-secondary text-[11px] font-semibold uppercase tracking-[0.18em]">Insight</p>
+                  <p className={`mt-1 text-sm font-medium ${selectedDateInsight.tone}`}>
+                    {selectedDateInsight.text}
+                  </p>
+                </div>
+              )}
               {selectedDateCta && (
                 <button
                   onClick={selectedDateCta.run}
