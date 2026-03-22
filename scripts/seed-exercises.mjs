@@ -76,6 +76,9 @@ const exercises = [
   { name: 'Stair Climber',                    muscleGroup: 'Glutes',    category: 'cardio'   },
   // Cardio
   { name: 'Fitness Bike',                     muscleGroup: 'Cardio',    category: 'cardio'   },
+  { name: 'Indoor Cycling',                  muscleGroup: 'Cardio',    category: 'cardio'   },
+  { name: 'Recumbent Bike',                  muscleGroup: 'Cardio',    category: 'cardio'   },
+  { name: 'Stationary Bike',                 muscleGroup: 'Cardio',    category: 'cardio'   },
   { name: 'Walking',                          muscleGroup: 'Cardio',    category: 'cardio'   },
   { name: 'Walking Treadmill',                muscleGroup: 'Cardio',    category: 'cardio'   },
   { name: 'Elliptical Machine',               muscleGroup: 'Cardio',    category: 'cardio'   },

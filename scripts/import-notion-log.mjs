@@ -74,6 +74,8 @@ const MUSCLE_GROUP = {
   'walking-lunges':                 'Glutes',
   'elliptical-machine':             'Cardio',
   'fitness-bike':                   'Cardio',
+  'indoor-cycling':                 'Cardio',
+  'recumbent-bike':                 'Cardio',
   'walking':                        'Cardio',
   'walking-treadmill':              'Cardio',
   'sex':                            'Cardio',
