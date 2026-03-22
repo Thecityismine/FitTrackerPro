@@ -8,6 +8,7 @@ import {
 } from 'date-fns'
 import { getDocs } from 'firebase/firestore'
 import PageWrapper from '../components/layout/PageWrapper'
+import { useActiveWorkout } from '../context/ActiveWorkoutContext'
 import { useAuth } from '../context/AuthContext'
 import { sessionsCol, routinesCol } from '../firebase/collections'
 
@@ -41,6 +42,7 @@ function formatDurationMinutes(minutes) {
 
 export default function CalendarLog() {
   const { user, profile } = useAuth()
+  const { activeWorkout, startRoutineWorkout } = useActiveWorkout()
   const navigate = useNavigate()
 
   const [sessions, setSessions] = useState([])
@@ -117,8 +119,68 @@ export default function CalendarLog() {
       workoutCount: groupsForDate.length,
       durationLabel: formatDurationMinutes(durationMinutes),
       isAllCardio: daySessions.length > 0 && daySessions.every((session) => session.muscleGroup?.toLowerCase() === 'cardio'),
+      primaryGroup: groupsForDate
+        .slice()
+        .sort((a, b) => {
+          if (Boolean(b.routineId) !== Boolean(a.routineId)) return Number(Boolean(b.routineId)) - Number(Boolean(a.routineId))
+          return (b.totalVolume || 0) - (a.totalVolume || 0)
+        })[0] || null,
     }
   }, [grouped, selectedDate])
+
+  const selectedDateCta = useMemo(() => {
+    const group = selectedDateSummary?.primaryGroup
+    if (!group) return null
+
+    const sessionsForGroup = group.exercises || []
+    if (group.routineId && routineMap[group.routineId]?.exercises?.length) {
+      const routine = { id: group.routineId, ...routineMap[group.routineId] }
+      const exercises = routine.exercises || []
+      if (!exercises.length) return null
+      const isResumingCurrentRoutine =
+        activeWorkout?.kind === 'routine' &&
+        activeWorkout.routine.id === routine.id &&
+        !activeWorkout.summaryReady
+      const startExerciseId = isResumingCurrentRoutine
+        ? (activeWorkout.currentExerciseId || exercises[0].id)
+        : exercises[0].id
+
+      return {
+        label: isResumingCurrentRoutine ? 'Resume Workout' : 'Repeat Workout',
+        run: () => {
+          if (!isResumingCurrentRoutine) {
+            startRoutineWorkout(routine, { startExerciseId })
+          }
+          navigate(`/workout/${startExerciseId}`, {
+            state: {
+              workoutMode: true,
+              routine,
+            },
+          })
+        },
+      }
+    }
+
+    const firstSession = sessionsForGroup[0]
+    if (!firstSession?.exerciseId) return null
+
+    return {
+      label: 'Train Again',
+      run: () => {
+        navigate(`/workout/${firstSession.exerciseId}`, {
+          state: {
+            standaloneWorkout: true,
+            returnTo: '/calendar',
+            exercise: {
+              id: firstSession.exerciseId,
+              name: firstSession.exerciseName,
+              muscleGroup: firstSession.muscleGroup || '',
+            },
+          },
+        })
+      },
+    }
+  }, [activeWorkout, navigate, routineMap, selectedDateSummary, startRoutineWorkout])
 
   // Bounds for filters
   const monthStartStr = format(startOfMonth(currentMonth), 'yyyy-MM-dd')
@@ -258,6 +320,17 @@ export default function CalendarLog() {
                   </p>
                 </div>
               </div>
+              {selectedDateCta && (
+                <button
+                  onClick={selectedDateCta.run}
+                  className="mt-4 inline-flex items-center gap-2 text-accent font-semibold text-sm active:scale-95 transition-transform"
+                >
+                  <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.3}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5.25 5.653c0-1.427 1.529-2.33 2.779-1.643l9.42 5.173c1.295.711 1.295 2.575 0 3.286l-9.42 5.173c-1.25.687-2.779-.216-2.779-1.643V5.653z" />
+                  </svg>
+                  <span>{selectedDateCta.label}</span>
+                </button>
+              )}
             </div>
           )}
 
