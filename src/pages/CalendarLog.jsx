@@ -602,33 +602,47 @@ export default function CalendarLog() {
         {/* ── Sessions list ────────────────────────────────── */}
         <div>
           {selectedDateSummary && (
-            <div className="card border-accent/20 shadow-[0_0_0_1px_rgba(37,99,235,0.08)] mb-3">
+            <div className="card border-accent/20 shadow-[0_0_0_1px_rgba(37,99,235,0.08)] bg-[linear-gradient(180deg,rgba(37,99,235,0.06),rgba(15,23,42,0))] mb-3">
               <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0 flex-1">
                   <p className="text-text-secondary text-xs font-semibold uppercase tracking-[0.18em]">
                     {format(parseISO(selectedDate), 'MMMM d')}
                   </p>
-                  <h2 className="mt-1 font-display text-xl font-bold text-text-primary truncate">
+                  <h2 className="mt-1 font-display text-[22px] font-bold text-text-primary truncate">
                     {selectedDateSummary.label}
                   </h2>
-                  <p className="mt-1 text-sm text-text-secondary">
+                  <p className="hidden">
                     {selectedDateSummary.workoutCount === 1
                       ? `${selectedDateSummary.exerciseCount} exercise${selectedDateSummary.exerciseCount === 1 ? '' : 's'}`
                       : `${selectedDateSummary.workoutCount} workouts • ${selectedDateSummary.exerciseCount} exercises`}
                     {selectedDateSummary.durationLabel ? ` • ${selectedDateSummary.durationLabel}` : ''}
                   </p>
                 </div>
-                <div className="text-right flex-shrink-0">
-                  <p className={`font-display text-2xl font-bold ${selectedDateSummary.isAllCardio ? 'text-accent' : 'text-accent-green'}`}>
+                <div className="text-right flex-shrink-0 rounded-2xl border border-white/5 bg-surface2/65 px-4 py-3 min-w-[110px]">
+                  <p className={`font-display text-2xl font-bold leading-none ${selectedDateSummary.isAllCardio ? 'text-accent' : 'text-accent-green'}`}>
                     {selectedDateSummary.isAllCardio ? selectedDateSummary.durationLabel || '--' : formatCompactVolume(selectedDateSummary.totalVolume)}
                   </p>
-                  <p className="text-text-secondary text-xs">
+                  <p className="mt-1 text-text-secondary text-[11px] uppercase tracking-[0.14em]">
                     {selectedDateSummary.isAllCardio ? 'time logged' : 'lbs lifted'}
                   </p>
                 </div>
               </div>
+              <div className="mt-4 grid grid-cols-3 gap-2">
+                <div className="rounded-2xl border border-surface2 bg-surface2/45 px-3 py-2.5">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-text-secondary">Workouts</p>
+                  <p className="mt-1 text-base font-semibold text-text-primary">{selectedDateSummary.workoutCount}</p>
+                </div>
+                <div className="rounded-2xl border border-surface2 bg-surface2/45 px-3 py-2.5">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-text-secondary">Exercises</p>
+                  <p className="mt-1 text-base font-semibold text-text-primary">{selectedDateSummary.exerciseCount}</p>
+                </div>
+                <div className="rounded-2xl border border-surface2 bg-surface2/45 px-3 py-2.5">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-text-secondary">Duration</p>
+                  <p className="mt-1 text-base font-semibold text-text-primary">{selectedDateSummary.durationLabel || '--'}</p>
+                </div>
+              </div>
               {selectedDateInsight && (
-                <div className="mt-3 rounded-2xl border border-surface2 bg-surface2/60 px-3 py-2.5">
+                <div className="mt-3 rounded-2xl border border-surface2 bg-surface2/60 px-3 py-3">
                   <p className="text-text-secondary text-[11px] font-semibold uppercase tracking-[0.18em]">Insight</p>
                   <p className={`mt-1 text-sm font-medium ${selectedDateInsight.tone}`}>
                     {selectedDateInsight.text}
@@ -638,7 +652,7 @@ export default function CalendarLog() {
               {selectedDateCta && (
                 <button
                   onClick={selectedDateCta.run}
-                  className="mt-4 inline-flex items-center gap-2 text-accent font-semibold text-sm active:scale-95 transition-transform"
+                  className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-accent px-4 py-3 text-sm font-semibold text-white shadow-[0_12px_24px_rgba(37,99,235,0.24)] active:scale-[0.99] transition-transform"
                 >
                   <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.3}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M5.25 5.653c0-1.427 1.529-2.33 2.779-1.643l9.42 5.173c1.295.711 1.295 2.575 0 3.286l-9.42 5.173c-1.25.687-2.779-.216-2.779-1.643V5.653z" />
