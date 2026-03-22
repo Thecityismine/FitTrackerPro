@@ -7,6 +7,7 @@ import {
 import {
   AreaChart, Area, XAxis, Tooltip, ResponsiveContainer,
 } from 'recharts'
+import ConfirmDialog from '../components/ConfirmDialog'
 import { useAuth } from '../context/AuthContext'
 import { sessionsCol, sessionDoc } from '../firebase/collections'
 import { useTimer } from '../context/TimerContext'
@@ -108,6 +109,7 @@ export default function LegacyExerciseWorkout() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [activePage, setActivePage] = useState(0)
+  const [pendingDeleteId, setPendingDeleteId] = useState(null)
   const [containerH, setContainerH] = useState(() => {
     const viewportHeight = window.visualViewport?.height ?? window.innerHeight
     return viewportHeight - 64
@@ -253,8 +255,20 @@ export default function LegacyExerciseWorkout() {
   }
 
   function deleteSet(id) {
-    const confirmed = window.confirm('Delete this set?')
-    if (!confirmed) return
+    setPendingDeleteId(id)
+  }
+
+  function confirmDeleteSet() {
+    if (!pendingDeleteId) return
+    deletePendingSet(pendingDeleteId)
+    setPendingDeleteId(null)
+  }
+
+  function cancelDeleteSet() {
+    setPendingDeleteId(null)
+  }
+
+  function deletePendingSet(id) {
     const nextSets = sets.filter((set) => set.id !== id)
     setSets(nextSets)
     scheduleSave(nextSets)
@@ -545,6 +559,15 @@ export default function LegacyExerciseWorkout() {
           </button>
         </div>
       </div>
+      {pendingDeleteId && (
+        <ConfirmDialog
+          title="Delete set?"
+          message="This set will be removed from the workout log."
+          confirmLabel="Delete"
+          onCancel={cancelDeleteSet}
+          onConfirm={confirmDeleteSet}
+        />
+      )}
     </PageWrapper>
   )
 }

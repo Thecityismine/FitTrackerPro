@@ -31,6 +31,7 @@ export default function Setup() {
 
   const [step, setStep]       = useState(1)
   const [saving, setSaving]   = useState(false)
+  const [saveError, setSaveError] = useState('')
 
   // Step 1 — name
   const [displayName, setDisplayName] = useState(profile?.displayName || user?.displayName || '')
@@ -74,6 +75,7 @@ export default function Setup() {
 
   async function handleFinish() {
     setSaving(true)
+    setSaveError('')
     try {
       const ftNum = sanitizeBoundedInt(heightFt, { min: 0, max: 8, fallback: 0 })
       const inNum = sanitizeBoundedInt(heightIn, { min: 0, max: 11, fallback: 0 })
@@ -109,6 +111,7 @@ export default function Setup() {
       navigate('/', { replace: true })
     } catch (err) {
       console.error(err)
+      setSaveError('We could not finish setup right now. Try again in a moment.')
     } finally {
       setSaving(false)
     }
@@ -144,6 +147,11 @@ export default function Setup() {
 
       {/* ── Step content ── */}
       <div className="flex-1">
+        {saveError && (
+          <div className="bg-red-500/10 border border-red-500/30 rounded-xl px-4 py-3 mb-4">
+            <p className="text-accent-red text-sm">{saveError}</p>
+          </div>
+        )}
 
         {/* Step 1: Name */}
         {step === 1 && (

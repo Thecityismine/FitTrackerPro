@@ -5,6 +5,7 @@ import { updateProfile } from 'firebase/auth'
 import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage'
 import { getDoc, getDocs, writeBatch } from 'firebase/firestore'
 import { auth, db, storage } from '../firebase/config'
+import ConfirmDialog from '../components/ConfirmDialog'
 import { useAuth } from '../context/AuthContext'
 import { sanitizeProfileSettingsInput } from '../utils/profileSanitizers'
 import {
@@ -119,6 +120,7 @@ export default function Profile() {
   const [exportingData, setExportingData]   = useState(false)
   const [importingData, setImportingData]   = useState(false)
   const [transferStatus, setTransferStatus] = useState(null)
+  const [pendingImport, setPendingImport]   = useState(null)
   const photoInputRef  = useRef(null)
   const qrInputRef     = useRef(null)
   const importInputRef = useRef(null)
@@ -157,7 +159,7 @@ export default function Profile() {
       await updateProfile(auth.currentUser, { photoURL: url })
       await updateUserProfile({ photoURL: url })
     } catch {
-      setUploadError('Photo upload failed. Make sure Firebase Storage is enabled.')
+      setUploadError('We could not update your profile photo right now. Try again in a moment.')
     } finally {
       setUploadingPhoto(false)
     }
@@ -172,7 +174,7 @@ export default function Profile() {
       const url = await uploadFile(file, `users/${user.uid}/gymQr`)
       await updateUserProfile({ gymQrUrl: url })
     } catch {
-      setUploadError('QR upload failed. Make sure Firebase Storage is enabled.')
+      setUploadError('We could not update your gym QR right now. Try again in a moment.')
     } finally {
       setUploadingQr(false)
     }
@@ -299,7 +301,7 @@ export default function Profile() {
       console.error('Export data error:', error)
       setTransferStatus({
         type: 'error',
-        message: 'Could not export your data. Please try again.',
+        message: 'Export did not finish. Try again in a moment.',
       })
     } finally {
       setExportingData(false)
@@ -315,15 +317,31 @@ export default function Profile() {
     try {
       const payload = JSON.parse(await file.text())
       if (!payload || typeof payload !== 'object' || typeof payload.collections !== 'object') {
-        throw new Error('Invalid backup file format.')
+        throw new Error('This file is not a valid FitTrack backup.')
       }
+      setPendingImport({
+        fileName: file.name,
+        payload,
+      })
+    } catch (error) {
+      console.error('Import data error:', error)
+      setTransferStatus({
+        type: 'error',
+        message: 'That backup could not be read. Use a FitTrack JSON export and try again.',
+      })
+    } finally {
+      event.target.value = ''
+    }
+  }
 
-      const confirmed = window.confirm(
-        `Import data from "${file.name}"? Matching records will be overwritten. Records not in the file will be kept.`
-      )
-      if (!confirmed) return
+  async function confirmImportData() {
+    if (!pendingImport || !user?.uid) return
 
-      setImportingData(true)
+    setTransferStatus(null)
+    setImportingData(true)
+
+    try {
+      const { payload, fileName } = pendingImport
 
       const writes = []
       let importedCount = 0
@@ -370,17 +388,17 @@ export default function Profile() {
 
       setTransferStatus({
         type: 'success',
-        message: `Imported ${importedCount} records from ${file.name}. Matching records were updated.`,
+        message: `Imported ${importedCount} records from ${fileName}. Matching records were updated.`,
       })
     } catch (error) {
       console.error('Import data error:', error)
       setTransferStatus({
         type: 'error',
-        message: 'Could not import that backup file. Make sure it is a valid FitTrack JSON export.',
+        message: 'Import did not finish. Try again with a valid FitTrack JSON export.',
       })
     } finally {
-      event.target.value = ''
       setImportingData(false)
+      setPendingImport(null)
     }
   }
 
@@ -619,7 +637,7 @@ export default function Profile() {
               <p className="text-text-secondary text-xs mt-1">Shown as X / {Number(workoutGoal) || 3} days on the Progress tab</p>
             </div>
             <div>
-              <label className="label">Workout Volume Target Goal</label>
+              <label className="label">Weekly Volume Goal</label>
               <div className="flex items-center gap-3">
                 <button
                   onClick={() => setVolumeGoal(v => Math.max(10000, Number(v) - 5000))}
@@ -754,6 +772,16 @@ export default function Profile() {
         </button>
 
       </div>
+      {pendingImport && (
+        <ConfirmDialog
+          title="Import backup?"
+          message={`Import data from "${pendingImport.fileName}"? Matching records will be overwritten. Records not in the file will be kept.`}
+          confirmLabel="Import"
+          tone="primary"
+          onCancel={() => setPendingImport(null)}
+          onConfirm={confirmImportData}
+        />
+      )}
     </div>
   )
 }

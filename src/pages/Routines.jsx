@@ -40,6 +40,7 @@ import {
   addDoc, deleteDoc, updateDoc, onSnapshot, getDocs,
   serverTimestamp, arrayUnion, arrayRemove, writeBatch, doc,
 } from 'firebase/firestore'
+import ConfirmDialog from '../components/ConfirmDialog'
 import { useAuth } from '../context/AuthContext'
 import { useActiveWorkout } from '../context/ActiveWorkoutContext'
 import { routinesCol, routineDoc, sessionsCol, exercisesCol, globalExercisesCol, exerciseDoc } from '../firebase/collections'
@@ -201,6 +202,8 @@ function AddExerciseSheet({ onClose, onAdd, existingIds = [] }) {
   const { user } = useAuth()
   const [library, setLibrary] = useState([])
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState(null)
+  const [reloadKey, setReloadKey] = useState(0)
   const [search, setSearch] = useState('')
   const [activeGroup, setActiveGroup] = useState('All')
   const [addedIds, setAddedIds] = useState(new Set(existingIds))
@@ -208,6 +211,8 @@ function AddExerciseSheet({ onClose, onAdd, existingIds = [] }) {
 
   useEffect(() => {
     if (!user?.uid) return
+    setLoading(true)
+    setLoadError(null)
     user.getIdToken()
       .then(() => Promise.all([
         getDocs(sessionsCol(user.uid)),
@@ -245,8 +250,12 @@ function AddExerciseSheet({ onClose, onAdd, existingIds = [] }) {
         setLibrary(data)
         setLoading(false)
       })
-      .catch((err) => { console.error('AddExerciseSheet load error:', err); setLoading(false) })
-  }, [user?.uid])
+      .catch((err) => {
+        console.error('AddExerciseSheet load error:', err)
+        setLoadError('Could not load your exercise library right now.')
+        setLoading(false)
+      })
+  }, [reloadKey, user?.uid])
 
   const groups = ['All', ...[...new Set(library.map((e) => e.muscleGroup))].sort()]
 
@@ -261,6 +270,10 @@ function AddExerciseSheet({ onClose, onAdd, existingIds = [] }) {
     await onAdd({ id: ex.id, name: ex.name, muscleGroup: ex.muscleGroup, type: ex.type || 'weight' })
     setAddedIds((prev) => new Set([...prev, ex.id]))
     setNewlyAdded((n) => n + 1)
+  }
+
+  function retryLoad() {
+    setReloadKey((current) => current + 1)
   }
 
   return (
@@ -326,10 +339,29 @@ function AddExerciseSheet({ onClose, onAdd, existingIds = [] }) {
             <div className="flex justify-center py-12">
               <div className="w-7 h-7 border-2 border-accent border-t-transparent rounded-full animate-spin" />
             </div>
+          ) : loadError ? (
+            <div className="text-center py-12">
+              <p className="text-text-primary text-sm font-semibold">Exercise library unavailable</p>
+              <p className="text-text-secondary text-xs mt-1">{loadError}</p>
+              <button
+                onClick={retryLoad}
+                className="btn-secondary mx-auto mt-4 text-sm px-4 py-2"
+              >
+                Retry
+              </button>
+            </div>
           ) : filtered.length === 0 ? (
             <div className="text-center py-12">
-              <p className="text-text-secondary text-sm">No exercises found</p>
-              <p className="text-text-secondary text-xs mt-1">Try a different search or group</p>
+              <p className="text-text-primary text-sm font-semibold">No exercises found</p>
+              <p className="text-text-secondary text-xs mt-1">Try a different search or add a new exercise.</p>
+              {(search || activeGroup !== 'All') && (
+                <button
+                  onClick={() => { setSearch(''); setActiveGroup('All') }}
+                  className="btn-secondary mx-auto mt-4 text-sm px-4 py-2"
+                >
+                  Clear Filters
+                </button>
+              )}
             </div>
           ) : (
             <div className="space-y-1.5">
@@ -366,29 +398,6 @@ function AddExerciseSheet({ onClose, onAdd, existingIds = [] }) {
               })}
             </div>
           )}
-        </div>
-      </div>
-    </div>
-  )
-}
-
-// Delete Confirm Dialog
-function DeleteConfirm({ routineName, onCancel, onConfirm }) {
-  return (
-    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/70 px-6 animate-fade-in">
-      <div className="bg-surface rounded-2xl p-5 w-full max-w-sm border border-surface2">
-        <h3 className="font-display font-bold text-text-primary text-lg mb-2">Delete Routine?</h3>
-        <p className="text-text-secondary text-sm mb-5">
-          This will permanently delete <span className="text-text-primary font-medium">"{routineName}"</span> and all its exercises.
-        </p>
-        <div className="flex gap-3">
-          <button onClick={onCancel} className="btn-secondary flex-1">Cancel</button>
-          <button
-            onClick={onConfirm}
-            className="flex-1 py-2.5 rounded-xl bg-red-500/20 border border-red-500/30 text-accent-red font-semibold text-sm active:scale-95 transition-transform"
-          >
-            Delete
-          </button>
         </div>
       </div>
     </div>
@@ -499,7 +508,7 @@ Keep it under 220 words and be concrete.`
   }
 
   return (
-    <div className="card space-y-3">
+    <div className="card card-enter space-y-3">
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="section-title mb-0">Weekly Insights</p>
@@ -536,13 +545,13 @@ Keep it under 220 words and be concrete.`
             }
             return <p key={index} className="text-text-secondary text-base leading-relaxed">{line}</p>
           })}
-          <button onClick={() => { setReport(null); handleGenerateReport() }} className="text-accent text-xs font-semibold">
-            Regenerate
+          <button onClick={() => { setReport(null); handleGenerateReport() }} className="btn-secondary w-full text-sm">
+            Regenerate Insights
           </button>
         </div>
       ) : (
         <button onClick={handleGenerateReport} disabled={loading} className="btn-primary w-full disabled:opacity-50">
-          {loading ? 'Analyzing your week...' : 'Analyze Your Week'}
+          {loading ? 'Loading Weekly Insights...' : 'Weekly Insights'}
         </button>
       )}
     </div>
@@ -564,6 +573,7 @@ function RoutineDetail({
   const { activeWorkout, startRoutineWorkout, syncRoutine } = useActiveWorkout()
   const [showAddExercise, setShowAddExercise] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const [pendingExerciseRemoval, setPendingExerciseRemoval] = useState(null)
   const [renaming, setRenaming] = useState(false)
   const [newName, setNewName] = useState(routine.name)
   const [saving, setSaving] = useState(false)
@@ -779,7 +789,7 @@ function RoutineDetail({
                 </svg>
               </div>
               <p className="text-text-primary font-semibold">No exercises yet</p>
-              <p className="text-text-secondary text-sm mt-1">Tap here to add your first exercise</p>
+              <p className="text-text-secondary text-sm mt-1">Add your first exercise to build this routine.</p>
             </button>
           ) : (
             exercises.map((ex, index) => {
@@ -797,8 +807,7 @@ function RoutineDetail({
                       <button
                         onClick={(e) => {
                           e.stopPropagation()
-                          if (!window.confirm(`Remove "${ex.name}" from this routine?`)) return
-                          onRemoveExercise(routine.id, ex)
+                          setPendingExerciseRemoval(ex)
                         }}
                         className="w-7 h-7 rounded-full bg-accent-red/20 border border-accent-red/40 flex items-center justify-center active:scale-95 transition-transform flex-shrink-0 self-center"
                       >
@@ -899,10 +908,24 @@ function RoutineDetail({
       )}
 
       {confirmDelete && (
-        <DeleteConfirm
-          routineName={routine.name}
+        <ConfirmDialog
+          title="Delete routine?"
+          message={`This will permanently delete "${routine.name}" and all its exercises.`}
+          confirmLabel="Delete"
           onCancel={() => setConfirmDelete(false)}
           onConfirm={handleDelete}
+        />
+      )}
+      {pendingExerciseRemoval && (
+        <ConfirmDialog
+          title="Remove exercise?"
+          message={`Remove "${pendingExerciseRemoval.name}" from this routine?`}
+          confirmLabel="Remove"
+          onCancel={() => setPendingExerciseRemoval(null)}
+          onConfirm={() => {
+            onRemoveExercise(routine.id, pendingExerciseRemoval)
+            setPendingExerciseRemoval(null)
+          }}
         />
       )}
     </>
@@ -932,7 +955,7 @@ function RoutineCard({
           onSelect(routine)
         }
       }}
-      className={`card h-full flex flex-col text-left active:scale-95 transition-transform w-full border ${
+      className={`card card-enter tap-glow h-full flex flex-col text-left active:scale-95 transition-transform w-full border ${
         highlight ? 'border-accent/50 shadow-lg shadow-accent/10' : 'border-transparent'
       }`}
     >
@@ -965,7 +988,7 @@ function RoutineCard({
       {progressRatio > 0 && (
         <div className="mt-3 h-1.5 rounded-full bg-surface2 overflow-hidden">
           <div
-            className="h-full rounded-full bg-accent transition-all duration-500"
+            className="h-full rounded-full bg-accent transition-all duration-500 progress-reveal"
             style={{ width: `${Math.max(8, Math.min(progressRatio * 100, 100))}%` }}
           />
         </div>
@@ -976,7 +999,7 @@ function RoutineCard({
             event.stopPropagation()
             onStart(routine)
           }}
-          className="px-3 py-1.5 rounded-lg bg-accent text-white text-xs font-semibold active:scale-95 transition-transform flex-shrink-0"
+          className="btn-primary px-3 py-1.5 text-xs flex-shrink-0"
         >
           Start
         </button>
@@ -992,6 +1015,9 @@ export default function Routines() {
   const location = useLocation()
   const [routines, setRoutines] = useState([])
   const [loading, setLoading] = useState(true)
+  const [routinesError, setRoutinesError] = useState(null)
+  const [sessionsError, setSessionsError] = useState(null)
+  const [reloadKey, setReloadKey] = useState(0)
   const [showNew, setShowNew] = useState(false)
   const [selectedRoutine, setSelectedRoutine] = useState(null)
   const autoOpenedRef = useRef(false)
@@ -1004,14 +1030,20 @@ export default function Routines() {
 
   useEffect(() => {
     if (!user?.uid) return
+    setSessLoading(true)
+    setSessionsError(null)
     user.getIdToken()
       .then(() => getDocs(sessionsCol(user.uid)))
       .then((snap) => {
         setSessions(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
         setSessLoading(false)
       })
-      .catch((err) => { console.error('Routines sessions load error:', err); setSessLoading(false) })
-  }, [user?.uid])
+      .catch((err) => {
+        console.error('Routines sessions load error:', err)
+        setSessionsError('Could not load recent routine activity right now.')
+        setSessLoading(false)
+      })
+  }, [reloadKey, user?.uid])
 
   useEffect(() => {
     if (!user?.uid) return
@@ -1155,6 +1187,13 @@ export default function Routines() {
       return aDate.localeCompare(bDate)
     })[0] || null
   }, [lastSessionSummary?.routineId, routineInProgress, routineSessionStats, routines])
+  const routinesHook = routineInProgress
+    ? 'Pick up where you left off and keep the momentum going.'
+    : recommendedRoutine
+      ? `${formatRoutineName(recommendedRoutine.name)} is ready when you are.`
+      : routines.length > 0
+        ? 'Your next session is already one tap away.'
+        : 'Build one plan now and make consistency easier all week.'
 
   function launchRoutine(routine, options = {}) {
     const exercises = routine?.exercises || []
@@ -1179,13 +1218,23 @@ export default function Routines() {
 
   useEffect(() => {
     if (!user) return
+    setLoading(true)
+    setRoutinesError(null)
     const unsub = onSnapshot(routinesCol(user.uid), (snap) => {
       const data = snap.docs.map((d) => mergeRoutineExerciseTypes({ id: d.id, ...d.data() }, exerciseTypeMap))
       setRoutines(data)
       setLoading(false)
+    }, (error) => {
+      console.error('Routines load error:', error)
+      setRoutinesError('Could not load your routines right now.')
+      setLoading(false)
     })
     return unsub
-  }, [exerciseTypeMap, user])
+  }, [exerciseTypeMap, reloadKey, user])
+
+  function retryLoad() {
+    setReloadKey((current) => current + 1)
+  }
 
   // Auto-reopen routine when navigating back from a workout
   useEffect(() => {
@@ -1261,8 +1310,11 @@ export default function Routines() {
     <>
       <PageWrapper showHeader>
         <div className="px-4 pt-2 space-y-5">
-          <div className="flex items-center justify-between">
-            <h1 className="font-display text-2xl font-bold text-text-primary">Routines</h1>
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <h1 className="font-display text-2xl font-bold text-text-primary">Routines</h1>
+              <p className="text-accent-green text-sm font-medium mt-2">{routinesHook}</p>
+            </div>
             <button onClick={() => setShowNew(true)} className="btn-primary text-sm py-2.5 px-4">
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
@@ -1270,6 +1322,16 @@ export default function Routines() {
               New Routine
             </button>
           </div>
+
+          {(routinesError || sessionsError) && (
+            <div className="card border-red-500/25 bg-red-500/10">
+              <p className="text-accent-red font-semibold text-sm">Some routine data is unavailable</p>
+              <p className="text-text-secondary text-sm mt-1">{routinesError || sessionsError}</p>
+              <button onClick={retryLoad} className="btn-secondary mt-4 w-full">
+                Retry
+              </button>
+            </div>
+          )}
 
           {recommendedRoutine ? (
             <button
@@ -1352,15 +1414,28 @@ export default function Routines() {
             <div className="flex justify-center py-16">
               <div className="w-8 h-8 border-2 border-accent border-t-transparent rounded-full animate-spin" />
             </div>
+          ) : routinesError && routines.length === 0 ? (
+            <div className="card card-enter flex flex-col items-center justify-center py-16 text-center">
+              <div className="w-16 h-16 rounded-2xl bg-red-500/10 flex items-center justify-center mb-4">
+                <svg className="w-8 h-8 text-accent-red" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m0 3.75h.007v.008H12v-.008zm8.25-4.508c0 4.556-3.694 8.25-8.25 8.25S3.75 16.556 3.75 12 7.444 3.75 12 3.75 20.25 7.444 20.25 12z" />
+                </svg>
+              </div>
+              <p className="text-text-primary font-semibold">Could not load routines</p>
+              <p className="text-text-secondary text-sm mt-1">Retry to restore your saved plans and recent progress.</p>
+              <button onClick={retryLoad} className="btn-secondary mt-4 w-full max-w-[220px]">
+                Retry
+              </button>
+            </div>
           ) : routines.length === 0 ? (
-            <div className="card flex flex-col items-center justify-center py-16 text-center">
+            <div className="card card-enter flex flex-col items-center justify-center py-16 text-center">
               <div className="w-16 h-16 rounded-2xl bg-accent/10 flex items-center justify-center mb-4">
                 <svg className="w-8 h-8 text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25H12" />
                 </svg>
               </div>
               <p className="text-text-primary font-semibold">No routines yet</p>
-              <p className="text-text-secondary text-sm mt-1">Tap New Routine to create your first plan</p>
+              <p className="text-text-secondary text-sm mt-1">Create your first routine to turn workouts into a repeatable habit.</p>
             </div>
           ) : (
             <>

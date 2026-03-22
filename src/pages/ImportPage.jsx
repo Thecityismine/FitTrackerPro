@@ -144,6 +144,7 @@ export default function ImportPage() {
   function handleFile(e) {
     const file = e.target.files[0]
     if (!file) return
+    setErrorMsg('')
     const reader = new FileReader()
     reader.onload = (ev) => {
       try {
@@ -154,7 +155,7 @@ export default function ImportPage() {
         setPreview({ total: parsed.length, exercises, days })
         setStatus('ready')
       } catch (err) {
-        setErrorMsg(err.message)
+        setErrorMsg(err.message || 'This file could not be read. Export a fresh CSV and try again.')
         setStatus('error')
       }
     }
@@ -165,6 +166,7 @@ export default function ImportPage() {
     if (!user || sessions.length === 0) return
     setStatus('importing')
     setProgress(0)
+    setErrorMsg('')
 
     const BATCH_SIZE = 200
     let done = 0
@@ -183,10 +185,12 @@ export default function ImportPage() {
         setProgress(Math.round((done / sessions.length) * 100))
       }
       setStatus('done')
-    } catch (err) {
-      setErrorMsg(err.code === 'permission-denied'
-        ? 'Permission denied — make sure you are logged in.'
-        : err.message || 'Unknown error. Please try again.')
+        } catch (err) {
+      setErrorMsg(
+        err.code === 'permission-denied'
+          ? 'Your session expired. Sign in again and retry the import.'
+          : 'Import did not finish. Try again in a moment.'
+      )
       setStatus('error')
     }
   }
@@ -205,7 +209,7 @@ export default function ImportPage() {
         </button>
         <div>
           <h1 className="font-display text-lg font-bold text-text-primary">Import Notion Log</h1>
-          <p className="text-text-secondary text-xs">One-time CSV import into Firestore</p>
+          <p className="text-text-secondary text-xs">One-time CSV import into your workout history</p>
         </div>
       </div>
 
@@ -313,7 +317,17 @@ export default function ImportPage() {
           <div className="card border border-red-500/30 bg-red-500/10">
             <p className="text-accent-red font-semibold">Import failed</p>
             <p className="text-text-secondary text-sm mt-1">{errorMsg}</p>
-            <button onClick={() => setStatus('idle')} className="btn-secondary mt-4">Try Again</button>
+            <button
+              onClick={() => {
+                setStatus('idle')
+                setPreview(null)
+                setSessions([])
+                setProgress(0)
+              }}
+              className="btn-secondary mt-4"
+            >
+              Try Again
+            </button>
           </div>
         )}
 
@@ -321,3 +335,4 @@ export default function ImportPage() {
     </div>
   )
 }
+

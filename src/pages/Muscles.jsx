@@ -11,6 +11,7 @@ import { useActiveWorkout } from '../context/ActiveWorkoutContext'
 import { useAuth } from '../context/AuthContext'
 import { sessionsCol, exercisesCol, exerciseDoc, globalExercisesCol, routinesCol } from '../firebase/collections'
 import { db } from '../firebase/config'
+import ConfirmDialog from '../components/ConfirmDialog'
 import { getExerciseIcon } from '../utils/exerciseIcons'
 
 // ─── Push / Pull / Legs config ────────────────────────────
@@ -330,8 +331,8 @@ function GroupRow({ group, sets, expanded, onToggle, isLowest }) {
   const toGo = Math.max(group.targetTotal - totalActual, 0)
 
   return (
-    <div className={`card overflow-hidden transition-shadow ${isLowest ? 'ring-1 ring-[#22C55E]/30 shadow-[0_0_0_1px_rgba(34,197,94,0.12)]' : ''}`}>
-      <button onClick={onToggle} className="flex items-center gap-3 w-full text-left">
+    <div className={`card card-enter overflow-hidden transition-shadow ${isLowest ? 'ring-1 ring-[#22C55E]/30 shadow-[0_0_0_1px_rgba(34,197,94,0.12)]' : ''}`}>
+      <button onClick={onToggle} className="flex items-center gap-3 w-full text-left tap-glow">
         {/* Circle icon */}
         <div className="flex-shrink-0">
           <CircleProgress pct={pct} color={group.color} size={44} strokeWidth={5} />
@@ -429,7 +430,7 @@ function RecoveryHero({ groups, sets, totalActual, totalTarget, paceLabel, paceT
   ]
 
   return (
-    <div className="flex flex-col items-center pt-2 pb-1">
+    <div className="flex flex-col items-center pt-2 pb-1 card-enter">
       <div className="relative w-[230px] h-[288px]">
         <div
           className="absolute inset-0 scale-95 blur-[20px] opacity-95"
@@ -462,7 +463,7 @@ function RecoveryHero({ groups, sets, totalActual, totalTarget, paceLabel, paceT
       <div className="relative -mt-[54px] w-[352px] max-w-full px-3">
         <div className="h-4 rounded-full bg-slate-700/70 overflow-hidden shadow-[inset_0_0_0_1px_rgba(148,163,184,0.08)]">
           <div
-            className="h-full rounded-full bg-[#F2C14E]"
+            className="h-full rounded-full bg-[#F2C14E] progress-reveal"
             style={{
               width: `${Math.round(overallPct * 100)}%`,
               boxShadow: '0 0 14px rgba(242,193,78,0.5)',
@@ -509,11 +510,15 @@ export default function Muscles() {
   const [savedExercises, setSavedExercises] = useState([])
   const [routines, setRoutines] = useState([])
   const [loading, setLoading]   = useState(true)
+  const [loadError, setLoadError] = useState(null)
+  const [reloadKey, setReloadKey] = useState(0)
   const [expandedId, setExpandedId] = useState(null)
   const [showAdd, setShowAdd]   = useState(false)
   const [editMode, setEditMode] = useState(false)
   const [editingExercise, setEditingExercise] = useState(null) // { exerciseId, exerciseName, type }
   const [savingExercise, setSavingExercise] = useState(false)
+  const [exerciseStatus, setExerciseStatus] = useState(null)
+  const [pendingExerciseDelete, setPendingExerciseDelete] = useState(null)
 
   // PPL config — targets driven by user profile (falls back to PPL defaults)
   const pplConfig = useMemo(() => [
@@ -526,6 +531,8 @@ export default function Muscles() {
 
   useEffect(() => {
     if (!user?.uid) return
+    setLoading(true)
+    setLoadError(null)
     user.getIdToken()
       .then(() => Promise.all([
         getDocs(sessionsCol(user.uid)),
@@ -568,11 +575,19 @@ export default function Muscles() {
         }))
         setLoading(false)
       })
-      .catch((err) => { console.error('Muscles load error:', err); setLoading(false) })
-  }, [user?.uid])
+      .catch((err) => {
+        console.error('Muscles load error:', err)
+        setLoadError('Could not load your exercise library right now.')
+        setLoading(false)
+      })
+  }, [reloadKey, user?.uid])
+
+  function retryLoad() {
+    setReloadKey((current) => current + 1)
+  }
 
   async function handleDeleteExercise(exerciseId, exerciseName) {
-    if (!window.confirm(`Delete "${exerciseName}" and all its sessions? This cannot be undone.`)) return
+    setExerciseStatus(null)
     try {
       const snap = await getDocs(query(sessionsCol(user.uid), where('exerciseId', '==', exerciseId)))
       const batch = writeBatch(db)
@@ -581,12 +596,20 @@ export default function Muscles() {
       await batch.commit()
       setSessions(prev => prev.filter(s => s.exerciseId !== exerciseId))
       setSavedExercises(prev => prev.filter(e => e.id !== exerciseId))
+      setExerciseStatus({
+        type: 'success',
+        message: `"${exerciseName}" was removed from your library.`,
+      })
     } catch {
-      alert('Could not delete exercise. Please try again.')
+      setExerciseStatus({
+        type: 'error',
+        message: 'That exercise could not be deleted right now. Please try again.',
+      })
     }
   }
 
   async function handleEditExercise(exerciseId, newName, newType) {
+    setExerciseStatus(null)
     setSavingExercise(true)
     try {
       // 1. Fetch data needed for batch
@@ -611,9 +634,16 @@ export default function Muscles() {
       setSavedExercises(prev => prev.map(e => e.id === exerciseId ? { ...e, name: newName, type: newType } : e))
       setSessions(prev => prev.map(s => s.exerciseId === exerciseId ? { ...s, exerciseName: newName } : s))
       setEditingExercise(null)
+      setExerciseStatus({
+        type: 'success',
+        message: `"${newName}" is updated.`,
+      })
     } catch (err) {
       console.error(err)
-      alert('Could not update exercise. Please try again.')
+      setExerciseStatus({
+        type: 'error',
+        message: 'That exercise could not be updated right now. Please try again.',
+      })
     } finally {
       setSavingExercise(false)
     }
@@ -685,12 +715,32 @@ export default function Muscles() {
             )}
           </div>
 
+          {loadError && (
+            <div className="rounded-2xl border border-red-500/30 bg-red-500/10 px-3 py-2.5 text-sm">
+              <p className="text-accent-red font-semibold">Exercise library unavailable</p>
+              <p className="text-text-secondary mt-1">{loadError}</p>
+              <button onClick={retryLoad} className="btn-secondary mt-4 w-full">
+                Retry
+              </button>
+            </div>
+          )}
+
+          {exerciseStatus && (
+            <div className={`rounded-2xl border px-3 py-2.5 text-sm ${
+              exerciseStatus.type === 'error'
+                ? 'border-red-500/30 bg-red-500/10 text-accent-red'
+                : 'border-accent-green/30 bg-accent-green/10 text-accent-green'
+            }`}>
+              {exerciseStatus.message}
+            </div>
+          )}
+
           {loading ? (
             <div className="space-y-2">{[...Array(5)].map((_, i) => <div key={i} className="card h-16 animate-pulse bg-surface2" />)}</div>
           ) : exercises.length === 0 ? (
             <div className="card flex flex-col items-center py-12 gap-2">
               <p className="text-text-primary font-semibold">No exercises yet</p>
-              <p className="text-text-secondary text-sm text-center">Log a {groupLabel} workout to see data here</p>
+              <p className="text-text-secondary text-sm text-center">Add or log your first {groupLabel} exercise to start tracking progress here.</p>
             </div>
           ) : (
             <div className="space-y-2">
@@ -706,7 +756,7 @@ export default function Muscles() {
                       returnTo: `/muscles/${groupId.toLowerCase()}`,
                     },
                   })}
-                  onDelete={() => handleDeleteExercise(ex.exerciseId, ex.exerciseName)}
+                  onDelete={() => setPendingExerciseDelete({ exerciseId: ex.exerciseId, exerciseName: ex.exerciseName })}
                   onEdit={() => setEditingExercise({ exerciseId: ex.exerciseId, exerciseName: ex.exerciseName, type: ex.type })} />
               ))}
             </div>
@@ -775,6 +825,18 @@ export default function Muscles() {
             </div>
           </div>
         )}
+        {pendingExerciseDelete && (
+          <ConfirmDialog
+            title="Delete exercise?"
+            message={`Delete "${pendingExerciseDelete.exerciseName}" and all its sessions? This cannot be undone.`}
+            confirmLabel="Delete"
+            onCancel={() => setPendingExerciseDelete(null)}
+            onConfirm={() => {
+              handleDeleteExercise(pendingExerciseDelete.exerciseId, pendingExerciseDelete.exerciseName)
+              setPendingExerciseDelete(null)
+            }}
+          />
+        )}
       </PageWrapper>
     )
   }
@@ -807,6 +869,11 @@ export default function Muscles() {
   const focusInsight = lowestWorkoutCount > 0
     ? `You need ${lowestWorkoutCount} more ${lowestGroup.id} workout${lowestWorkoutCount === 1 ? '' : 's'} this week`
     : 'All weekly muscle targets are on pace'
+  const motivationLine = overallPct >= expectedPct + 0.08
+    ? 'Strong week. Keep pressing the advantage.'
+    : overallPct >= expectedPct - 0.08
+      ? 'Stay steady. You are right on pace.'
+      : `A focused ${lowestGroup?.label?.toLowerCase() || 'training'} session gets you back in rhythm.`
   const routineInProgress = activeWorkout?.kind === 'routine' && !activeWorkout.summaryReady ? activeWorkout : null
   const routineSessionStats = {}
   sessions.forEach((session) => {
@@ -852,14 +919,8 @@ export default function Muscles() {
     return candidates[0]?.routine || null
   })()
   const recommendedActionLabel = routineInProgress
-    ? 'Resume Workout'
-    : lowestGroup?.id === 'legs'
-      ? 'Start Leg Workout'
-      : lowestGroup?.id === 'pull'
-        ? 'Start Pull Workout'
-        : lowestGroup?.id === 'push'
-          ? 'Start Push Workout'
-          : 'Start Recommended Workout'
+    ? 'Continue Workout'
+    : 'Start Workout'
 
   function launchRecommendedWorkout() {
     if (routineInProgress?.routine?.id) {
@@ -892,7 +953,7 @@ export default function Muscles() {
   }
   return (
     <PageWrapper showHeader>
-      <div className="px-4 pt-2 space-y-4 pb-6">
+        <div className="px-4 pt-2 space-y-4 pb-6">
 
         {/* Header */}
         <div>
@@ -903,10 +964,11 @@ export default function Muscles() {
             <p className="text-[#62E38D] font-semibold">{daysLeft} day{daysLeft === 1 ? '' : 's'} left</p>
           </div>
           <p className="mt-2 text-sm font-medium text-[#62E38D]">{focusInsight}</p>
+          <p className="mt-1 text-sm text-text-secondary">{motivationLine}</p>
           {(routineInProgress || recommendedRoutine) && (
             <button
               onClick={launchRecommendedWorkout}
-              className="mt-2 inline-flex items-center gap-2 text-accent font-semibold text-sm active:scale-95 transition-transform"
+              className="btn-primary mt-3 w-full"
             >
               <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.3}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M5.25 5.653c0-1.427 1.529-2.33 2.779-1.643l9.42 5.173c1.295.711 1.295 2.575 0 3.286l-9.42 5.173c-1.25.687-2.779-.216-2.779-1.643V5.653z" />
@@ -915,6 +977,16 @@ export default function Muscles() {
             </button>
           )}
         </div>
+
+        {loadError && (
+          <div className="rounded-2xl border border-red-500/30 bg-red-500/10 px-3 py-2.5 text-sm">
+            <p className="text-accent-red font-semibold">Weekly targets unavailable</p>
+            <p className="text-text-secondary mt-1">{loadError}</p>
+            <button onClick={retryLoad} className="btn-secondary mt-4 w-full">
+              Retry
+            </button>
+          </div>
+        )}
 
         {/* Weekly target hero */}
         {!loading && (
@@ -964,7 +1036,7 @@ export default function Muscles() {
                 <Link
                   key={g.id}
                   to={`/muscles/${g.id.toLowerCase()}`}
-                  className="rounded-2xl border border-surface2 bg-surface p-4 relative overflow-hidden flex flex-col justify-end active:scale-95 transition-transform"
+                  className="rounded-2xl border border-surface2 bg-surface p-4 relative overflow-hidden flex flex-col justify-end active:scale-95 transition-transform tap-glow"
                   style={{ minHeight: '130px' }}
                 >
                   <img src={g.icon} alt="" loading="lazy" decoding="async" className="absolute right-2 top-2 w-24 h-24 object-contain opacity-90 pointer-events-none" />

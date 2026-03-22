@@ -170,7 +170,7 @@ function ChartTooltip({ active, payload, label }) {
 
 function StatCard({ label, value, sub, valueClass = 'text-text-primary' }) {
   return (
-    <div className="card">
+    <div className="card card-enter">
       <p className="section-title">{label}</p>
       <p className={`stat-number ${valueClass}`}>{value}</p>
       {sub && <p className="text-text-secondary text-xs mt-0.5">{sub}</p>}
@@ -238,6 +238,7 @@ export default function Dashboard() {
   const [sessions, setSessions] = useState([])
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState(null)
+  const [reloadKey, setReloadKey] = useState(0)
   const [chartPeriod, setChartPeriod] = useState('weekly')
   const [selectedRecoveryPart, setSelectedRecoveryPart] = useState(null)
 
@@ -252,6 +253,7 @@ export default function Dashboard() {
   useEffect(() => {
     if (!user?.uid) return
     setLoading(true)
+    setLoadError(null)
     user.getIdToken()
       .then(() => getDocs(sessionsCol(user.uid)))
       .then((snap) => {
@@ -262,10 +264,15 @@ export default function Dashboard() {
         setLoading(false)
       })
       .catch((err) => {
-        setLoadError(err?.message || 'Unknown error')
+        console.error('Dashboard load error:', err)
+        setLoadError('Could not load your dashboard right now.')
         setLoading(false)
       })
-  }, [location.key, user?.uid])
+  }, [location.key, reloadKey, user?.uid])
+
+  function retryLoad() {
+    setReloadKey((current) => current + 1)
+  }
 
   const activeSessions = sessions.filter((session) => (session.sets?.length ?? 0) > 0)
   const uniqueDates = [...new Set(activeSessions.map((session) => session.date))].sort()
@@ -443,6 +450,15 @@ export default function Dashboard() {
     : weakestGroup
       ? Math.min(weakestGroup.actual / Math.max(weakestGroup.targetTotal, 1), 1)
       : 0
+  const dashboardHook = routineInProgress
+    ? 'Momentum is already building. Finish this session strong.'
+    : trainedToday
+      ? 'Strong work today. Recovery still counts.'
+      : streak >= 3
+        ? `You're ${streak} days deep. Keep the chain alive.`
+        : weakestGroup?.remaining > 0
+          ? `One focused ${weakestGroup.label.toLowerCase()} session puts you back on pace.`
+          : 'One workout today is enough to build momentum.'
 
   const chartCurrentPoint = chartData[chartData.length - 1] || null
   const chartPreviousPoint = chartData[chartData.length - 2] || null
@@ -558,8 +574,8 @@ export default function Dashboard() {
           {loadError ? (
             <div className="card border border-red-500/30 space-y-3">
               <p className="text-accent-red font-semibold text-sm">Could not load workouts</p>
-              <p className="text-text-secondary text-xs font-mono break-all">{loadError}</p>
-              <button onClick={() => window.location.reload()} className="btn-primary w-full">
+              <p className="text-text-secondary text-sm">{loadError}</p>
+              <button onClick={retryLoad} className="btn-primary w-full">
                 Retry
               </button>
             </div>
@@ -572,13 +588,13 @@ export default function Dashboard() {
               </div>
               <div className="text-center">
                 <p className="text-text-primary font-semibold">No workouts yet</p>
-                <p className="text-text-secondary text-sm mt-1">Import your history or log your first workout</p>
+                <p className="text-text-secondary text-sm mt-1">Start your first workout or import your history to unlock your dashboard.</p>
               </div>
               <button onClick={() => navigate('/routines')} className="btn-primary px-8 py-3">
                 Start Workout
               </button>
-              <button onClick={() => navigate('/import')} className="text-text-secondary text-xs underline underline-offset-2">
-                or import existing data
+              <button onClick={() => navigate('/import')} className="btn-secondary px-6 py-3 text-sm">
+                Import History
               </button>
             </div>
           )}
@@ -596,12 +612,13 @@ export default function Dashboard() {
               Hey, {firstName}
             </h1>
             <p className="text-text-secondary text-sm mt-0.5 opacity-70">Here&apos;s your fitness overview</p>
+            <p className="text-accent-green text-sm font-medium mt-2">{dashboardHook}</p>
           </div>
         </div>
 
         <button
           onClick={handleWorkoutCta}
-          className="card w-full text-left active:scale-[0.99] transition-transform border border-accent/30 bg-gradient-to-r from-accent via-[#245BEB] to-[#1A56DB] shadow-lg shadow-accent/20"
+          className="card card-enter tap-glow w-full text-left active:scale-[0.99] transition-transform border border-accent/30 bg-gradient-to-r from-accent via-[#245BEB] to-[#1A56DB] shadow-lg shadow-accent/20"
         >
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
@@ -611,7 +628,7 @@ export default function Dashboard() {
               <p className="text-white/80 text-sm mt-1.5">{planDetail}</p>
               <div className="mt-3 h-1.5 w-full rounded-full bg-white/15 overflow-hidden">
                 <div
-                  className="h-full rounded-full bg-white/80 transition-all duration-500"
+                  className="h-full rounded-full bg-white/80 transition-all duration-500 progress-reveal"
                   style={{ width: `${Math.max(planProgressRatio * 100, 8)}%` }}
                 />
               </div>
@@ -645,7 +662,7 @@ export default function Dashboard() {
         </div>
 
         {!loading && lastExercises.length > 0 && (
-          <div className="card">
+          <div className="card card-enter card-enter-delay-1">
             <div className="flex items-center justify-between mb-2">
               <p className="section-title mb-0">Last Session</p>
               <p className="text-text-secondary text-xs">{lastDate?.slice(5).replace('-', '/')}</p>
@@ -654,7 +671,7 @@ export default function Dashboard() {
               {lastSessionExerciseRows.length} exercises
               {lastSessionDurationLabel ? ` | ${lastSessionDurationLabel}` : ''}
               {` | ${lastSessionSetTotal} sets | `}
-              <span className="text-text-primary font-semibold text-sm">{formatCompactVolume(lastSessionVolume)} lbs</span>
+              <span className="text-text-primary font-semibold text-sm">Total Volume: {formatCompactVolume(lastSessionVolume)}</span>
               {lastSessionPrCount > 0 ? ` | ${lastSessionPrCount} PR${lastSessionPrCount === 1 ? '' : 's'} achieved` : ''}
             </p>
 
@@ -688,7 +705,7 @@ export default function Dashboard() {
                 </svg>
                 <div className="absolute inset-0 flex flex-col items-center justify-center">
                   <p className="font-display text-base font-bold text-text-primary leading-tight">{formatCompactVolume(lastSessionVolume)}</p>
-                  <p className="text-text-secondary text-[9px]">of goal</p>
+                  <p className="text-text-secondary text-[9px]">Weekly Goal</p>
                 </div>
               </div>
             </div>
@@ -696,15 +713,10 @@ export default function Dashboard() {
         )}
 
         {!loading && lastSessions.length > 0 && (
-          <div className="card">
-            <div className="flex items-start justify-between gap-4 mb-3">
-              <div className="min-w-0">
-                <p className="text-text-secondary text-[11px] font-semibold uppercase tracking-[0.24em] mb-0">Recovery Status</p>
-                <p className="text-text-secondary text-xs mt-1">Tap a zone to see what to train or rest.</p>
-              </div>
-              <span className="text-text-secondary text-[11px] text-right leading-5 max-w-[132px] flex-shrink-0">
-                Ready / Recovery / Overworked
-              </span>
+          <div className="card card-enter card-enter-delay-2">
+            <div className="mb-3">
+              <p className="text-text-secondary text-[11px] font-semibold uppercase tracking-[0.24em] mb-0">Recovery Status</p>
+              <p className="text-text-secondary text-xs mt-1">Tap a zone to see what to train or rest.</p>
             </div>
 
             <div className="grid grid-cols-4 gap-2">
@@ -715,7 +727,7 @@ export default function Dashboard() {
                   <button
                     key={bp.key}
                     onClick={() => setSelectedRecoveryPart(bp.key)}
-                    className={`relative rounded-xl p-2 flex flex-col items-center gap-1.5 transition-colors text-center ${meta.shellClass} ${selected ? 'ring-1 ring-white/20' : ''}`}
+                    className={`relative rounded-xl p-2 flex flex-col items-center gap-1.5 transition-colors text-center tap-glow ${meta.shellClass} ${selected ? 'ring-1 ring-white/20' : ''}`}
                   >
                     <div className={`absolute top-1.5 right-1.5 w-2.5 h-2.5 rounded-full ${meta.dotClass}`} />
                     <img
@@ -742,13 +754,26 @@ export default function Dashboard() {
                 <p className="text-text-secondary text-xs mt-1.5">{selectedRecoveryMeta.detail}</p>
               </div>
             )}
+
+            <div className="mt-4 flex items-center justify-between gap-3 border-t border-surface2 pt-3 text-[11px] text-text-secondary">
+              {[
+                { label: 'Ready', dotClass: 'bg-accent-green' },
+                { label: 'Recovery', dotClass: 'bg-accent-orange' },
+                { label: 'Overworked', dotClass: 'bg-accent-red' },
+              ].map((item) => (
+                <div key={item.label} className="flex items-center gap-1.5">
+                  <span className={`h-2.5 w-2.5 rounded-full ${item.dotClass}`} />
+                  <span>{item.label}</span>
+                </div>
+              ))}
+            </div>
           </div>
         )}
 
         {!loading && (
           <button
             onClick={() => navigate('/muscles')}
-            className="card w-full text-left active:scale-[0.98] transition-transform"
+            className="card card-enter card-enter-delay-3 tap-glow w-full text-left active:scale-[0.98] transition-transform"
           >
             <div className="flex items-center gap-4">
 	              <div className="relative flex-shrink-0">
@@ -787,7 +812,7 @@ export default function Dashboard() {
                         <p className="text-text-secondary text-xs w-8">{group.label}</p>
                         <div className="flex-1 h-1.5 bg-surface2 rounded-full overflow-hidden">
                           <div
-                            className="h-full rounded-full transition-all duration-700"
+                            className="h-full rounded-full transition-all duration-700 progress-reveal"
                             style={{ width: `${Math.min(group.actual / Math.max(group.targetTotal, 1), 1) * 100}%`, backgroundColor: group.color }}
                           />
                         </div>
@@ -803,9 +828,9 @@ export default function Dashboard() {
           </button>
         )}
 
-        <div className="card pb-4">
+        <div className="card card-enter card-enter-delay-4 pb-4">
           <div className="flex items-center justify-between mb-2">
-            <p className="section-title mb-0">Volume</p>
+            <p className="section-title mb-0">Total Volume</p>
             <div className="flex items-center gap-1 bg-surface2 rounded-lg p-0.5">
               {['weekly', 'monthly', 'all'].map((period) => (
                 <button
@@ -863,21 +888,20 @@ export default function Dashboard() {
               <div className="grid grid-cols-2 gap-2 mt-3">
                 <div className="bg-surface2 rounded-xl p-3">
                   <p className="text-text-secondary text-xs">Best Week</p>
-                  <p className="text-text-primary font-semibold text-sm mt-0.5">
-                    {formatCompactVolume(maxVol)} lbs
-                  </p>
+                  <p className="text-text-primary font-display font-bold text-xl mt-1">{formatCompactVolume(maxVol)}</p>
+                  <p className="text-text-secondary text-xs mt-1">Total Volume</p>
                 </div>
                 <div className="bg-surface2 rounded-xl p-3">
                   <p className="text-text-secondary text-xs">This Week</p>
-                  <p className="text-accent-green font-semibold text-sm mt-0.5">
-                    {formatCompactVolume(thisWeekVol)} lbs
-                  </p>
+                  <p className="text-accent-green font-display font-bold text-xl mt-1">{formatCompactVolume(thisWeekVol)}</p>
+                  <p className="text-text-secondary text-xs mt-1">Total Volume</p>
                 </div>
               </div>
             </>
           ) : (
-            <div className="h-36 flex items-center justify-center">
-              <p className="text-text-secondary text-sm">No data yet</p>
+            <div className="h-36 flex flex-col items-center justify-center text-center px-6">
+              <p className="text-text-primary text-sm font-semibold">Log your first workout</p>
+              <p className="text-text-secondary text-xs mt-1">Volume trends will show up here as you train.</p>
             </div>
           )}
         </div>

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { format, parseISO } from 'date-fns'
 import { addDoc, getDocs, serverTimestamp, updateDoc } from 'firebase/firestore'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
+import ConfirmDialog from '../components/ConfirmDialog'
 import PageWrapper from '../components/layout/PageWrapper'
 import { useActiveWorkout } from '../context/ActiveWorkoutContext'
 import { useAuth } from '../context/AuthContext'
@@ -142,6 +143,9 @@ function GuidedWorkoutPage() {
   const [exerciseState, setExerciseState] = useState({})
   const [loading, setLoading] = useState(true)
   const [savingExerciseId, setSavingExerciseId] = useState(null)
+  const [pendingDelete, setPendingDelete] = useState(null)
+  const [loadError, setLoadError] = useState(null)
+  const [reloadKey, setReloadKey] = useState(0)
   const [containerHeight, setContainerHeight] = useState(() => window.visualViewport?.height ?? window.innerHeight)
 
   const saveTimeoutsRef = useRef({})
@@ -186,6 +190,7 @@ function GuidedWorkoutPage() {
     if (!user?.uid || !guidedWorkout?.exercises?.length) return
     let isMounted = true
     setLoading(true)
+    setLoadError(null)
 
     user.getIdToken()
       .then(() => getDocs(sessionsCol(user.uid)))
@@ -205,11 +210,14 @@ function GuidedWorkoutPage() {
       })
       .catch((error) => {
         console.error('GuidedWorkout load error:', error)
-        if (isMounted) setLoading(false)
+        if (isMounted) {
+          setLoadError('Previous workout history could not load. You can still log today and retry.')
+          setLoading(false)
+        }
       })
 
     return () => { isMounted = false }
-  }, [exerciseIdsKey, guidedWorkout?.routine.id, user?.uid])
+  }, [exerciseIdsKey, guidedWorkout?.routine.id, reloadKey, user?.uid])
 
   useEffect(() => () => {
     Object.values(saveTimeoutsRef.current).forEach((timeoutId) => clearTimeout(timeoutId))
@@ -372,8 +380,20 @@ function GuidedWorkoutPage() {
   }
 
   function deleteSet(exercise, setId) {
-    const confirmed = window.confirm('Delete this set?')
-    if (!confirmed) return
+    setPendingDelete({ exercise, setId })
+  }
+
+  function confirmDeleteSet() {
+    if (!pendingDelete) return
+    deletePendingSet(pendingDelete.exercise, pendingDelete.setId)
+    cancelDeleteSet()
+  }
+
+  function cancelDeleteSet() {
+    setPendingDelete(null)
+  }
+
+  function deletePendingSet(exercise, setId) {
     const nextSets = (exerciseState[exercise.id]?.sets || []).filter((set) => set.id !== setId)
     updateSets(exercise, nextSets)
   }
@@ -420,6 +440,10 @@ function GuidedWorkoutPage() {
 
   function minimizeWorkout() {
     navigate('/routines', { state: { openRoutineId: routine.id } })
+  }
+
+  function retryLoad() {
+    setReloadKey((current) => current + 1)
   }
 
   function openExercise(exerciseId) {
@@ -489,7 +513,7 @@ function GuidedWorkoutPage() {
                 <p className="text-text-secondary text-[11px] uppercase tracking-[0.24em]">Progress</p>
                 <p className="text-text-primary font-semibold text-sm mt-1">
                   {guidedWorkout?.summaryReady
-                    ? `Workout complete - ${loggedExerciseCount} logged`
+                    ? `Workout complete - ${loggedExerciseCount} exercises logged`
                     : `${completedCount} of ${totalExercises} completed today`}
                 </p>
               </div>
@@ -529,12 +553,12 @@ function GuidedWorkoutPage() {
               <h2 className="font-display text-3xl font-bold text-text-primary mt-2">Nice work</h2>
               <div className="grid grid-cols-3 gap-3 mt-5">
                 <div className="rounded-2xl bg-bg/60 border border-white/5 p-3">
-                  <p className="text-text-secondary text-[11px] uppercase tracking-[0.22em]">Volume</p>
+                  <p className="text-text-secondary text-[11px] uppercase tracking-[0.22em]">Total Volume</p>
                   <p className="text-text-primary font-display text-2xl font-bold mt-2">{formatVolume(totalVolume)}</p>
                   <p className="text-text-secondary text-xs">lbs</p>
                 </div>
                 <div className="rounded-2xl bg-bg/60 border border-white/5 p-3">
-                  <p className="text-text-secondary text-[11px] uppercase tracking-[0.22em]">Time</p>
+                  <p className="text-text-secondary text-[11px] uppercase tracking-[0.22em]">Duration</p>
                   <p className="text-text-primary font-display text-2xl font-bold mt-2">{summaryMinutes}</p>
                   <p className="text-text-secondary text-xs">min</p>
                 </div>
@@ -546,6 +570,16 @@ function GuidedWorkoutPage() {
                   </p>
                 </div>
               </div>
+            </div>
+          )}
+
+          {loadError && (
+            <div className="rounded-2xl border border-red-500/30 bg-red-500/10 px-3 py-3">
+              <p className="text-accent-red font-semibold text-sm">History unavailable</p>
+              <p className="text-text-secondary text-sm mt-1">{loadError}</p>
+              <button onClick={retryLoad} className="btn-secondary mt-4 w-full">
+                Retry
+              </button>
             </div>
           )}
 
@@ -751,6 +785,15 @@ function GuidedWorkoutPage() {
           )}
         </div>
       </div>
+      {pendingDelete && (
+        <ConfirmDialog
+          title="Delete set?"
+          message="This set will be removed from today's workout."
+          confirmLabel="Delete"
+          onCancel={cancelDeleteSet}
+          onConfirm={confirmDeleteSet}
+        />
+      )}
     </PageWrapper>
   )
 }

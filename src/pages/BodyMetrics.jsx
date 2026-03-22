@@ -374,15 +374,19 @@ function LogSheet({ onClose, onSave, lastEntry, prefillData }) {
   const [photo, setPhoto] = useState(null)
   const [processingPhoto, setProcessingPhoto] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [photoError, setPhotoError] = useState(null)
 
   function set(key, val) { setForm(f => ({ ...f, [key]: val })) }
 
   async function handlePhoto(e) {
     const file = e.target.files?.[0]
     if (!file) return
+    setPhotoError(null)
     setProcessingPhoto(true)
     try { setPhoto(await compressImage(file)) }
-    catch { alert('Could not process photo. Try a smaller image.') }
+    catch {
+      setPhotoError('That photo could not be processed. Try a smaller image.')
+    }
     finally { setProcessingPhoto(false) }
   }
 
@@ -563,6 +567,11 @@ function LogSheet({ onClose, onSave, lastEntry, prefillData }) {
                   )}
                 </button>
               )}
+              {photoError && (
+                <p className="mt-2 rounded-xl border border-red-500/25 bg-red-500/10 px-3 py-2 text-xs text-accent-red">
+                  {photoError}
+                </p>
+              )}
             </div>
           </div>
 
@@ -732,7 +741,7 @@ function StrengthScoreCard({ sessions, bodyWeight }) {
           <div>
             <p className="text-text-primary font-display text-2xl font-bold">No strength score yet</p>
             <p className="text-text-secondary text-sm mt-2">
-              Log weighted sets across Push, Pull, and Legs to unlock your overall strength score.
+              Log weighted sets across Push, Pull, and Legs to unlock your strength score and reveal where to focus next.
             </p>
           </div>
         )}
@@ -891,8 +900,8 @@ Format your response as:
             }
             return <p key={i} className="text-text-secondary text-sm leading-relaxed">{line}</p>
           })}
-          <button onClick={() => { setReport(null); generateReport() }} className="text-accent text-xs font-semibold mt-2">
-            Regenerate
+          <button onClick={() => { setReport(null); generateReport() }} className="btn-secondary w-full text-sm mt-2">
+            Regenerate Insights
           </button>
         </div>
       ) : (
@@ -902,7 +911,7 @@ Format your response as:
               <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
               Analyzing your data…
             </span>
-          ) : 'Analyze My Progress'}
+          ) : 'View Insights'}
         </button>
       )}
     </div>
@@ -930,10 +939,15 @@ export default function BodyMetrics() {
   const [prefillData, setPrefillData] = useState(null)
   const [showAll, setShowAll] = useState(false)
   const [scanning, setScanning] = useState(false)
+  const [scanStatus, setScanStatus] = useState(null)
+  const [loadError, setLoadError] = useState(null)
+  const [reloadKey, setReloadKey] = useState(0)
   const scanInputRef = useRef(null)
 
   useEffect(() => {
     if (!user?.uid) return
+    setLoading(true)
+    setLoadError(null)
     user.getIdToken()
       .then(() => Promise.all([
         getDocs(bodyMetricsCol(user.uid)),
@@ -947,8 +961,16 @@ export default function BodyMetrics() {
         setSessions(sessionsSnap.docs.map(d => ({ id: d.id, ...d.data() })))
         setLoading(false)
       })
-      .catch((err) => { console.error('BodyMetrics load error:', err); setLoading(false) })
-  }, [user?.uid])
+      .catch((err) => {
+        console.error('BodyMetrics load error:', err)
+        setLoadError('Could not load your body metrics right now.')
+        setLoading(false)
+      })
+  }, [reloadKey, user?.uid])
+
+  function retryLoad() {
+    setReloadKey((current) => current + 1)
+  }
 
   const latest = entries[0]
   const previous = entries[1]
@@ -959,6 +981,13 @@ export default function BodyMetrics() {
   )
   const bodyFocus = getBodyFocus(latest, previous, strengthSummary)
   const weightInsight = useMemo(() => getWeightInsight(entries), [entries])
+  const bodyMotivation = useMemo(() => {
+    if (!entries.length) return 'Your first check-in creates the baseline everything builds from.'
+    if (bodyFocus === 'Focus: Build Muscle') return 'Strength and muscle are moving in the right direction.'
+    if (bodyFocus === 'Focus: Reduce Body Fat') return 'Consistent check-ins turn body composition into something you can actually steer.'
+    if (bodyFocus === 'Focus: Build Strength') return 'A few strong sessions can move your score faster than you think.'
+    return 'Your consistency is starting to turn data into momentum.'
+  }, [bodyFocus, entries.length])
 
   function deltaValue(currentEntry, previousEntry, key) {
     if (currentEntry?.[key] == null || previousEntry?.[key] == null) return null
@@ -997,6 +1026,7 @@ export default function BodyMetrics() {
     if (!file) return
     e.target.value = ''
 
+    setScanStatus(null)
     setScanning(true)
     try {
       const compressed = await compressImage(file, 1400, 0.85)
@@ -1009,14 +1039,17 @@ export default function BodyMetrics() {
 Notes: weight/boneMass/fatFreeBodyWeight/muscleMassLbs are in lbs; bodyFat/bodyWater/subcutaneousFat/skeletalMuscle/protein are percentages; bmr is kcal; metabolicAge is years; visceralFat is a score.`,
       })
       const jsonMatch = text.match(/\{[\s\S]*\}/)
-      if (!jsonMatch) throw new Error('Could not parse metrics from photo.')
+      if (!jsonMatch) throw new Error('We could not read the numbers from that photo.')
       const metrics = JSON.parse(jsonMatch[0])
       // Filter out nulls so prefillData only has actual values
       const filled = Object.fromEntries(Object.entries(metrics).filter(([, v]) => v != null))
       setPrefillData(filled)
       setShowLog(true)
     } catch (err) {
-      alert(`Scan failed: ${err.message || 'Try a clearer screenshot.'}`)
+      setScanStatus({
+        type: 'error',
+        message: `Scan failed: ${err.message || 'Try a clearer screenshot.'}`,
+      })
     } finally {
       setScanning(false)
     }
@@ -1069,7 +1102,18 @@ Notes: weight/boneMass/fatFreeBodyWeight/muscleMassLbs are in lbs; bodyFat/bodyW
           <h1 className="font-display text-2xl font-bold text-text-primary">Body Metrics</h1>
           <p className="text-text-secondary text-sm mt-0.5">Improve your body composition</p>
           <p className="text-accent text-xs font-semibold mt-2 uppercase tracking-[0.18em]">{bodyFocus}</p>
+          <p className="text-accent-green text-sm font-medium mt-2">{bodyMotivation}</p>
         </div>
+
+        {loadError && (
+          <div className="card border-red-500/25 bg-red-500/10">
+            <p className="text-accent-red font-semibold text-sm">Body metrics unavailable</p>
+            <p className="text-text-secondary text-sm mt-1">{loadError}</p>
+            <button onClick={retryLoad} className="btn-secondary mt-4 w-full">
+              Retry
+            </button>
+          </div>
+        )}
 
         {/* Weight history chart */}
         <div className="card">
@@ -1105,8 +1149,9 @@ Notes: weight/boneMass/fatFreeBodyWeight/muscleMassLbs are in lbs; bodyFat/bodyW
               </AreaChart>
             </ResponsiveContainer>
           ) : (
-            <div className="h-32 flex items-center justify-center">
-              <p className="text-text-secondary text-sm">Log your first weight entry</p>
+            <div className="h-32 flex flex-col items-center justify-center text-center px-6">
+              <p className="text-text-primary text-sm font-semibold">Add your first check-in</p>
+              <p className="text-text-secondary text-xs mt-1">Track real progress week to week with your first weight entry.</p>
             </div>
           )}
         </div>
@@ -1116,7 +1161,7 @@ Notes: weight/boneMass/fatFreeBodyWeight/muscleMassLbs are in lbs; bodyFat/bodyW
         <div className="flex gap-2">
           <button
             onClick={() => { setPrefillData(null); setShowLog(true) }}
-            className="flex-1 flex items-center justify-center gap-2 bg-surface2/55 border border-surface2 rounded-2xl px-4 py-3 text-text-primary text-sm font-semibold active:scale-95 transition-transform"
+            className="btn-secondary flex-1 min-h-[88px]"
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
@@ -1126,7 +1171,7 @@ Notes: weight/boneMass/fatFreeBodyWeight/muscleMassLbs are in lbs; bodyFat/bodyW
           <button
             onClick={() => scanInputRef.current?.click()}
             disabled={scanning}
-            className="flex-1 min-h-[88px] rounded-2xl px-4 py-3 text-left text-white bg-gradient-to-br from-accent to-[#1D4ED8] shadow-[0_12px_30px_rgba(37,99,235,0.24)] disabled:opacity-50 active:scale-[0.98] transition-transform"
+            className="flex-1 min-h-[88px] rounded-2xl px-4 py-3 text-left text-white bg-gradient-to-br from-accent to-[#1D4ED8] shadow-[0_12px_30px_rgba(37,99,235,0.24)] disabled:opacity-50 active:scale-[0.98] transition-transform tap-glow"
           >
             {scanning ? (
               <>
@@ -1147,6 +1192,11 @@ Notes: weight/boneMass/fatFreeBodyWeight/muscleMassLbs are in lbs; bodyFat/bodyW
             )}
           </button>
         </div>
+        {scanStatus && (
+          <div className="rounded-2xl border border-red-500/30 bg-red-500/10 px-3 py-2.5 text-sm text-accent-red">
+            {scanStatus.message}
+          </div>
+        )}
         <StrengthScoreCard sessions={sessions} bodyWeight={strengthWeight} />
 
         {/* Progress photos */}

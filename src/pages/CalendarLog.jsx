@@ -67,6 +67,8 @@ export default function CalendarLog() {
   const [sessions, setSessions] = useState([])
   const [routineMap, setRoutineMap] = useState({}) // routineId → { exercises: [] }
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState(null)
+  const [reloadKey, setReloadKey] = useState(0)
   const [currentMonth, setCurrentMonth] = useState(new Date())
   const [selectedDate, setSelectedDate] = useState(null)
   const [expandedKey, setExpandedKey] = useState(null)
@@ -74,6 +76,8 @@ export default function CalendarLog() {
 
   useEffect(() => {
     if (!user?.uid) return
+    setLoading(true)
+    setLoadError(null)
     user.getIdToken()
       .then(() => Promise.all([
         getDocs(sessionsCol(user.uid)),
@@ -86,8 +90,16 @@ export default function CalendarLog() {
         setRoutineMap(rMap)
         setLoading(false)
       })
-      .catch((err) => { console.error('CalendarLog load error:', err); setLoading(false) })
-  }, [user?.uid])
+      .catch((err) => {
+        console.error('CalendarLog load error:', err)
+        setLoadError('Could not load your workout history right now.')
+        setLoading(false)
+      })
+  }, [reloadKey, user?.uid])
+
+  function retryLoad() {
+    setReloadKey((current) => current + 1)
+  }
 
   // All dates with at least one session
   const workoutDates = useMemo(
@@ -177,7 +189,7 @@ export default function CalendarLog() {
         : exercises[0].id
 
       return {
-        label: isResumingCurrentRoutine ? 'Resume Workout' : 'Repeat Workout',
+        label: isResumingCurrentRoutine ? 'Continue Workout' : 'Repeat Workout',
         run: () => {
           if (!isResumingCurrentRoutine) {
             startRoutineWorkout(routine, { startExerciseId })
@@ -458,6 +470,16 @@ export default function CalendarLog() {
     }
   }, [currentMonth, grouped, monthSummary])
 
+  const progressHook = useMemo(() => {
+    if (weekDaysCount >= WEEKLY_GOAL) return 'You are ahead of pace this week.'
+    if (weekDaysCount > 0) {
+      const remaining = WEEKLY_GOAL - weekDaysCount
+      return `${remaining} more workout${remaining === 1 ? '' : 's'} to hit your weekly goal.`
+    }
+    if (monthInsight?.text) return monthInsight.text
+    return 'Every logged session makes your progress easier to read.'
+  }, [WEEKLY_GOAL, monthInsight, weekDaysCount])
+
   // Which dates to show in the list
   const listDates = useMemo(() => {
     if (selectedDate) return grouped[selectedDate] ? [selectedDate] : []
@@ -492,6 +514,7 @@ export default function CalendarLog() {
               {format(currentMonth, 'MMMM yyyy')}
             </h1>
             <p className="text-text-secondary text-sm mt-0.5">Your training progress and history</p>
+            <p className="text-accent-green text-sm font-medium mt-2">{progressHook}</p>
           </div>
           {/* Month prev / next */}
           <div className="flex gap-1 mt-1">
@@ -515,6 +538,15 @@ export default function CalendarLog() {
         </div>
 
         {/* ── Calendar grid ────────────────────────────────── */}
+        {loadError && (
+          <div className="card border-red-500/25 bg-red-500/10">
+            <p className="text-accent-red font-semibold text-sm">History unavailable</p>
+            <p className="text-text-secondary text-sm mt-1">{loadError}</p>
+            <button onClick={retryLoad} className="btn-secondary mt-4 w-full">
+              Retry
+            </button>
+          </div>
+        )}
 	        <div className="grid grid-cols-2 gap-3">
 	          <div className="card">
 	            <p className="text-text-secondary text-[11px] font-semibold uppercase tracking-[0.18em]">Streak</p>
@@ -565,7 +597,7 @@ export default function CalendarLog() {
                 <button
                   key={dateStr}
                   onClick={() => handleDayClick(dateStr)}
-                  className={`aspect-square rounded-xl flex flex-col items-center justify-center text-sm font-medium transition-all duration-200 active:scale-95 ${
+                  className={`aspect-square rounded-xl flex flex-col items-center justify-center text-sm font-medium transition-all duration-200 active:scale-95 tap-glow ${
                     isSelected
                       ? 'bg-accent text-white shadow-[0_10px_24px_rgba(37,99,235,0.32)] ring-1 ring-white/10 scale-[1.02]'
                       : hasWorkout
@@ -608,22 +640,30 @@ export default function CalendarLog() {
                   <p className="text-text-secondary text-xs font-semibold uppercase tracking-[0.18em]">
                     {format(parseISO(selectedDate), 'MMMM d')}
                   </p>
-                  <h2 className="mt-1 font-display text-[22px] font-bold text-text-primary truncate">
-                    {selectedDateSummary.label}
-                  </h2>
+	                  <h2 className="mt-1 font-display text-[22px] font-bold text-text-primary truncate">
+	                    {selectedDateSummary.label}
+	                  </h2>
                   <p className="hidden">
                     {selectedDateSummary.workoutCount === 1
                       ? `${selectedDateSummary.exerciseCount} exercise${selectedDateSummary.exerciseCount === 1 ? '' : 's'}`
                       : `${selectedDateSummary.workoutCount} workouts • ${selectedDateSummary.exerciseCount} exercises`}
                     {selectedDateSummary.durationLabel ? ` • ${selectedDateSummary.durationLabel}` : ''}
                   </p>
-                </div>
-                <div className="text-right flex-shrink-0 rounded-2xl border border-white/5 bg-surface2/65 px-4 py-3 min-w-[110px]">
-                  <p className={`font-display text-2xl font-bold leading-none ${selectedDateSummary.isAllCardio ? 'text-accent' : 'text-accent-green'}`}>
-                    {selectedDateSummary.isAllCardio ? selectedDateSummary.durationLabel || '--' : formatCompactVolume(selectedDateSummary.totalVolume)}
+                    {selectedDateInsight && (
+                      <div className="mt-3 rounded-2xl border border-surface2 bg-surface2/60 px-3 py-3">
+                        <p className="text-text-secondary text-[11px] font-semibold uppercase tracking-[0.18em]">Insight</p>
+                        <p className={`mt-1 text-sm font-medium ${selectedDateInsight.tone}`}>
+                          {selectedDateInsight.text}
+                        </p>
+                      </div>
+                    )}
+	                </div>
+	                <div className="text-right flex-shrink-0 rounded-2xl border border-white/5 bg-surface2/65 px-4 py-3 min-w-[110px]">
+	                  <p className={`font-display text-2xl font-bold leading-none ${selectedDateSummary.isAllCardio ? 'text-accent' : 'text-accent-green'}`}>
+	                    {selectedDateSummary.isAllCardio ? selectedDateSummary.durationLabel || '--' : formatCompactVolume(selectedDateSummary.totalVolume)}
                   </p>
                   <p className="mt-1 text-text-secondary text-[11px] uppercase tracking-[0.14em]">
-                    {selectedDateSummary.isAllCardio ? 'time logged' : 'lbs lifted'}
+                    {selectedDateSummary.isAllCardio ? 'Workout Time' : 'Total Volume'}
                   </p>
                 </div>
               </div>
@@ -641,18 +681,10 @@ export default function CalendarLog() {
                   <p className="mt-1 text-base font-semibold text-text-primary">{selectedDateSummary.durationLabel || '--'}</p>
                 </div>
               </div>
-              {selectedDateInsight && (
-                <div className="mt-3 rounded-2xl border border-surface2 bg-surface2/60 px-3 py-3">
-                  <p className="text-text-secondary text-[11px] font-semibold uppercase tracking-[0.18em]">Insight</p>
-                  <p className={`mt-1 text-sm font-medium ${selectedDateInsight.tone}`}>
-                    {selectedDateInsight.text}
-                  </p>
-                </div>
-              )}
-              {selectedDateCta && (
+	              {selectedDateCta && (
                 <button
                   onClick={selectedDateCta.run}
-                  className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-accent px-4 py-3 text-sm font-semibold text-white shadow-[0_12px_24px_rgba(37,99,235,0.24)] active:scale-[0.99] transition-transform"
+                  className="btn-primary w-full mt-4"
                 >
                   <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.3}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M5.25 5.653c0-1.427 1.529-2.33 2.779-1.643l9.42 5.173c1.295.711 1.295 2.575 0 3.286l-9.42 5.173c-1.25.687-2.779-.216-2.779-1.643V5.653z" />
@@ -726,22 +758,22 @@ export default function CalendarLog() {
             monthSummary ? (
               <div className="space-y-3">
                 <div className="grid grid-cols-2 gap-3">
-                  <div className="card">
+                  <div className="card card-enter">
                     <p className="text-text-secondary text-[11px] font-semibold uppercase tracking-[0.18em]">Workouts</p>
                     <p className="mt-2 font-display text-2xl font-bold text-text-primary">{monthSummary.totalWorkouts}</p>
                     <p className="mt-1 text-sm text-text-secondary">{monthSummary.activeDays} active days</p>
                   </div>
-                  <div className="card">
-                    <p className="text-text-secondary text-[11px] font-semibold uppercase tracking-[0.18em]">Volume</p>
+                  <div className="card card-enter card-enter-delay-1">
+                    <p className="text-text-secondary text-[11px] font-semibold uppercase tracking-[0.18em]">Total Volume</p>
                     <p className="mt-2 font-display text-2xl font-bold text-accent-green">{formatCompactVolume(monthSummary.totalVolume)}</p>
-                    <p className="mt-1 text-sm text-text-secondary">lbs this month</p>
+                    <p className="mt-1 text-sm text-text-secondary">This month</p>
                   </div>
-                  <div className="card">
+                  <div className="card card-enter card-enter-delay-2">
                     <p className="text-text-secondary text-[11px] font-semibold uppercase tracking-[0.18em]">Cardio</p>
                     <p className="mt-2 font-display text-2xl font-bold text-accent">{monthSummary.totalCardioMinutes}m</p>
                     <p className="mt-1 text-sm text-text-secondary">minutes logged</p>
                   </div>
-                  <div className="card">
+                  <div className="card card-enter card-enter-delay-3">
                     <p className="text-text-secondary text-[11px] font-semibold uppercase tracking-[0.18em]">Best Routine</p>
                     <p className="mt-2 text-base font-semibold text-text-primary truncate">
                       {monthSummary.topRoutine?.name || 'No routine yet'}
@@ -755,7 +787,7 @@ export default function CalendarLog() {
                 </div>
 
                 {monthInsight && (
-                  <div className="card border-accent/15 bg-surface2/35">
+                  <div className="card card-enter card-enter-delay-2 border-accent/15 bg-surface2/35">
                     <p className="text-text-secondary text-[11px] font-semibold uppercase tracking-[0.18em]">Month Insight</p>
                     <p className={`mt-2 text-base font-semibold ${monthInsight.tone}`}>
                       {monthInsight.text}
@@ -764,7 +796,7 @@ export default function CalendarLog() {
                   </div>
                 )}
 
-                <div className="card">
+                <div className="card card-enter card-enter-delay-3">
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-text-secondary text-[11px] font-semibold uppercase tracking-[0.18em]">Top Days</p>
@@ -782,7 +814,7 @@ export default function CalendarLog() {
                         <button
                           key={day.date}
                           onClick={() => handleDayClick(day.date)}
-                          className="w-full rounded-2xl border border-surface2 bg-surface2/40 px-3 py-3 text-left active:scale-[0.99] transition-transform"
+                          className="w-full rounded-2xl border border-surface2 bg-surface2/40 px-3 py-3 text-left active:scale-[0.99] transition-transform tap-glow"
                         >
                           <div className="flex items-center justify-between gap-3">
                             <div className="min-w-0">
@@ -792,7 +824,7 @@ export default function CalendarLog() {
                               </div>
                               <p className="mt-1 text-sm text-text-secondary">
                                 {day.workoutCount} workout{day.workoutCount === 1 ? '' : 's'}
-                                {day.totalVolume > 0 ? ` • ${formatCompactVolume(day.totalVolume)} lbs` : ''}
+                                {day.totalVolume > 0 ? ` • ${formatCompactVolume(day.totalVolume)} total volume` : ''}
                                 {day.cardioMinutes > 0 ? ` • ${day.cardioMinutes}m cardio` : ''}
                               </p>
                             </div>
@@ -807,13 +839,15 @@ export default function CalendarLog() {
                 </div>
               </div>
             ) : (
-              <div className="card flex items-center justify-center py-10">
-                <p className="text-text-secondary text-sm">No sessions found</p>
+              <div className="card flex flex-col items-center justify-center py-10 text-center">
+                <p className="text-text-primary text-sm font-semibold">No sessions this month</p>
+                <p className="text-text-secondary text-xs mt-1">Log your first workout to unlock monthly progress insights.</p>
               </div>
             )
           ) : listDates.length === 0 ? (
-            <div className="card flex items-center justify-center py-10">
-              <p className="text-text-secondary text-sm">No sessions found</p>
+            <div className="card flex flex-col items-center justify-center py-10 text-center">
+              <p className="text-text-primary text-sm font-semibold">Nothing logged here yet</p>
+              <p className="text-text-secondary text-xs mt-1">Try another range or add a workout to start building your progress view.</p>
             </div>
           ) : (
             <div className="space-y-2">
@@ -855,7 +889,7 @@ export default function CalendarLog() {
                                   ? `${(group.totalVolume / 1000).toFixed(1)}k`
                                   : group.totalVolume.toLocaleString()}
                               </p>
-                              <p className="text-text-secondary text-xs">lbs vol.</p>
+                              <p className="text-text-secondary text-xs">Volume</p>
                             </div>
                           )}
                           <svg

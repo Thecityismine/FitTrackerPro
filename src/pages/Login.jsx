@@ -17,7 +17,12 @@ export default function Login() {
     try {
       await signInWithGoogle()
     } catch (e) {
-      setError('Google sign-in failed. Please try again.')
+      const messages = {
+        'auth/popup-closed-by-user': 'Sign-in was canceled before it finished.',
+        'auth/network-request-failed': 'Connection lost. Check your internet and try again.',
+        'auth/too-many-requests': 'Too many attempts right now. Wait a moment and try again.',
+      }
+      setError(messages[e.code] || 'Could not sign in with Google right now. Please try again.')
     }
     setLoading(false)
   }
@@ -39,8 +44,10 @@ export default function Login() {
         'auth/email-already-in-use': 'An account already exists with this email.',
         'auth/weak-password': 'Password must be at least 6 characters.',
         'auth/invalid-email': 'Please enter a valid email address.',
+        'auth/network-request-failed': 'Connection lost. Check your internet and try again.',
+        'auth/too-many-requests': 'Too many attempts right now. Wait a moment and try again.',
       }
-      setError(messages[e.code] || 'Something went wrong. Please try again.')
+      setError(messages[e.code] || 'Could not complete sign-in right now. Please try again.')
     }
     setLoading(false)
   }
@@ -151,7 +158,7 @@ export default function Login() {
             className="btn-primary w-full mt-2"
           >
             {loading ? (
-              <span className="animate-pulse">Loading...</span>
+              <span className="animate-pulse">{mode === 'signin' ? 'Signing In...' : 'Creating Account...'}</span>
             ) : mode === 'signin' ? 'Sign In' : 'Create Account'}
           </button>
         </form>
