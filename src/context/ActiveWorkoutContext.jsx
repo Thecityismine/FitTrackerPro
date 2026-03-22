@@ -55,6 +55,7 @@ function sanitizeWorkoutState(value) {
     skipped,
     completionOrder,
     startedAt: value.startedAt || Date.now(),
+    completedAt: value.completedAt || null,
     summaryReady,
   }
 }
@@ -97,6 +98,7 @@ export function ActiveWorkoutProvider({ children }) {
       skipped: [],
       completionOrder: [],
       startedAt: Date.now(),
+      completedAt: null,
       summaryReady: false,
     }
 
@@ -153,6 +155,7 @@ export function ActiveWorkoutProvider({ children }) {
         skipped,
         completionOrder,
         currentExerciseId: nextSummaryReady ? null : nextCurrentExerciseId,
+        completedAt: nextSummaryReady ? (current.completedAt || Date.now()) : null,
         summaryReady: nextSummaryReady,
       }
     })
@@ -194,6 +197,7 @@ export function ActiveWorkoutProvider({ children }) {
         skipped,
         completionOrder,
         currentExerciseId: remaining[0] || null,
+        completedAt: remaining.length === 0 ? (current.completedAt || Date.now()) : null,
         summaryReady: remaining.length === 0,
       }
     })
@@ -233,6 +237,7 @@ export function ActiveWorkoutProvider({ children }) {
         skipped,
         completionOrder,
         currentExerciseId: exerciseId,
+        completedAt: null,
         summaryReady: false,
       }
     })
@@ -277,6 +282,7 @@ export function ActiveWorkoutProvider({ children }) {
         skipped,
         completionOrder,
         currentExerciseId: summaryReady ? null : nextCurrentExerciseId,
+        completedAt: summaryReady ? (current.completedAt || Date.now()) : null,
         summaryReady,
       }
     })

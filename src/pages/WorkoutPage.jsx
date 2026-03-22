@@ -26,6 +26,19 @@ function formatVolume(value) {
   return value >= 1000 ? `${(value / 1000).toFixed(1)}k` : value.toLocaleString()
 }
 
+function formatElapsedDuration(totalSeconds) {
+  const safeSeconds = Math.max(0, totalSeconds || 0)
+  const hours = Math.floor(safeSeconds / 3600)
+  const minutes = Math.floor((safeSeconds % 3600) / 60)
+  const seconds = safeSeconds % 60
+
+  if (hours > 0) {
+    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`
+  }
+
+  return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
+}
+
 function normalizeSet(set, fallback = {}) {
   return {
     id: set?.id || `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
@@ -107,7 +120,7 @@ function GuidedWorkoutPage() {
   const location = useLocation()
   const navigate = useNavigate()
   const { user } = useAuth()
-  const { seconds, isRunning, formatted, toggle, reset, restart, pause } = useTimer()
+  const { isRunning, formatted, toggle, reset, restart, pause } = useTimer()
   const {
     activeWorkout,
     startRoutineWorkout,
@@ -439,7 +452,16 @@ function GuidedWorkoutPage() {
     return 'border-surface2 opacity-70'
   }
 
-  const summaryMinutes = Math.max(1, Math.round(seconds / 60))
+  const workoutDurationSeconds = guidedWorkout?.startedAt
+    ? Math.max(
+        0,
+        Math.floor(((guidedWorkout.completedAt || Date.now()) - guidedWorkout.startedAt) / 1000)
+      )
+    : 0
+  const timerDisplay = guidedWorkout?.summaryReady
+    ? formatElapsedDuration(workoutDurationSeconds)
+    : formatted()
+  const summaryMinutes = Math.max(1, Math.round(workoutDurationSeconds / 60))
 
   return (
     <PageWrapper showHeader={false} showBottomNav={false} className="!pb-0">
@@ -473,7 +495,7 @@ function GuidedWorkoutPage() {
               </div>
               <div className="text-right">
                 <p className="text-text-secondary text-[11px] uppercase tracking-[0.24em]">Timer</p>
-                <p className="font-mono text-text-primary text-sm font-bold mt-1">{formatted()}</p>
+                <p className="font-mono text-text-primary text-sm font-bold mt-1">{timerDisplay}</p>
               </div>
             </div>
             <div className="mt-3 flex items-center gap-2">
