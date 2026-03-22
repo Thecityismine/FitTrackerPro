@@ -478,11 +478,20 @@ export default function CalendarLog() {
                   const isAllCardio = group.exercises.every(e => e.muscleGroup?.toLowerCase() === 'cardio')
 
                   return (
-                    <div key={key} className="card overflow-hidden">
+                    <div
+                      key={key}
+                      className={`card overflow-hidden transition-all duration-300 ${
+                        isExpanded
+                          ? 'bg-surface2/35 border-accent/25 shadow-[0_0_0_1px_rgba(37,99,235,0.12),0_12px_28px_rgba(15,23,42,0.24)]'
+                          : 'shadow-none'
+                      }`}
+                    >
                       {/* Card header — tap to expand */}
                       <button
                         onClick={() => toggleExpand(key)}
-                        className="flex items-center justify-between w-full text-left"
+                        className={`flex items-center justify-between w-full text-left rounded-xl transition-colors duration-200 ${
+                          isExpanded ? 'bg-white/[0.02]' : ''
+                        }`}
                       >
                         <div className="min-w-0 flex-1">
                           <p className="text-text-primary font-semibold text-sm">{group.routineName}</p>
@@ -511,8 +520,17 @@ export default function CalendarLog() {
                       </button>
 
                       {/* Expanded exercise rows */}
-	                      {isExpanded && (
-	                        <div className="mt-3 pt-3 border-t border-surface2 space-y-1">
+                      <div
+                        className={`grid overflow-hidden transition-all duration-300 ease-out ${
+                          isExpanded ? 'grid-rows-[1fr] opacity-100 mt-3' : 'grid-rows-[0fr] opacity-0 mt-0'
+                        }`}
+                      >
+                        <div className="overflow-hidden">
+                          <div
+                            className={`space-y-1 transition-all duration-300 ${
+                              isExpanded ? 'border-t border-surface2 pt-3' : 'border-t border-transparent pt-0'
+                            }`}
+                          >
 	                          {group.exercises.map((ex) => {
 	                            const isCardio = ex.muscleGroup?.toLowerCase() === 'cardio'
                             const bestWeight = (ex.sets || []).reduce(
@@ -567,9 +585,9 @@ export default function CalendarLog() {
 	                                        {bestWeight > 0 ? `${bestWeight} lbs` : '--'}
 	                                      </p>
 	                                      <p className="text-text-secondary text-[11px] mt-1">top weight</p>
-	                                    </div>
-	                                  )}
-	                                  <svg className="w-3.5 h-3.5 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                      </div>
+                                    )}
+                                  <svg className="w-3.5 h-3.5 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
 	                                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
                                   </svg>
                                 </div>
@@ -577,7 +595,8 @@ export default function CalendarLog() {
                             )
                           })}
                         </div>
-                      )}
+                        </div>
+                      </div>
                     </div>
                   )
                 })
