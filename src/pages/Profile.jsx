@@ -6,6 +6,7 @@ import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage
 import { getDoc, getDocs, writeBatch } from 'firebase/firestore'
 import { auth, db, storage } from '../firebase/config'
 import { useAuth } from '../context/AuthContext'
+import { sanitizeProfileSettingsInput } from '../utils/profileSanitizers'
 import {
   bodyMetricDoc,
   bodyMetricsCol,
@@ -180,25 +181,47 @@ export default function Profile() {
   async function handleSave() {
     setSaving(true)
     try {
-      const trimmedName = name.trim() || displayName
-      await updateUserProfile({
-        displayName: trimmedName,
+      const sanitizedProfile = sanitizeProfileSettingsInput({
+        displayName: name,
         heightIn: height,
         weightUnit,
-        sex: sex || null,
-        fitnessGoal: fitnessGoal || null,
-        dateOfBirth: birthday || null,
+        sex,
+        fitnessGoal,
+        dateOfBirth: birthday,
         weeklyTargets: {
-          push: Number(pushTarget) || 27,
-          pull: Number(pullTarget) || 15,
-          legs: Number(legsTarget) || 21,
+          push: pushTarget,
+          pull: pullTarget,
+          legs: legsTarget,
         },
-        weeklyWorkoutGoal: Number(workoutGoal) || 3,
-        weeklyVolumeGoal: Number(volumeGoal) || 100000,
+        weeklyWorkoutGoal: workoutGoal,
+        weeklyVolumeGoal: volumeGoal,
+      })
+      const trimmedName = sanitizedProfile.displayName || displayName
+      await updateUserProfile({
+        displayName: trimmedName,
+        heightIn: sanitizedProfile.heightIn,
+        weightUnit: sanitizedProfile.weightUnit,
+        sex: sanitizedProfile.sex,
+        fitnessGoal: sanitizedProfile.fitnessGoal,
+        dateOfBirth: sanitizedProfile.dateOfBirth,
+        weeklyTargets: sanitizedProfile.weeklyTargets,
+        weeklyWorkoutGoal: sanitizedProfile.weeklyWorkoutGoal,
+        weeklyVolumeGoal: sanitizedProfile.weeklyVolumeGoal,
       })
       if (auth.currentUser) {
         await updateProfile(auth.currentUser, { displayName: trimmedName })
       }
+      setName(trimmedName)
+      setHeight(sanitizedProfile.heightIn)
+      setWeightUnit(sanitizedProfile.weightUnit)
+      setSex(sanitizedProfile.sex || '')
+      setFitnessGoal(sanitizedProfile.fitnessGoal || '')
+      setBirthday(sanitizedProfile.dateOfBirth || '')
+      setPushTarget(sanitizedProfile.weeklyTargets.push)
+      setPullTarget(sanitizedProfile.weeklyTargets.pull)
+      setLegsTarget(sanitizedProfile.weeklyTargets.legs)
+      setWorkoutGoal(sanitizedProfile.weeklyWorkoutGoal)
+      setVolumeGoal(sanitizedProfile.weeklyVolumeGoal)
       setSaved(true)
       savedTimerRef.current = setTimeout(() => setSaved(false), 2500)
     } finally {
@@ -212,17 +235,18 @@ export default function Profile() {
   }
 
   function applyImportedProfile(profileData) {
-    setName(profileData?.displayName || displayName)
-    setHeight(profileData?.heightIn ?? '')
-    setWeightUnit(profileData?.weightUnit || 'lbs')
-    setSex(profileData?.sex || '')
-    setFitnessGoal(profileData?.fitnessGoal || '')
-    setBirthday(profileData?.dateOfBirth || '')
-    setPushTarget(profileData?.weeklyTargets?.push ?? 27)
-    setPullTarget(profileData?.weeklyTargets?.pull ?? 15)
-    setLegsTarget(profileData?.weeklyTargets?.legs ?? 21)
-    setWorkoutGoal(profileData?.weeklyWorkoutGoal ?? 3)
-    setVolumeGoal(profileData?.weeklyVolumeGoal ?? 100000)
+    const sanitizedProfile = sanitizeProfileSettingsInput(profileData)
+    setName(sanitizedProfile.displayName || displayName)
+    setHeight(sanitizedProfile.heightIn ?? '')
+    setWeightUnit(sanitizedProfile.weightUnit || 'lbs')
+    setSex(sanitizedProfile.sex || '')
+    setFitnessGoal(sanitizedProfile.fitnessGoal || '')
+    setBirthday(sanitizedProfile.dateOfBirth || '')
+    setPushTarget(sanitizedProfile.weeklyTargets.push)
+    setPullTarget(sanitizedProfile.weeklyTargets.pull)
+    setLegsTarget(sanitizedProfile.weeklyTargets.legs)
+    setWorkoutGoal(sanitizedProfile.weeklyWorkoutGoal)
+    setVolumeGoal(sanitizedProfile.weeklyVolumeGoal)
   }
 
   async function handleExportData() {
@@ -330,6 +354,7 @@ export default function Profile() {
         delete profileUpdates.email
         delete profileUpdates.createdAt
         delete profileUpdates.updatedAt
+        Object.assign(profileUpdates, sanitizeProfileSettingsInput(profileUpdates))
 
         await updateUserProfile(profileUpdates)
 

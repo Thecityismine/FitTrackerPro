@@ -10,6 +10,7 @@ import {
 } from 'firebase/auth'
 import { doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore'
 import { auth, db, googleProvider } from '../firebase/config'
+import { sanitizeDisplayName, sanitizeEmail } from '../utils/profileSanitizers'
 
 const AuthContext = createContext(null)
 
@@ -57,10 +58,12 @@ export function AuthProvider({ children }) {
 
   async function createUserProfile(uid, data) {
     const ref = doc(db, 'users', uid)
+    const displayName = sanitizeDisplayName(data.displayName) || 'Athlete'
+    const email = sanitizeEmail(data.email)
     const profileData = {
       uid,
-      displayName: data.displayName || '',
-      email: data.email || '',
+      displayName,
+      email,
       photoURL: data.photoURL || null,
       heightIn: null,       // inches — used for BMI
       weightUnit: 'lbs',    // 'lbs' | 'kg'
@@ -95,16 +98,18 @@ export function AuthProvider({ children }) {
   }
 
   async function signInWithEmail(email, password) {
-    const result = await signInWithEmailAndPassword(auth, email, password)
+    const result = await signInWithEmailAndPassword(auth, sanitizeEmail(email), password)
     return result.user
   }
 
   async function signUpWithEmail(email, password, displayName) {
-    const result = await createUserWithEmailAndPassword(auth, email, password)
-    await updateProfile(result.user, { displayName })
+    const cleanEmail = sanitizeEmail(email)
+    const cleanDisplayName = sanitizeDisplayName(displayName) || 'Athlete'
+    const result = await createUserWithEmailAndPassword(auth, cleanEmail, password)
+    await updateProfile(result.user, { displayName: cleanDisplayName })
     await createUserProfile(result.user.uid, {
-      displayName,
-      email,
+      displayName: cleanDisplayName,
+      email: cleanEmail,
     })
     return result.user
   }

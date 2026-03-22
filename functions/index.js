@@ -1,10 +1,12 @@
 import { initializeApp } from 'firebase-admin/app'
+import { getFirestore } from 'firebase-admin/firestore'
 import { defineSecret } from 'firebase-functions/params'
 import { setGlobalOptions } from 'firebase-functions/v2'
 import { HttpsError, onCall } from 'firebase-functions/v2/https'
 import * as logger from 'firebase-functions/logger'
 
 initializeApp()
+const db = getFirestore()
 setGlobalOptions({
   region: 'us-central1',
   maxInstances: 10,
@@ -15,6 +17,12 @@ const ANTHROPIC_MODEL = 'claude-haiku-4-5-20251001'
 const MAX_TOKENS = 1200
 const MAX_PROMPT_CHARS = 30000
 const MAX_IMAGE_DATA_URL_CHARS = 6_000_000
+const AI_RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000
+const AI_RATE_LIMIT_MAX_POINTS = 12
+const AI_RATE_LIMIT_COST = {
+  text: 1,
+  image: 2,
+}
 
 function getSecretValue(secret) {
   try {
@@ -30,28 +38,74 @@ function clampMaxTokens(value) {
   return Math.max(1, Math.min(MAX_TOKENS, Math.round(parsed)))
 }
 
-function ensureShortString(value, fieldName) {
-  if (typeof value !== 'string' || !value.trim()) {
-    throw new HttpsError('invalid-argument', `${fieldName} is required.`)
+function sanitizePromptInput(value) {
+  if (typeof value !== 'string') return ''
+  return value
+    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, ' ')
+    .trim()
+}
+
+function ensureShortString(value, fieldName, { required = true } = {}) {
+  const normalized = sanitizePromptInput(value)
+  if (!normalized) {
+    if (required) throw new HttpsError('invalid-argument', `${fieldName} is required.`)
+    return ''
   }
-  if (value.length > MAX_PROMPT_CHARS) {
+  if (normalized.length > MAX_PROMPT_CHARS) {
     throw new HttpsError('invalid-argument', `${fieldName} is too long.`)
   }
-  return value.trim()
+  return normalized
 }
 
 function parseDataUrl(dataUrl) {
-  const match = /^data:(image\/[a-zA-Z0-9.+-]+);base64,(.+)$/.exec(dataUrl || '')
+  const normalized = String(dataUrl || '').trim()
+  const match = /^data:(image\/[a-zA-Z0-9.+-]+);base64,(.+)$/.exec(normalized)
   if (!match) {
     throw new HttpsError('invalid-argument', 'A valid image data URL is required.')
   }
-  if (dataUrl.length > MAX_IMAGE_DATA_URL_CHARS) {
+  if (normalized.length > MAX_IMAGE_DATA_URL_CHARS) {
     throw new HttpsError('invalid-argument', 'Image is too large. Try a smaller photo.')
   }
   return {
     mediaType: match[1],
     base64: match[2],
   }
+}
+
+function getRateLimitRef(uid) {
+  return db.collection('aiRateLimits').doc(uid)
+}
+
+async function enforceAiRateLimit(uid, mode) {
+  const now = Date.now()
+  const requestCost = AI_RATE_LIMIT_COST[mode] || 1
+  const ref = getRateLimitRef(uid)
+
+  await db.runTransaction(async (transaction) => {
+    const snap = await transaction.get(ref)
+    const previousWindowStartedAt = Number(snap.get('windowStartedAt')) || 0
+    const previousRequestCount = Number(snap.get('requestCount')) || 0
+    const windowExpired = !previousWindowStartedAt || (now - previousWindowStartedAt) >= AI_RATE_LIMIT_WINDOW_MS
+    const windowStartedAt = windowExpired ? now : previousWindowStartedAt
+    const requestCount = windowExpired ? requestCost : previousRequestCount + requestCost
+
+    if (requestCount > AI_RATE_LIMIT_MAX_POINTS) {
+      const retryAfterMs = Math.max(AI_RATE_LIMIT_WINDOW_MS - (now - windowStartedAt), 1000)
+      const retryAfterMinutes = Math.max(1, Math.ceil(retryAfterMs / 60000))
+      throw new HttpsError(
+        'resource-exhausted',
+        `AI rate limit reached. Try again in ${retryAfterMinutes} minute${retryAfterMinutes === 1 ? '' : 's'}.`
+      )
+    }
+
+    transaction.set(ref, {
+      windowStartedAt,
+      requestCount,
+      lastMode: mode,
+      lastRequestAt: now,
+      updatedAt: new Date(now),
+    }, { merge: true })
+  })
 }
 
 async function parseProviderResponse(response) {
@@ -145,7 +199,7 @@ export const aiProxy = onCall(
 
     const mode = request.data?.mode
     const prompt = ensureShortString(request.data?.prompt, 'Prompt')
-    const systemPrompt = typeof request.data?.systemPrompt === 'string' ? request.data.systemPrompt : ''
+    const systemPrompt = ensureShortString(request.data?.systemPrompt, 'System prompt', { required: false })
     const maxTokens = clampMaxTokens(request.data?.maxTokens)
     const dataUrl = typeof request.data?.dataUrl === 'string' ? request.data.dataUrl : ''
 
@@ -163,6 +217,7 @@ export const aiProxy = onCall(
     }
 
     try {
+      await enforceAiRateLimit(request.auth.uid, mode)
       const text = mode === 'image'
         ? await callAnthropicImage({ apiKey: anthropicApiKey, prompt, dataUrl, maxTokens })
         : await callAnthropicText({ apiKey: anthropicApiKey, prompt, systemPrompt, maxTokens })
@@ -172,6 +227,15 @@ export const aiProxy = onCall(
         provider: 'anthropic',
       }
     } catch (error) {
+      if (error instanceof HttpsError) {
+        if (error.code === 'resource-exhausted') {
+          logger.warn('AI proxy rate limit exceeded', {
+            uid: request.auth.uid,
+            mode,
+          })
+        }
+        throw error
+      }
       const friendlyMessage = normalizeProviderErrorMessage(error?.message)
       logger.error('AI proxy request failed', {
         uid: request.auth.uid,

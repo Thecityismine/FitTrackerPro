@@ -2,6 +2,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { sanitizeBoundedInt, sanitizeProfileSettingsInput } from '../utils/profileSanitizers'
 
 const TOTAL_STEPS = 5
 const SEX_OPTIONS = [
@@ -74,8 +75,8 @@ export default function Setup() {
   async function handleFinish() {
     setSaving(true)
     try {
-      const ftNum = parseInt(heightFt) || 0
-      const inNum = parseInt(heightIn) || 0
+      const ftNum = sanitizeBoundedInt(heightFt, { min: 0, max: 8, fallback: 0 })
+      const inNum = sanitizeBoundedInt(heightIn, { min: 0, max: 11, fallback: 0 })
       const heightTotalIn = ftNum > 0 ? ftNum * 12 + inNum : null
 
       const weightNum = parseFloat(weight) || null
@@ -83,14 +84,25 @@ export default function Setup() {
         ? (weightUnit === 'lbs' ? weightNum : Math.round(weightNum * 2.20462))
         : null
 
-      await updateUserProfile({
-        displayName:        displayName.trim(),
+      const sanitizedProfile = sanitizeProfileSettingsInput({
+        displayName,
         weightUnit,
-        heightIn:           heightTotalIn,
-        weeklyWorkoutGoal:  workoutsPerWeek,
+        heightIn: heightTotalIn ? String(heightTotalIn) : '',
+        weeklyWorkoutGoal: workoutsPerWeek,
         sex,
         dateOfBirth,
         fitnessGoal,
+      })
+      const sanitizedDisplayName = sanitizedProfile.displayName || profile?.displayName || user?.displayName || 'Athlete'
+
+      await updateUserProfile({
+        displayName:        sanitizedDisplayName,
+        weightUnit:         sanitizedProfile.weightUnit,
+        heightIn:           heightTotalIn,
+        weeklyWorkoutGoal:  sanitizedProfile.weeklyWorkoutGoal,
+        sex:                sanitizedProfile.sex,
+        dateOfBirth:        sanitizedProfile.dateOfBirth,
+        fitnessGoal:        sanitizedProfile.fitnessGoal,
         ...(weightLbs ? { currentWeightLbs: weightLbs } : {}),
         setupComplete:      true,
       })
