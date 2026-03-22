@@ -3,9 +3,9 @@ import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   format, startOfMonth, endOfMonth, eachDayOfInterval,
-  getDay, addMonths, subMonths, parseISO,
-  startOfWeek, endOfWeek,
-} from 'date-fns'
+	  getDay, addMonths, subMonths, parseISO,
+	  startOfWeek, endOfWeek, differenceInCalendarDays, isSameMonth,
+	} from 'date-fns'
 import { getDocs } from 'firebase/firestore'
 import PageWrapper from '../components/layout/PageWrapper'
 import { useActiveWorkout } from '../context/ActiveWorkoutContext'
@@ -257,6 +257,57 @@ export default function CalendarLog() {
   )
   const WEEKLY_GOAL = profile?.weeklyWorkoutGoal ?? 3
 
+  const streakSummary = useMemo(() => {
+    const sortedDates = Array.from(workoutDates).sort()
+    if (!sortedDates.length) {
+      return {
+        label: 'No streak yet',
+        detail: 'Log your first workout to start one',
+        tone: 'text-text-primary',
+      }
+    }
+
+    let streakDays = 1
+    for (let i = sortedDates.length - 1; i > 0; i -= 1) {
+      const current = parseISO(sortedDates[i])
+      const previous = parseISO(sortedDates[i - 1])
+      const dayGap = differenceInCalendarDays(current, previous)
+      if (dayGap === 1) {
+        streakDays += 1
+        continue
+      }
+      if (dayGap > 1) break
+    }
+
+    const latestDate = sortedDates[sortedDates.length - 1]
+    const isActive = differenceInCalendarDays(parseISO(TODAY), parseISO(latestDate)) <= 1
+
+    return {
+      label: `${streakDays} day${streakDays === 1 ? '' : 's'}`,
+      detail: isActive ? 'Active streak' : `Last workout ${format(parseISO(latestDate), 'MMM d')}`,
+      tone: isActive ? 'text-accent-green' : 'text-accent',
+    }
+  }, [workoutDates])
+
+  const consistencySummary = useMemo(() => {
+    const monthStartDate = startOfMonth(currentMonth)
+    const monthEndDate = endOfMonth(currentMonth)
+    const today = new Date()
+    const trackedEndDate = isSameMonth(currentMonth, today) ? today : monthEndDate
+    const trackedDays = Math.max(1, differenceInCalendarDays(trackedEndDate, monthStartDate) + 1)
+    const workedDays = Object.keys(grouped).filter((date) => (
+      date >= format(monthStartDate, 'yyyy-MM-dd') &&
+      date <= format(trackedEndDate, 'yyyy-MM-dd')
+    )).length
+    const percentage = Math.round((workedDays / trackedDays) * 100)
+
+    return {
+      label: isSameMonth(currentMonth, today) ? 'This month' : format(currentMonth, 'MMMM'),
+      detail: `${workedDays} of ${trackedDays} days`,
+      percentage,
+    }
+  }, [currentMonth, grouped])
+
   // Which dates to show in the list
   const listDates = useMemo(() => {
     if (selectedDate) return grouped[selectedDate] ? [selectedDate] : []
@@ -314,7 +365,26 @@ export default function CalendarLog() {
         </div>
 
         {/* ── Calendar grid ────────────────────────────────── */}
-        <div className="card">
+	        <div className="grid grid-cols-2 gap-3">
+	          <div className="card">
+	            <p className="text-text-secondary text-[11px] font-semibold uppercase tracking-[0.18em]">Streak</p>
+	            <p className={`mt-2 font-display text-2xl font-bold ${streakSummary.tone}`}>
+	              {streakSummary.label}
+	            </p>
+	            <p className="mt-1 text-sm text-text-secondary">{streakSummary.detail}</p>
+	          </div>
+	          <div className="card">
+	            <p className="text-text-secondary text-[11px] font-semibold uppercase tracking-[0.18em]">Consistency</p>
+	            <p className="mt-2 font-display text-2xl font-bold text-text-primary">
+	              {consistencySummary.percentage}%
+	            </p>
+	            <p className="mt-1 text-sm text-text-secondary">
+	              {consistencySummary.label} • {consistencySummary.detail}
+	            </p>
+	          </div>
+	        </div>
+
+	        <div className="card">
           {/* Day-of-week headers */}
           <div className="grid grid-cols-7 gap-1 mb-2">
             {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map((d) => (
