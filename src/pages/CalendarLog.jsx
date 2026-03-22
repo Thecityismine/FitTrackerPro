@@ -677,23 +677,23 @@ export default function CalendarLog() {
                 Clear
               </button>
             ) : (
-              <div className="flex gap-1.5">
+              <div className="inline-flex items-center rounded-2xl border border-surface2 bg-surface2/70 p-1 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
                 <button
                   onClick={() => setFilter('week')}
-                  className={`px-3 py-1 rounded-lg text-xs font-semibold transition-colors ${
+                  className={`min-w-[72px] rounded-xl px-3 py-1.5 text-xs font-semibold transition-all duration-200 ${
                     filter === 'week'
-                      ? 'bg-accent-green text-white'
-                      : 'bg-surface2 text-text-secondary'
+                      ? 'bg-accent-green text-white shadow-[0_8px_18px_rgba(34,197,94,0.22)]'
+                      : 'text-text-secondary'
                   }`}
                 >
                   Week
                 </button>
                 <button
                   onClick={() => setFilter('month')}
-                  className={`px-3 py-1 rounded-lg text-xs font-semibold transition-colors ${
+                  className={`min-w-[72px] rounded-xl px-3 py-1.5 text-xs font-semibold transition-all duration-200 ${
                     filter === 'month'
-                      ? 'bg-accent-green text-white'
-                      : 'bg-surface2 text-text-secondary'
+                      ? 'bg-accent-green text-white shadow-[0_8px_18px_rgba(34,197,94,0.22)]'
+                      : 'text-text-secondary'
                   }`}
                 >
                   Month
