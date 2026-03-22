@@ -391,15 +391,72 @@ export default function CalendarLog() {
       .sort((a, b) => b.score - a.score)
       .slice(0, 3)
 
+    const heavyDays = monthDates.filter((date) => workoutDayMeta[date]?.intensity === 'heavy').length
+
     return {
       activeDays: monthDates.length,
       totalWorkouts: monthGroups.length,
       totalVolume,
       totalCardioMinutes,
+      heavyDays,
       topRoutine,
       topDays,
     }
   }, [grouped, monthEndStr, monthStartStr, workoutDayMeta])
+
+  const monthInsight = useMemo(() => {
+    if (!monthSummary) return null
+
+    const previousMonth = subMonths(currentMonth, 1)
+    const previousStartStr = format(startOfMonth(previousMonth), 'yyyy-MM-dd')
+    const previousEndStr = format(endOfMonth(previousMonth), 'yyyy-MM-dd')
+    const previousDates = Object.keys(grouped).filter((date) => date >= previousStartStr && date <= previousEndStr)
+    const previousGroups = previousDates.flatMap((date) => Object.values(grouped[date] || {}))
+    const previousVolume = previousGroups.reduce((sum, group) => sum + (group.totalVolume || 0), 0)
+
+    if (previousGroups.length > 0 && previousVolume > 0 && monthSummary.totalVolume > 0) {
+      const deltaPct = Math.round(((monthSummary.totalVolume - previousVolume) / previousVolume) * 100)
+      if (deltaPct !== 0) {
+        return {
+          tone: deltaPct > 0 ? 'text-accent-green' : 'text-[#F2C14E]',
+          text: `${deltaPct > 0 ? '+' : ''}${deltaPct}% volume vs ${format(previousMonth, 'MMMM')}`,
+          detail: deltaPct > 0
+            ? 'You are carrying more total workload this month.'
+            : 'This month is lighter so far. A couple of strong sessions can change the trend quickly.',
+        }
+      }
+    }
+
+    if (monthSummary.topRoutine?.workouts >= 3) {
+      return {
+        tone: 'text-text-primary',
+        text: `${monthSummary.topRoutine.name} is your anchor routine`,
+        detail: `${monthSummary.topRoutine.workouts} logged workouts are building consistency around it.`,
+      }
+    }
+
+    if (monthSummary.heavyDays >= 2) {
+      return {
+        tone: 'text-accent-green',
+        text: `${monthSummary.heavyDays} heavy training days this month`,
+        detail: 'You are stacking meaningful high-output sessions, not just checking the box.',
+      }
+    }
+
+    if (monthSummary.totalCardioMinutes >= 90) {
+      return {
+        tone: 'text-accent',
+        text: `${monthSummary.totalCardioMinutes} cardio minutes logged`,
+        detail: 'Aerobic work is showing up consistently in your month, which will help recovery and conditioning.',
+      }
+    }
+
+    return {
+      tone: 'text-text-primary',
+      text: `${monthSummary.activeDays} active day${monthSummary.activeDays === 1 ? '' : 's'} this month`,
+      detail: 'Keep layering sessions together and the monthly patterns will get sharper.',
+    }
+  }, [currentMonth, grouped, monthSummary])
 
   // Which dates to show in the list
   const listDates = useMemo(() => {
@@ -682,6 +739,16 @@ export default function CalendarLog() {
                     </p>
                   </div>
                 </div>
+
+                {monthInsight && (
+                  <div className="card border-accent/15 bg-surface2/35">
+                    <p className="text-text-secondary text-[11px] font-semibold uppercase tracking-[0.18em]">Month Insight</p>
+                    <p className={`mt-2 text-base font-semibold ${monthInsight.tone}`}>
+                      {monthInsight.text}
+                    </p>
+                    <p className="mt-1 text-sm text-text-secondary">{monthInsight.detail}</p>
+                  </div>
+                )}
 
                 <div className="card">
                   <div className="flex items-center justify-between">
