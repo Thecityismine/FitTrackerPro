@@ -616,7 +616,7 @@ export default function Profile() {
                   className="w-9 h-9 rounded-xl bg-surface2 flex items-center justify-center text-text-primary font-bold active:scale-95 transition-transform flex-shrink-0"
                 >+</button>
               </div>
-              <p className="text-text-secondary text-xs mt-1">Shown as X / {Number(workoutGoal) || 3} days on the Log tab</p>
+              <p className="text-text-secondary text-xs mt-1">Shown as X / {Number(workoutGoal) || 3} days on the Progress tab</p>
             </div>
             <div>
               <label className="label">Workout Volume Target Goal</label>

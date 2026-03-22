@@ -434,7 +434,7 @@ export default function CalendarLog() {
             <h1 className="font-display text-2xl font-bold text-text-primary">
               {format(currentMonth, 'MMMM yyyy')}
             </h1>
-            <p className="text-text-secondary text-sm mt-0.5">Your workout history</p>
+            <p className="text-text-secondary text-sm mt-0.5">Your training progress and history</p>
           </div>
           {/* Month prev / next */}
           <div className="flex gap-1 mt-1">
