@@ -509,8 +509,10 @@ export default function Muscles() {
   const [sessions, setSessions] = useState([])
   const [savedExercises, setSavedExercises] = useState([])
   const [routines, setRoutines] = useState([])
-  const [loading, setLoading]   = useState(true)
-  const [loadError, setLoadError] = useState(null)
+  const [sessionsLoading, setSessionsLoading] = useState(true)
+  const [libraryLoading, setLibraryLoading] = useState(true)
+  const [summaryError, setSummaryError] = useState(null)
+  const [libraryError, setLibraryError] = useState(null)
   const [reloadKey, setReloadKey] = useState(0)
   const [expandedId, setExpandedId] = useState(null)
   const [showAdd, setShowAdd]   = useState(false)
@@ -528,59 +530,86 @@ export default function Muscles() {
   ], [profile?.weeklyTargets?.push, profile?.weeklyTargets?.pull, profile?.weeklyTargets?.legs])
   const recoverySilhouetteSrc = useMemo(() => getRecoverySilhouetteSrc(profile?.sex), [profile?.sex])
   const totalTarget = pplConfig.reduce((s, g) => s + g.targetTotal, 0)
+  const detailLoading = sessionsLoading || libraryLoading
+  const detailError = summaryError || libraryError
 
   useEffect(() => {
     if (!user?.uid) return
-    setLoading(true)
-    setLoadError(null)
+    setSessionsLoading(true)
+    setLibraryLoading(true)
+    setSummaryError(null)
+    setLibraryError(null)
     user.getIdToken()
-      .then(() => Promise.all([
-        getDocs(sessionsCol(user.uid)),
-        getDocs(exercisesCol(user.uid)),
-        getDocs(globalExercisesCol()),
-        getDocs(routinesCol(user.uid)),
-      ]))
-      .then(async ([sessSnap, exSnap, globalSnap, routineSnap]) => {
-        setSessions(sessSnap.docs.map(d => ({ id: d.id, ...d.data() })))
+      .then(() => {
+        getDocs(sessionsCol(user.uid))
+          .then((sessSnap) => {
+            setSessions(sessSnap.docs.map(d => ({ id: d.id, ...d.data() })))
+            setSessionsLoading(false)
+          })
+          .catch((err) => {
+            console.error('Muscles sessions load error:', err)
+            setSummaryError('Could not load your recovery data right now.')
+            setSessionsLoading(false)
+          })
 
-        // Build map starting from global library so every user sees all exercises
-        const map = {}
-        globalSnap.docs.forEach(d => {
-          const { id, name, muscleGroup, type } = d.data()
-          if (id && name && muscleGroup) map[id] = { id, name, muscleGroup, type: type || 'weight' }
-        })
-        // Overlay user's own exercises (custom names/types take priority)
-        exSnap.docs.forEach(d => {
-          const data = { ...d.data(), id: d.id }
-          if (data.id && data.name) map[data.id] = data
-        })
+        Promise.all([
+          getDocs(exercisesCol(user.uid)),
+          getDocs(globalExercisesCol()),
+          getDocs(routinesCol(user.uid)),
+        ])
+          .then(async ([exSnap, globalSnap, routineSnap]) => {
+            // Build map starting from global library so every user sees all exercises
+            const map = {}
+            globalSnap.docs.forEach(d => {
+              const { id, name, muscleGroup, type } = d.data()
+              if (id && name && muscleGroup) map[id] = { id, name, muscleGroup, type: type || 'weight' }
+            })
+            // Overlay user's own exercises (custom names/types take priority)
+            exSnap.docs.forEach(d => {
+              const data = { ...d.data(), id: d.id }
+              if (data.id && data.name) map[data.id] = data
+            })
 
-        // Seed user's exercises collection if empty
-        if (exSnap.empty && Object.keys(map).length > 0) {
-          const batch = writeBatch(db)
-          Object.values(map).forEach(entry => batch.set(exerciseDoc(user.uid, entry.id), entry))
-          await batch.commit()
-        }
+            // Seed user's exercises collection if empty
+            if (exSnap.empty && Object.keys(map).length > 0) {
+              const batch = writeBatch(db)
+              Object.values(map).forEach(entry => batch.set(exerciseDoc(user.uid, entry.id), entry))
+              await batch.commit()
+            }
 
-        setSavedExercises(Object.values(map))
-        setRoutines(routineSnap.docs.map((d) => {
-          const data = { id: d.id, ...d.data() }
-          return {
-            ...data,
-            exercises: (data.exercises || []).map((exercise) => ({
-              ...exercise,
-              type: exercise.type || map[exercise.id]?.type || 'weight',
-            })),
-          }
-        }))
-        setLoading(false)
+            setSavedExercises(Object.values(map))
+            setRoutines(routineSnap.docs.map((d) => {
+              const data = { id: d.id, ...d.data() }
+              return {
+                ...data,
+                exercises: (data.exercises || []).map((exercise) => ({
+                  ...exercise,
+                  type: exercise.type || map[exercise.id]?.type || 'weight',
+                })),
+              }
+            }))
+            setLibraryLoading(false)
+          })
+          .catch((err) => {
+            console.error('Muscles library load error:', err)
+            setLibraryError('Could not load your exercise library right now.')
+            setLibraryLoading(false)
+          })
       })
       .catch((err) => {
-        console.error('Muscles load error:', err)
-        setLoadError('Could not load your exercise library right now.')
-        setLoading(false)
+        console.error('Muscles auth load error:', err)
+        setSummaryError('Could not load your recovery data right now.')
+        setLibraryError('Could not load your exercise library right now.')
+        setSessionsLoading(false)
+        setLibraryLoading(false)
       })
   }, [reloadKey, user?.uid])
+
+  useEffect(() => {
+    const image = new Image()
+    image.decoding = 'async'
+    image.src = recoverySilhouetteSrc
+  }, [recoverySilhouetteSrc])
 
   function retryLoad() {
     setReloadKey((current) => current + 1)
@@ -697,7 +726,7 @@ export default function Muscles() {
                 )}
                 {groupLabel}
               </h1>
-              {!loading && <p className="text-text-secondary text-sm">{exercises.length} exercise{exercises.length !== 1 ? 's' : ''}</p>}
+              {!detailLoading && <p className="text-text-secondary text-sm">{exercises.length} exercise{exercises.length !== 1 ? 's' : ''}</p>}
             </div>
             <button onClick={() => setEditMode(e => !e)}
               className={`w-9 h-9 rounded-xl flex items-center justify-center active:scale-95 transition-colors flex-shrink-0 ${editMode ? 'bg-accent-red text-white' : 'bg-surface2 text-text-secondary'}`}>
@@ -715,10 +744,10 @@ export default function Muscles() {
             )}
           </div>
 
-          {loadError && (
+          {detailError && (
             <div className="rounded-2xl border border-red-500/30 bg-red-500/10 px-3 py-2.5 text-sm">
               <p className="text-accent-red font-semibold">Exercise library unavailable</p>
-              <p className="text-text-secondary mt-1">{loadError}</p>
+              <p className="text-text-secondary mt-1">{detailError}</p>
               <button onClick={retryLoad} className="btn-secondary mt-4 w-full">
                 Retry
               </button>
@@ -735,7 +764,7 @@ export default function Muscles() {
             </div>
           )}
 
-          {loading ? (
+          {detailLoading ? (
             <div className="space-y-2">{[...Array(5)].map((_, i) => <div key={i} className="card h-16 animate-pulse bg-surface2" />)}</div>
           ) : exercises.length === 0 ? (
             <div className="card flex flex-col items-center py-12 gap-2">
@@ -920,7 +949,13 @@ export default function Muscles() {
   })()
   const recommendedActionLabel = routineInProgress
     ? 'Continue Workout'
-    : 'Start Workout'
+    : lowestGroup?.id === 'legs'
+      ? 'Start Leg Workout'
+      : lowestGroup?.id === 'push'
+        ? 'Start Push Workout'
+        : lowestGroup?.id === 'pull'
+          ? 'Start Pull Workout'
+          : 'Start Workout'
 
   function launchRecommendedWorkout() {
     if (routineInProgress?.routine?.id) {
@@ -968,9 +1003,9 @@ export default function Muscles() {
           {(routineInProgress || recommendedRoutine) && (
             <button
               onClick={launchRecommendedWorkout}
-              className="btn-primary mt-3 w-full"
+              className="mt-3 inline-flex items-center gap-3 text-accent text-lg font-semibold active:scale-95 transition-transform"
             >
-              <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.3}>
+              <svg className="w-6 h-6 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M5.25 5.653c0-1.427 1.529-2.33 2.779-1.643l9.42 5.173c1.295.711 1.295 2.575 0 3.286l-9.42 5.173c-1.25.687-2.779-.216-2.779-1.643V5.653z" />
               </svg>
               <span>{recommendedActionLabel}</span>
@@ -978,10 +1013,10 @@ export default function Muscles() {
           )}
         </div>
 
-        {loadError && (
+        {summaryError && (
           <div className="rounded-2xl border border-red-500/30 bg-red-500/10 px-3 py-2.5 text-sm">
             <p className="text-accent-red font-semibold">Weekly targets unavailable</p>
-            <p className="text-text-secondary mt-1">{loadError}</p>
+            <p className="text-text-secondary mt-1">{summaryError}</p>
             <button onClick={retryLoad} className="btn-secondary mt-4 w-full">
               Retry
             </button>
@@ -989,7 +1024,7 @@ export default function Muscles() {
         )}
 
         {/* Weekly target hero */}
-        {!loading && (
+        {!sessionsLoading && !summaryError && (
           <RecoveryHero
             groups={pplConfig}
             sets={weeklySets}
@@ -1002,7 +1037,7 @@ export default function Muscles() {
         )}
 
         {/* Loading skeleton */}
-        {loading && (
+        {sessionsLoading && (
           <div className="flex flex-col items-center py-4 gap-4">
             <div className="w-[230px] h-[330px] rounded-[36px] animate-pulse bg-surface2" />
             <div className="w-[250px] h-[150px] rounded-[32px] animate-pulse bg-surface2" />
