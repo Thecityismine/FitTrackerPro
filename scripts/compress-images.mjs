@@ -5,6 +5,8 @@ import sharp from 'sharp'
 const PUBLIC_DIR = path.resolve('public')
 const MAX_DIMENSION = 1200
 const SIZE_THRESHOLD_BYTES = 600 * 1024
+const SILHOUETTE_MAX_DIMENSION = 720
+const SILHOUETTE_REGEX = /silhouette\.png$/i
 const EXCLUDED_FILES = new Set([
   'public/icon-192.png',
   'public/icon-512.png',
@@ -72,14 +74,58 @@ async function compressImage(filePath) {
   }
 }
 
+async function createSilhouetteVariant(filePath) {
+  const relativePath = toPublicRelative(filePath)
+  if (!SILHOUETTE_REGEX.test(relativePath)) return null
+
+  const originalBuffer = await fs.readFile(filePath)
+  const image = sharp(originalBuffer, { animated: false })
+  const metadata = await image.metadata()
+  const largestSide = Math.max(metadata.width || 0, metadata.height || 0)
+
+  let pipeline = sharp(originalBuffer, { animated: false }).rotate()
+  if (largestSide > SILHOUETTE_MAX_DIMENSION) {
+    pipeline = pipeline.resize({
+      width: SILHOUETTE_MAX_DIMENSION,
+      height: SILHOUETTE_MAX_DIMENSION,
+      fit: 'inside',
+      withoutEnlargement: true,
+    })
+  }
+
+  const outputBuffer = await pipeline
+    .webp({
+      quality: 82,
+      effort: 6,
+      alphaQuality: 85,
+    })
+    .toBuffer()
+
+  const outputPath = filePath.replace(/\.png$/i, '.webp')
+  await fs.writeFile(outputPath, outputBuffer)
+
+  return {
+    relativePath: toPublicRelative(outputPath),
+    sourcePath: relativePath,
+    width: metadata.width,
+    height: metadata.height,
+    before: originalBuffer.byteLength,
+    after: outputBuffer.byteLength,
+  }
+}
+
 async function main() {
   const allFiles = await walk(PUBLIC_DIR)
   const pngFiles = allFiles.filter((filePath) => filePath.toLowerCase().endsWith('.png'))
 
   const results = []
+  const variants = []
   for (const filePath of pngFiles) {
     const result = await compressImage(filePath)
     if (result) results.push(result)
+
+    const variant = await createSilhouetteVariant(filePath)
+    if (variant) variants.push(variant)
   }
 
   results.sort((a, b) => (b.before - b.after) - (a.before - a.after))
@@ -90,6 +136,15 @@ async function main() {
     console.log(
       `${item.relativePath} ${item.width}x${item.height} ${formatKb(item.before)} -> ${formatKb(item.after)}`
     )
+  }
+
+  if (variants.length > 0) {
+    console.log(`Created ${variants.length} silhouette variants.`)
+    for (const item of variants) {
+      console.log(
+        `${item.relativePath} from ${item.sourcePath} ${item.width}x${item.height} ${formatKb(item.before)} -> ${formatKb(item.after)}`
+      )
+    }
   }
 }
 

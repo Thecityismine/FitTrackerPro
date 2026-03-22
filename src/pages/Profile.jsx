@@ -23,6 +23,15 @@ import {
 } from '../firebase/collections'
 
 const DATA_BACKUP_VERSION = 1
+const SEX_OPTIONS = [
+  { value: 'male', label: 'Male' },
+  { value: 'female', label: 'Female' },
+]
+const FITNESS_GOAL_OPTIONS = [
+  { value: 'lose_weight', label: 'Lose Weight' },
+  { value: 'build_muscle', label: 'Build Muscle' },
+  { value: 'overall_fitness', label: 'Overall Fitness' },
+]
 const DATA_COLLECTIONS = [
   { key: 'routines', getCollection: routinesCol, getDocRef: routineDoc },
   { key: 'exercises', getCollection: exercisesCol, getDocRef: exerciseDoc },
@@ -91,6 +100,9 @@ export default function Profile() {
   const [name, setName]           = useState(displayName)
   const [height, setHeight]       = useState(profile?.heightIn || '')
   const [weightUnit, setWeightUnit] = useState(profile?.weightUnit || 'lbs')
+  const [sex, setSex]             = useState(profile?.sex || '')
+  const [fitnessGoal, setFitnessGoal] = useState(profile?.fitnessGoal || '')
+  const [birthday, setBirthday]   = useState(profile?.dateOfBirth || '')
   const [pushTarget, setPushTarget] = useState(profile?.weeklyTargets?.push ?? 27)
   const [pullTarget, setPullTarget] = useState(profile?.weeklyTargets?.pull ?? 15)
   const [legsTarget, setLegsTarget] = useState(profile?.weeklyTargets?.legs ?? 21)
@@ -113,6 +125,20 @@ export default function Profile() {
 
   // Clean up the "Saved" badge timer on unmount
   useEffect(() => () => clearTimeout(savedTimerRef.current), [])
+
+  useEffect(() => {
+    setName(profile?.displayName || user?.displayName || 'Athlete')
+    setHeight(profile?.heightIn ?? '')
+    setWeightUnit(profile?.weightUnit || 'lbs')
+    setSex(profile?.sex || '')
+    setFitnessGoal(profile?.fitnessGoal || '')
+    setBirthday(profile?.dateOfBirth || '')
+    setPushTarget(profile?.weeklyTargets?.push ?? 27)
+    setPullTarget(profile?.weeklyTargets?.pull ?? 15)
+    setLegsTarget(profile?.weeklyTargets?.legs ?? 21)
+    setWorkoutGoal(profile?.weeklyWorkoutGoal ?? 3)
+    setVolumeGoal(profile?.weeklyVolumeGoal ?? 100000)
+  }, [profile, user?.displayName])
 
   async function uploadFile(file, path) {
     const sRef = storageRef(storage, path)
@@ -159,6 +185,9 @@ export default function Profile() {
         displayName: trimmedName,
         heightIn: height,
         weightUnit,
+        sex: sex || null,
+        fitnessGoal: fitnessGoal || null,
+        dateOfBirth: birthday || null,
         weeklyTargets: {
           push: Number(pushTarget) || 27,
           pull: Number(pullTarget) || 15,
@@ -186,6 +215,9 @@ export default function Profile() {
     setName(profileData?.displayName || displayName)
     setHeight(profileData?.heightIn ?? '')
     setWeightUnit(profileData?.weightUnit || 'lbs')
+    setSex(profileData?.sex || '')
+    setFitnessGoal(profileData?.fitnessGoal || '')
+    setBirthday(profileData?.dateOfBirth || '')
     setPushTarget(profileData?.weeklyTargets?.push ?? 27)
     setPullTarget(profileData?.weeklyTargets?.pull ?? 15)
     setLegsTarget(profileData?.weeklyTargets?.legs ?? 21)
@@ -327,6 +359,8 @@ export default function Profile() {
     }
   }
 
+  const todayIso = new Date(Date.now() - (new Date().getTimezoneOffset() * 60000)).toISOString().slice(0, 10)
+
   return (
     <div className="min-h-dvh bg-bg flex flex-col">
 
@@ -417,6 +451,59 @@ export default function Profile() {
                 value={height}
                 onChange={(e) => setHeight(e.target.value)}
               />
+            </div>
+
+            <div>
+              <label className="label">Birthday</label>
+              <input
+                type="date"
+                className="input"
+                value={birthday}
+                max={todayIso}
+                onChange={(e) => setBirthday(e.target.value)}
+              />
+              <p className="text-text-secondary text-xs mt-1">Used for AI summaries and recommendations</p>
+            </div>
+
+            <div>
+              <label className="label">Sex</label>
+              <div className="grid grid-cols-2 gap-2">
+                {SEX_OPTIONS.map((option) => (
+                  <button
+                    key={option.value}
+                    type="button"
+                    onClick={() => setSex(option.value)}
+                    className={`py-2.5 rounded-xl text-sm font-semibold border transition-colors ${
+                      sex === option.value
+                        ? 'bg-accent border-accent text-white'
+                        : 'bg-surface2 border-surface2 text-text-secondary'
+                    }`}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <label className="label">Workout Goal</label>
+              <div className="grid grid-cols-1 gap-2">
+                {FITNESS_GOAL_OPTIONS.map((option) => (
+                  <button
+                    key={option.value}
+                    type="button"
+                    onClick={() => setFitnessGoal(option.value)}
+                    className={`rounded-xl border px-4 py-3 text-left transition-colors ${
+                      fitnessGoal === option.value
+                        ? 'bg-accent border-accent text-white'
+                        : 'bg-surface2 border-surface2 text-text-secondary'
+                    }`}
+                  >
+                    <span className="block text-sm font-semibold">{option.label}</span>
+                  </button>
+                ))}
+              </div>
+              <p className="text-text-secondary text-xs mt-1">We&apos;ll use this to personalize the app later</p>
             </div>
 
             {/* Weight unit */}

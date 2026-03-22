@@ -64,6 +64,8 @@ export function AuthProvider({ children }) {
       photoURL: data.photoURL || null,
       heightIn: null,       // inches — used for BMI
       weightUnit: 'lbs',    // 'lbs' | 'kg'
+      sex: null,
+      fitnessGoal: null,
       dateOfBirth: null,
       setupComplete: false,
       createdAt: serverTimestamp(),

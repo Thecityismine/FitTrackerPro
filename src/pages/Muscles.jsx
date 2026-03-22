@@ -39,7 +39,16 @@ const PPL = [
     ],
   },
 ]
-const RECOVERY_SILHOUETTE_SRC = '/man-silhouette.png'
+const RECOVERY_SILHOUETTES = {
+  male: '/man-silhouette.webp',
+  female: '/woman-silhouette.webp',
+}
+
+function getRecoverySilhouetteSrc(sex) {
+  return sex === 'female'
+    ? RECOVERY_SILHOUETTES.female
+    : RECOVERY_SILHOUETTES.male
+}
 
 // Map muscleGroup / exerciseName → { groupId, muscleId }
 const PPL_MAP = {
@@ -388,7 +397,7 @@ function GroupRow({ group, sets, expanded, onToggle, isLowest }) {
 }
 
 // ─── Small hex for history ─────────────────────────────────
-function RecoveryHero({ groups, sets, totalActual, totalTarget, paceLabel, paceTone }) {
+function RecoveryHero({ groups, sets, totalActual, totalTarget, paceLabel, paceTone, silhouetteSrc }) {
   const segments = groups.map((group) => {
     const actual = getGroupActualSets(group, sets)
     return {
@@ -404,8 +413,8 @@ function RecoveryHero({ groups, sets, totalActual, totalTarget, paceLabel, paceT
   const mainGradient = buildSilhouetteGradient(segments, 0.28, 0.42)
   const glowGradient = buildSilhouetteGradient(segments, 0.18, 0.36)
   const maskStyle = {
-    WebkitMaskImage: `url("${RECOVERY_SILHOUETTE_SRC}")`,
-    maskImage: `url("${RECOVERY_SILHOUETTE_SRC}")`,
+    WebkitMaskImage: `url("${silhouetteSrc}")`,
+    maskImage: `url("${silhouetteSrc}")`,
     WebkitMaskSize: 'contain',
     maskSize: 'contain',
     WebkitMaskRepeat: 'no-repeat',
@@ -431,9 +440,10 @@ function RecoveryHero({ groups, sets, totalActual, totalTarget, paceLabel, paceT
           style={{ ...maskStyle, background: mainGradient }}
         />
         <img
-          src={RECOVERY_SILHOUETTE_SRC}
+          src={silhouetteSrc}
           alt=""
-          loading="lazy"
+          loading="eager"
+          fetchPriority="high"
           decoding="async"
           className="absolute inset-0 w-full h-full object-contain object-top opacity-90 pointer-events-none"
         />
@@ -511,6 +521,7 @@ export default function Muscles() {
     { ...PPL[1], targetTotal: profile?.weeklyTargets?.pull ?? PPL[1].targetTotal },
     { ...PPL[2], targetTotal: profile?.weeklyTargets?.legs ?? PPL[2].targetTotal },
   ], [profile?.weeklyTargets?.push, profile?.weeklyTargets?.pull, profile?.weeklyTargets?.legs])
+  const recoverySilhouetteSrc = useMemo(() => getRecoverySilhouetteSrc(profile?.sex), [profile?.sex])
   const totalTarget = pplConfig.reduce((s, g) => s + g.targetTotal, 0)
 
   useEffect(() => {
@@ -914,6 +925,7 @@ export default function Muscles() {
             totalTarget={totalTarget}
             paceLabel={paceLabel}
             paceTone={paceTone}
+            silhouetteSrc={recoverySilhouetteSrc}
           />
         )}
 
