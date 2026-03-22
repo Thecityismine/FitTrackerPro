@@ -441,10 +441,10 @@ export default function CalendarLog() {
                       </button>
 
                       {/* Expanded exercise rows */}
-                      {isExpanded && (
-                        <div className="mt-3 pt-3 border-t border-surface2 space-y-1">
-                          {group.exercises.map((ex) => {
-                            const isCardio = ex.muscleGroup?.toLowerCase() === 'cardio'
+	                      {isExpanded && (
+	                        <div className="mt-3 pt-3 border-t border-surface2 space-y-1">
+	                          {group.exercises.map((ex) => {
+	                            const isCardio = ex.muscleGroup?.toLowerCase() === 'cardio'
                             const bestWeight = (ex.sets || []).reduce(
                               (m, s) => Math.max(m, s.weight || 0), 0
                             )
@@ -464,40 +464,43 @@ export default function CalendarLog() {
                                     },
                                   })
                                 }
-                                className="flex items-center justify-between w-full text-left py-2 active:scale-95 transition-transform"
-                              >
-                                <div className="flex items-center gap-2 min-w-0">
-                                  <div className="w-1.5 h-1.5 rounded-full bg-accent flex-shrink-0" />
-                                  <p className="text-text-primary text-sm truncate">{ex.exerciseName}</p>
-                                </div>
-                                <div className="flex items-center gap-3 flex-shrink-0 ml-2">
-                                  {isCardio ? (
-                                    bestWeight > 0 && (
-                                      <p className="text-accent font-mono text-xs font-semibold">
-                                        {bestWeight} min
-                                      </p>
-                                    )
-                                  ) : (
-                                    <>
-                                      <p className="text-text-secondary text-xs">
-                                        {setCount} set{setCount !== 1 ? 's' : ''}
-                                      </p>
-                                      {bestWeight > 0 && (
-                                        <p className="text-accent font-mono text-xs font-semibold">
-                                          {bestWeight} lbs
-                                        </p>
-                                      )}
-                                      {totalVol > 0 && (
-                                        <p className="text-text-secondary text-xs font-mono">
-                                          {totalVol >= 1000
-                                            ? `${(totalVol / 1000).toFixed(1)}k`
-                                            : totalVol.toLocaleString()}
-                                        </p>
-                                      )}
-                                    </>
-                                  )}
-                                  <svg className="w-3.5 h-3.5 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+	                                className="flex items-center justify-between w-full text-left py-2 active:scale-95 transition-transform"
+	                              >
+	                                <div className="min-w-0 flex-1 pr-3">
+	                                  <div className="flex items-center gap-2 min-w-0">
+	                                    <div className="w-1.5 h-1.5 rounded-full bg-accent flex-shrink-0" />
+	                                    <p className="text-text-primary text-sm font-semibold truncate">{ex.exerciseName}</p>
+	                                  </div>
+	                                  <div className="mt-1 pl-3.5">
+	                                    {isCardio ? (
+	                                      <p className="text-text-secondary text-xs">
+	                                        {setCount} set{setCount !== 1 ? 's' : ''}{bestWeight > 0 ? ` • Best ${bestWeight} min` : ''}
+	                                      </p>
+	                                    ) : (
+	                                      <p className="text-text-secondary text-xs">
+	                                        {setCount} set{setCount !== 1 ? 's' : ''}{totalVol > 0 ? ` • Volume ${formatCompactVolume(totalVol)}` : ''}
+	                                      </p>
+	                                    )}
+	                                  </div>
+	                                </div>
+	                                <div className="flex items-center gap-3 flex-shrink-0 ml-2">
+	                                  {isCardio ? (
+	                                    <div className="text-right">
+	                                      <p className="text-accent font-display text-lg font-bold leading-none">
+	                                        {bestWeight > 0 ? `${bestWeight}m` : '--'}
+	                                      </p>
+	                                      <p className="text-text-secondary text-[11px] mt-1">best time</p>
+	                                    </div>
+	                                  ) : (
+	                                    <div className="text-right">
+	                                      <p className="text-accent font-display text-lg font-bold leading-none">
+	                                        {bestWeight > 0 ? `${bestWeight} lbs` : '--'}
+	                                      </p>
+	                                      <p className="text-text-secondary text-[11px] mt-1">top weight</p>
+	                                    </div>
+	                                  )}
+	                                  <svg className="w-3.5 h-3.5 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+	                                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
                                   </svg>
                                 </div>
                               </button>
