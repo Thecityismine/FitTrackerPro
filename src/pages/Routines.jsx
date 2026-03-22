@@ -795,7 +795,11 @@ function RoutineDetail({
                   {editMode && (
                     <>
                       <button
-                        onClick={(e) => { e.stopPropagation(); onRemoveExercise(routine.id, ex) }}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          if (!window.confirm(`Remove "${ex.name}" from this routine?`)) return
+                          onRemoveExercise(routine.id, ex)
+                        }}
                         className="w-7 h-7 rounded-full bg-accent-red/20 border border-accent-red/40 flex items-center justify-center active:scale-95 transition-transform flex-shrink-0 self-center"
                       >
                         <svg className="w-3.5 h-3.5 text-accent-red" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>

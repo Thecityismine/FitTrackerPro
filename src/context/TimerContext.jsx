@@ -22,6 +22,10 @@ function getDisplayValue(base, startedAt, isRunning) {
   return base + Math.max(0, Math.floor((Date.now() - startedAt) / 1000))
 }
 
+function persistTimerState(base, isRunning, startedAt) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify({ base, isRunning, startedAt }))
+}
+
 export function TimerProvider({ children }) {
   const initialTimerState = getStoredTimerState()
   // `base` = accumulated seconds before the current run started
@@ -35,11 +39,7 @@ export function TimerProvider({ children }) {
   useEffect(() => { baseRef.current = base }, [base])
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({
-      base,
-      isRunning,
-      startedAt: startedAtRef.current,
-    }))
+    persistTimerState(base, isRunning, startedAtRef.current)
   }, [base, isRunning])
 
   function tick() {
@@ -76,7 +76,9 @@ export function TimerProvider({ children }) {
   }, [isRunning])
 
   const start = () => {
-    if (startedAtRef.current == null) startedAtRef.current = Date.now()
+    if (isRunning) return
+    startedAtRef.current = Date.now()
+    persistTimerState(baseRef.current, true, startedAtRef.current)
     setIsRunning(true)
   }
 
@@ -86,6 +88,8 @@ export function TimerProvider({ children }) {
       ? Math.floor((Date.now() - startedAtRef.current) / 1000)
       : 0
     const frozen = baseRef.current + elapsed
+    startedAtRef.current = null
+    persistTimerState(frozen, false, null)
     setBase(frozen)
     baseRef.current = frozen
     setDisplay(frozen)
@@ -100,10 +104,20 @@ export function TimerProvider({ children }) {
   const reset = () => {
     clearInterval(intervalRef.current)
     startedAtRef.current = null
+    persistTimerState(0, false, null)
     setIsRunning(false)
     setBase(0)
     baseRef.current = 0
     setDisplay(0)
+  }
+
+  const restart = () => {
+    startedAtRef.current = Date.now()
+    persistTimerState(0, true, startedAtRef.current)
+    setBase(0)
+    baseRef.current = 0
+    setDisplay(0)
+    setIsRunning(true)
   }
 
   const seconds = display
@@ -115,7 +129,7 @@ export function TimerProvider({ children }) {
   }
 
   return (
-    <TimerContext.Provider value={{ seconds, isRunning, start, pause, toggle, reset, formatted }}>
+    <TimerContext.Provider value={{ seconds, isRunning, start, pause, toggle, reset, restart, formatted }}>
       {children}
     </TimerContext.Provider>
   )

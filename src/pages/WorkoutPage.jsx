@@ -107,7 +107,7 @@ function GuidedWorkoutPage() {
   const location = useLocation()
   const navigate = useNavigate()
   const { user } = useAuth()
-  const { seconds, isRunning, formatted, toggle, reset, start, pause } = useTimer()
+  const { seconds, isRunning, formatted, toggle, reset, restart, pause } = useTimer()
   const {
     activeWorkout,
     startRoutineWorkout,
@@ -336,8 +336,7 @@ function GuidedWorkoutPage() {
   function addSet(exercise) {
     appendSet(exercise, (template) => template)
     clearTimeout(timerRestartTimeoutRef.current)
-    reset()
-    start()
+    restart()
   }
 
   function updateSet(exercise, updatedSet) {
@@ -354,13 +353,14 @@ function GuidedWorkoutPage() {
     if (changed && activeExercise?.id === exercise.id) {
       clearTimeout(timerRestartTimeoutRef.current)
       timerRestartTimeoutRef.current = setTimeout(() => {
-        reset()
-        start()
+        restart()
       }, 500)
     }
   }
 
   function deleteSet(exercise, setId) {
+    const confirmed = window.confirm('Delete this set?')
+    if (!confirmed) return
     const nextSets = (exerciseState[exercise.id]?.sets || []).filter((set) => set.id !== setId)
     updateSets(exercise, nextSets)
   }

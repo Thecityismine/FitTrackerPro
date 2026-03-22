@@ -90,7 +90,7 @@ export default function LegacyExerciseWorkout() {
   const { state } = useLocation()
   const navigate = useNavigate()
   const { user } = useAuth()
-  const { isRunning, toggle, reset, start, formatted } = useTimer()
+  const { isRunning, toggle, reset, restart, formatted } = useTimer()
 
   const exercise = state?.exercise ?? {
     id: exerciseId,
@@ -243,8 +243,7 @@ export default function LegacyExerciseWorkout() {
     ]
     setSets(nextSets)
     scheduleSave(nextSets)
-    reset()
-    start()
+    restart()
   }
 
   function updateSet(updatedSet) {
@@ -254,6 +253,8 @@ export default function LegacyExerciseWorkout() {
   }
 
   function deleteSet(id) {
+    const confirmed = window.confirm('Delete this set?')
+    if (!confirmed) return
     const nextSets = sets.filter((set) => set.id !== id)
     setSets(nextSets)
     scheduleSave(nextSets)

@@ -3,8 +3,80 @@ import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { updateProfile } from 'firebase/auth'
 import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage'
-import { auth, storage } from '../firebase/config'
+import { getDoc, getDocs, writeBatch } from 'firebase/firestore'
+import { auth, db, storage } from '../firebase/config'
 import { useAuth } from '../context/AuthContext'
+import {
+  bodyMetricDoc,
+  bodyMetricsCol,
+  exerciseDoc,
+  exercisesCol,
+  prDoc,
+  prsCol,
+  routineDoc,
+  routinesCol,
+  sessionDoc,
+  sessionsCol,
+  setDoc_ as setEntryDoc,
+  setsCol,
+  userDoc,
+} from '../firebase/collections'
+
+const DATA_BACKUP_VERSION = 1
+const DATA_COLLECTIONS = [
+  { key: 'routines', getCollection: routinesCol, getDocRef: routineDoc },
+  { key: 'exercises', getCollection: exercisesCol, getDocRef: exerciseDoc },
+  { key: 'sessions', getCollection: sessionsCol, getDocRef: sessionDoc },
+  { key: 'bodyMetrics', getCollection: bodyMetricsCol, getDocRef: bodyMetricDoc },
+  { key: 'personalRecords', getCollection: prsCol, getDocRef: prDoc },
+  { key: 'sets', getCollection: setsCol, getDocRef: setEntryDoc },
+]
+
+function serializeBackupValue(value) {
+  if (value == null) return value
+  if (Array.isArray(value)) return value.map(serializeBackupValue)
+  if (typeof value === 'object') {
+    if (typeof value.toDate === 'function') {
+      return { __fittrackType: 'timestamp', value: value.toDate().toISOString() }
+    }
+    if (value instanceof Date) {
+      return { __fittrackType: 'date', value: value.toISOString() }
+    }
+    return Object.fromEntries(
+      Object.entries(value).map(([key, nestedValue]) => [key, serializeBackupValue(nestedValue)])
+    )
+  }
+  return value
+}
+
+function deserializeBackupValue(value) {
+  if (value == null) return value
+  if (Array.isArray(value)) return value.map(deserializeBackupValue)
+  if (typeof value === 'object') {
+    if (
+      value.__fittrackType &&
+      (value.__fittrackType === 'timestamp' || value.__fittrackType === 'date') &&
+      typeof value.value === 'string'
+    ) {
+      return new Date(value.value)
+    }
+    return Object.fromEntries(
+      Object.entries(value).map(([key, nestedValue]) => [key, deserializeBackupValue(nestedValue)])
+    )
+  }
+  return value
+}
+
+async function commitBatchWrites(writes) {
+  const chunkSize = 400
+  for (let index = 0; index < writes.length; index += chunkSize) {
+    const batch = writeBatch(db)
+    writes.slice(index, index + chunkSize).forEach(({ ref, data }) => {
+      batch.set(ref, data, { merge: true })
+    })
+    await batch.commit()
+  }
+}
 
 export default function Profile() {
   const { user, profile, logout, updateUserProfile } = useAuth()
@@ -31,8 +103,12 @@ export default function Profile() {
   const [uploadingPhoto, setUploadingPhoto] = useState(false)
   const [uploadingQr, setUploadingQr]       = useState(false)
   const [uploadError, setUploadError]       = useState(null)
+  const [exportingData, setExportingData]   = useState(false)
+  const [importingData, setImportingData]   = useState(false)
+  const [transferStatus, setTransferStatus] = useState(null)
   const photoInputRef  = useRef(null)
   const qrInputRef     = useRef(null)
+  const importInputRef = useRef(null)
   const savedTimerRef  = useRef(null)
 
   // Clean up the "Saved" badge timer on unmount
@@ -104,6 +180,151 @@ export default function Profile() {
   async function handleLogout() {
     await logout()
     navigate('/')
+  }
+
+  function applyImportedProfile(profileData) {
+    setName(profileData?.displayName || displayName)
+    setHeight(profileData?.heightIn ?? '')
+    setWeightUnit(profileData?.weightUnit || 'lbs')
+    setPushTarget(profileData?.weeklyTargets?.push ?? 27)
+    setPullTarget(profileData?.weeklyTargets?.pull ?? 15)
+    setLegsTarget(profileData?.weeklyTargets?.legs ?? 21)
+    setWorkoutGoal(profileData?.weeklyWorkoutGoal ?? 3)
+    setVolumeGoal(profileData?.weeklyVolumeGoal ?? 100000)
+  }
+
+  async function handleExportData() {
+    if (!user?.uid) return
+    setExportingData(true)
+    setTransferStatus(null)
+
+    try {
+      const profileSnapshot = await getDoc(userDoc(user.uid))
+      const collectionSnapshots = await Promise.all(
+        DATA_COLLECTIONS.map(({ getCollection }) => getDocs(getCollection(user.uid)))
+      )
+
+      const payload = {
+        meta: {
+          app: 'fittrack-pro',
+          version: DATA_BACKUP_VERSION,
+          exportedAt: new Date().toISOString(),
+          userUid: user.uid,
+        },
+        profile: serializeBackupValue(profileSnapshot.exists() ? profileSnapshot.data() : (profile || {})),
+        collections: Object.fromEntries(
+          DATA_COLLECTIONS.map((config, index) => [
+            config.key,
+            collectionSnapshots[index].docs.map((docSnapshot) => ({
+              id: docSnapshot.id,
+              data: serializeBackupValue(docSnapshot.data()),
+            })),
+          ])
+        ),
+      }
+
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      const stamp = new Date().toISOString().slice(0, 10)
+      link.href = url
+      link.download = `fittrack-backup-${stamp}.json`
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      URL.revokeObjectURL(url)
+
+      const totalDocs = Object.values(payload.collections).reduce((sum, docs) => sum + docs.length, 0)
+      setTransferStatus({
+        type: 'success',
+        message: `Exported ${totalDocs} records to ${link.download}.`,
+      })
+    } catch (error) {
+      console.error('Export data error:', error)
+      setTransferStatus({
+        type: 'error',
+        message: 'Could not export your data. Please try again.',
+      })
+    } finally {
+      setExportingData(false)
+    }
+  }
+
+  async function handleImportData(event) {
+    const file = event.target.files?.[0]
+    if (!file || !user?.uid) return
+
+    setTransferStatus(null)
+
+    try {
+      const payload = JSON.parse(await file.text())
+      if (!payload || typeof payload !== 'object' || typeof payload.collections !== 'object') {
+        throw new Error('Invalid backup file format.')
+      }
+
+      const confirmed = window.confirm(
+        `Import data from "${file.name}"? Matching records will be overwritten. Records not in the file will be kept.`
+      )
+      if (!confirmed) return
+
+      setImportingData(true)
+
+      const writes = []
+      let importedCount = 0
+
+      DATA_COLLECTIONS.forEach(({ key, getDocRef }) => {
+        const docs = Array.isArray(payload.collections[key]) ? payload.collections[key] : []
+        docs.forEach((entry) => {
+          if (!entry?.id || typeof entry.data !== 'object' || entry.data == null) return
+          writes.push({
+            ref: getDocRef(user.uid, entry.id),
+            data: deserializeBackupValue(entry.data),
+          })
+          importedCount += 1
+        })
+      })
+
+      if (writes.length > 0) {
+        await commitBatchWrites(writes)
+      }
+
+      const importedProfile = payload.profile && typeof payload.profile === 'object'
+        ? deserializeBackupValue(payload.profile)
+        : null
+
+      if (importedProfile) {
+        const profileUpdates = { ...importedProfile }
+        delete profileUpdates.uid
+        delete profileUpdates.email
+        delete profileUpdates.createdAt
+        delete profileUpdates.updatedAt
+
+        await updateUserProfile(profileUpdates)
+
+        const authUpdates = {}
+        if (typeof profileUpdates.displayName === 'string') authUpdates.displayName = profileUpdates.displayName
+        if (typeof profileUpdates.photoURL === 'string' || profileUpdates.photoURL === null) authUpdates.photoURL = profileUpdates.photoURL
+        if (auth.currentUser && Object.keys(authUpdates).length > 0) {
+          await updateProfile(auth.currentUser, authUpdates)
+        }
+
+        applyImportedProfile(profileUpdates)
+      }
+
+      setTransferStatus({
+        type: 'success',
+        message: `Imported ${importedCount} records from ${file.name}. Matching records were updated.`,
+      })
+    } catch (error) {
+      console.error('Import data error:', error)
+      setTransferStatus({
+        type: 'error',
+        message: 'Could not import that backup file. Make sure it is a valid FitTrack JSON export.',
+      })
+    } finally {
+      event.target.value = ''
+      setImportingData(false)
+    }
   }
 
   return (
@@ -356,6 +577,46 @@ export default function Profile() {
               </button>
             )}
             <input ref={qrInputRef} type="file" accept="image/*" className="hidden" onChange={handleQrUpload} />
+          </div>
+        </div>
+        <div>
+          <p className="section-title">Data Backup</p>
+          <div className="card space-y-4">
+            <p className="text-text-secondary text-xs leading-relaxed">
+              Export a JSON backup of your profile, routines, exercises, sessions, and body metrics. Import restores matching records without deleting anything already in your account.
+            </p>
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                onClick={handleExportData}
+                disabled={exportingData || importingData}
+                className="btn-secondary w-full disabled:opacity-50"
+              >
+                {exportingData ? 'Exporting...' : 'Export Data'}
+              </button>
+              <button
+                onClick={() => importInputRef.current?.click()}
+                disabled={exportingData || importingData}
+                className="btn-primary w-full disabled:opacity-50"
+              >
+                {importingData ? 'Importing...' : 'Import Data'}
+              </button>
+            </div>
+            <input
+              ref={importInputRef}
+              type="file"
+              accept="application/json,.json"
+              className="hidden"
+              onChange={handleImportData}
+            />
+            {transferStatus && (
+              <div className={`rounded-2xl border px-3 py-2.5 text-xs ${
+                transferStatus.type === 'error'
+                  ? 'border-red-500/30 bg-red-500/10 text-accent-red'
+                  : 'border-accent-green/30 bg-accent-green/10 text-accent-green'
+              }`}>
+                {transferStatus.message}
+              </div>
+            )}
           </div>
         </div>
         <div>
