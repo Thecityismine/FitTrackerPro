@@ -14,6 +14,31 @@ import { sessionsCol, routinesCol } from '../firebase/collections'
 const TODAY = format(new Date(), 'yyyy-MM-dd')
 const TODAY_DISPLAY = format(new Date(), 'EEE, MMM d')
 
+function getTimestampMs(value) {
+  if (!value) return null
+  if (typeof value?.toDate === 'function') return value.toDate().getTime()
+  if (typeof value?.seconds === 'number') return value.seconds * 1000
+  if (value instanceof Date) return value.getTime()
+  if (typeof value === 'string' || typeof value === 'number') {
+    const parsed = new Date(value).getTime()
+    return Number.isNaN(parsed) ? null : parsed
+  }
+  return null
+}
+
+function formatCompactVolume(volume) {
+  if (!Number.isFinite(volume) || volume <= 0) return '0'
+  return volume >= 1000 ? `${(volume / 1000).toFixed(1)}k` : Math.round(volume).toLocaleString()
+}
+
+function formatDurationMinutes(minutes) {
+  if (!minutes || minutes < 1) return null
+  if (minutes < 60) return `${minutes}m`
+  const hours = Math.floor(minutes / 60)
+  const remaining = minutes % 60
+  return remaining > 0 ? `${hours}h ${remaining}m` : `${hours}h`
+}
+
 export default function CalendarLog() {
   const { user, profile } = useAuth()
   const navigate = useNavigate()
@@ -62,6 +87,38 @@ export default function CalendarLog() {
     }
     return map
   }, [sessions])
+
+  const selectedDateSummary = useMemo(() => {
+    if (!selectedDate || !grouped[selectedDate]) return null
+
+    const groupsForDate = Object.values(grouped[selectedDate])
+    const daySessions = groupsForDate.flatMap((group) => group.exercises)
+    const routineGroups = groupsForDate.filter((group) => group.routineName && group.routineName !== 'Free Workout')
+    const label = groupsForDate.length === 1
+      ? groupsForDate[0].routineName
+      : routineGroups.length === 1
+        ? `${routineGroups[0].routineName} + ${groupsForDate.length - 1} more`
+        : `${groupsForDate.length} workouts`
+    const totalVolume = daySessions.reduce((sum, session) => sum + (session.totalVolume || 0), 0)
+    const exerciseCount = new Set(daySessions.map((session) => session.exerciseId || session.exerciseName).filter(Boolean)).size
+    const timestamps = daySessions.flatMap((session) => [
+      getTimestampMs(session.createdAt),
+      getTimestampMs(session.updatedAt),
+      getTimestampMs(session.startedAt),
+    ]).filter(Boolean)
+    const durationMinutes = timestamps.length > 1
+      ? Math.max(1, Math.round((Math.max(...timestamps) - Math.min(...timestamps)) / 60000))
+      : null
+
+    return {
+      label,
+      totalVolume,
+      exerciseCount,
+      workoutCount: groupsForDate.length,
+      durationLabel: formatDurationMinutes(durationMinutes),
+      isAllCardio: daySessions.length > 0 && daySessions.every((session) => session.muscleGroup?.toLowerCase() === 'cardio'),
+    }
+  }, [grouped, selectedDate])
 
   // Bounds for filters
   const monthStartStr = format(startOfMonth(currentMonth), 'yyyy-MM-dd')
@@ -153,19 +210,19 @@ export default function CalendarLog() {
                 <button
                   key={dateStr}
                   onClick={() => handleDayClick(dateStr)}
-                  className={`aspect-square rounded-xl flex flex-col items-center justify-center text-sm font-medium transition-colors active:scale-95 ${
-                    isToday
-                      ? 'bg-accent text-white'
-                      : isSelected
-                      ? 'bg-accent-green text-white'
+                  className={`aspect-square rounded-xl flex flex-col items-center justify-center text-sm font-medium transition-all duration-200 active:scale-95 ${
+                    isSelected
+                      ? 'bg-accent text-white shadow-[0_10px_24px_rgba(37,99,235,0.32)] ring-1 ring-white/10 scale-[1.02]'
+                      : isToday
+                      ? 'bg-surface2 text-text-primary ring-1 ring-accent/35'
                       : hasWorkout
                       ? 'bg-accent-green/20 text-accent-green'
                       : 'text-text-secondary'
                   }`}
                 >
                   <span>{day.getDate()}</span>
-                  {hasWorkout && !isSelected && (
-                    <div className={`w-1 h-1 rounded-full mt-0.5 ${isToday ? 'bg-white/80' : 'bg-accent-green'}`} />
+                  {hasWorkout && (
+                    <div className={`w-1 h-1 rounded-full mt-0.5 ${isSelected ? 'bg-white/80' : isToday ? 'bg-accent' : 'bg-accent-green'}`} />
                   )}
                 </button>
               )
@@ -175,6 +232,35 @@ export default function CalendarLog() {
 
         {/* ── Sessions list ────────────────────────────────── */}
         <div>
+          {selectedDateSummary && (
+            <div className="card border-accent/20 shadow-[0_0_0_1px_rgba(37,99,235,0.08)] mb-3">
+              <div className="flex items-start justify-between gap-4">
+                <div className="min-w-0 flex-1">
+                  <p className="text-text-secondary text-xs font-semibold uppercase tracking-[0.18em]">
+                    {format(parseISO(selectedDate), 'MMMM d')}
+                  </p>
+                  <h2 className="mt-1 font-display text-xl font-bold text-text-primary truncate">
+                    {selectedDateSummary.label}
+                  </h2>
+                  <p className="mt-1 text-sm text-text-secondary">
+                    {selectedDateSummary.workoutCount === 1
+                      ? `${selectedDateSummary.exerciseCount} exercise${selectedDateSummary.exerciseCount === 1 ? '' : 's'}`
+                      : `${selectedDateSummary.workoutCount} workouts • ${selectedDateSummary.exerciseCount} exercises`}
+                    {selectedDateSummary.durationLabel ? ` • ${selectedDateSummary.durationLabel}` : ''}
+                  </p>
+                </div>
+                <div className="text-right flex-shrink-0">
+                  <p className={`font-display text-2xl font-bold ${selectedDateSummary.isAllCardio ? 'text-accent' : 'text-accent-green'}`}>
+                    {selectedDateSummary.isAllCardio ? selectedDateSummary.durationLabel || '--' : formatCompactVolume(selectedDateSummary.totalVolume)}
+                  </p>
+                  <p className="text-text-secondary text-xs">
+                    {selectedDateSummary.isAllCardio ? 'time logged' : 'lbs lifted'}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
               <p className="section-title mb-0">
