@@ -48,6 +48,25 @@
     -webkit-appearance: none;
     margin: 0;
   }
+
+  input[type="date"] {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    display: block;
+    -webkit-appearance: none;
+    appearance: none;
+  }
+
+  input[type="date"]::-webkit-date-and-time-value {
+    min-height: 1.5em;
+    text-align: left;
+  }
+
+  input[type="date"]::-webkit-calendar-picker-indicator {
+    margin: 0;
+    opacity: 0.9;
+  }
 }
 
 @layer components {

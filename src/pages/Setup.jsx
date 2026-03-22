@@ -3,18 +3,30 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 
-const TOTAL_STEPS = 4
+const TOTAL_STEPS = 5
+const SEX_OPTIONS = [
+  { value: 'male', label: 'Male' },
+  { value: 'female', label: 'Female' },
+]
+const FITNESS_GOAL_OPTIONS = [
+  { value: 'lose_weight', label: 'Lose Weight' },
+  { value: 'build_muscle', label: 'Build Muscle' },
+  { value: 'overall_fitness', label: 'Overall Fitness' },
+]
 
 const STEP_META = [
   { title: "What's your name?",              sub: "This is how you'll appear in the app." },
   { title: "What's your current weight?",    sub: "We'll use this to track your progress." },
   { title: "How tall are you?",              sub: "Used to calculate your body metrics." },
   { title: "How often do you work out?",     sub: "Set your weekly workout goal." },
+  { title: 'Set your profile preferences',   sub: 'We will use these to personalize your settings from the start.' },
 ]
 
 export default function Setup() {
   const { user, profile, updateUserProfile } = useAuth()
   const navigate = useNavigate()
+  const todayIso = new Date(Date.now() - (new Date().getTimezoneOffset() * 60000)).toISOString().slice(0, 10)
+  const savedHeightIn = Number(profile?.heightIn) || 0
 
   const [step, setStep]       = useState(1)
   const [saving, setSaving]   = useState(false)
@@ -23,19 +35,31 @@ export default function Setup() {
   const [displayName, setDisplayName] = useState(profile?.displayName || user?.displayName || '')
 
   // Step 2 — weight
-  const [weight, setWeight]         = useState('')
-  const [weightUnit, setWeightUnit] = useState('lbs')
+  const [weightUnit, setWeightUnit] = useState(profile?.weightUnit || 'lbs')
+  const [weight, setWeight]         = useState(() => {
+    const savedWeight = Number(profile?.currentWeightLbs)
+    if (!savedWeight) return ''
+    return profile?.weightUnit === 'kg'
+      ? String(Math.round(savedWeight / 2.20462))
+      : String(savedWeight)
+  })
 
   // Step 3 — height
-  const [heightFt, setHeightFt] = useState('')
-  const [heightIn, setHeightIn] = useState('')
+  const [heightFt, setHeightFt] = useState(savedHeightIn ? String(Math.floor(savedHeightIn / 12)) : '')
+  const [heightIn, setHeightIn] = useState(savedHeightIn ? String(savedHeightIn % 12) : '')
 
   // Step 4 — workouts/week
-  const [workoutsPerWeek, setWorkoutsPerWeek] = useState(null)
+  const [workoutsPerWeek, setWorkoutsPerWeek] = useState(profile?.weeklyWorkoutGoal ?? null)
+
+  // Step 5 — profile preferences
+  const [sex, setSex] = useState(profile?.sex || '')
+  const [dateOfBirth, setDateOfBirth] = useState(profile?.dateOfBirth || '')
+  const [fitnessGoal, setFitnessGoal] = useState(profile?.fitnessGoal || '')
 
   function canNext() {
     if (step === 1) return displayName.trim().length > 0
     if (step === 4) return workoutsPerWeek !== null
+    if (step === 5) return Boolean(sex && dateOfBirth && fitnessGoal)
     return true // steps 2 & 3 are optional
   }
 
@@ -64,6 +88,9 @@ export default function Setup() {
         weightUnit,
         heightIn:           heightTotalIn,
         weeklyWorkoutGoal:  workoutsPerWeek,
+        sex,
+        dateOfBirth,
+        fitnessGoal,
         ...(weightLbs ? { currentWeightLbs: weightLbs } : {}),
         setupComplete:      true,
       })
@@ -212,6 +239,62 @@ export default function Setup() {
                 ? `${workoutsPerWeek} day${workoutsPerWeek > 1 ? 's' : ''} per week`
                 : 'Tap a number to select'}
             </p>
+          </div>
+        )}
+
+        {/* Step 5: Profile preferences */}
+        {step === 5 && (
+          <div className="space-y-5">
+            <div>
+              <label className="label">Sex</label>
+              <div className="grid grid-cols-2 gap-2">
+                {SEX_OPTIONS.map((option) => (
+                  <button
+                    key={option.value}
+                    type="button"
+                    onClick={() => setSex(option.value)}
+                    className={`py-3 rounded-xl text-sm font-semibold border transition-colors ${
+                      sex === option.value
+                        ? 'bg-accent border-accent text-white shadow-lg shadow-accent/20'
+                        : 'bg-surface2 border-surface2 text-text-secondary active:scale-95'
+                    }`}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <label className="label">Birthday</label>
+              <input
+                type="date"
+                className="input text-lg"
+                value={dateOfBirth}
+                max={todayIso}
+                onChange={(e) => setDateOfBirth(e.target.value)}
+              />
+            </div>
+
+            <div>
+              <label className="label">Workout Goal</label>
+              <div className="space-y-2">
+                {FITNESS_GOAL_OPTIONS.map((option) => (
+                  <button
+                    key={option.value}
+                    type="button"
+                    onClick={() => setFitnessGoal(option.value)}
+                    className={`w-full rounded-xl border px-4 py-3 text-left transition-colors ${
+                      fitnessGoal === option.value
+                        ? 'bg-accent border-accent text-white shadow-lg shadow-accent/20'
+                        : 'bg-surface2 border-surface2 text-text-secondary active:scale-95'
+                    }`}
+                  >
+                    <span className="block text-sm font-semibold">{option.label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
         )}
       </div>
