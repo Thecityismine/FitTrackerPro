@@ -335,6 +335,72 @@ export default function CalendarLog() {
     }
   }, [currentMonth, grouped])
 
+  const monthSummary = useMemo(() => {
+    const monthDates = Object.keys(grouped)
+      .filter((date) => date >= monthStartStr && date <= monthEndStr)
+      .sort()
+
+    if (!monthDates.length) return null
+
+    const monthGroups = monthDates.flatMap((date) =>
+      Object.values(grouped[date] || {}).map((group) => ({
+        date,
+        ...group,
+      }))
+    )
+    const monthSessions = monthGroups.flatMap((group) => group.exercises || [])
+    const totalVolume = monthSessions.reduce((sum, session) => sum + (session.totalVolume || 0), 0)
+    const totalCardioMinutes = monthSessions
+      .filter((session) => session.muscleGroup?.toLowerCase() === 'cardio')
+      .reduce((sum, session) => sum + getExerciseBestValue(session), 0)
+
+    const topRoutine = Object.values(
+      monthGroups.reduce((map, group) => {
+        const key = group.routineName || 'Free Workout'
+        if (!map[key]) {
+          map[key] = { name: key, workouts: 0, totalVolume: 0 }
+        }
+        map[key].workouts += 1
+        map[key].totalVolume += group.totalVolume || 0
+        return map
+      }, {})
+    ).sort((a, b) => {
+      if ((b.totalVolume || 0) !== (a.totalVolume || 0)) return (b.totalVolume || 0) - (a.totalVolume || 0)
+      return (b.workouts || 0) - (a.workouts || 0)
+    })[0] || null
+
+    const topDays = monthDates
+      .map((date) => {
+        const dayGroups = Object.values(grouped[date] || {})
+        const daySessions = dayGroups.flatMap((group) => group.exercises || [])
+        const dayVolume = daySessions.reduce((sum, session) => sum + (session.totalVolume || 0), 0)
+        const dayCardioMinutes = daySessions
+          .filter((session) => session.muscleGroup?.toLowerCase() === 'cardio')
+          .reduce((sum, session) => sum + getExerciseBestValue(session), 0)
+        const score = dayVolume + (dayCardioMinutes * 500)
+
+        return {
+          date,
+          score,
+          workoutCount: dayGroups.length,
+          totalVolume: dayVolume,
+          cardioMinutes: dayCardioMinutes,
+          intensity: workoutDayMeta[date]?.intensity || 'complete',
+        }
+      })
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 3)
+
+    return {
+      activeDays: monthDates.length,
+      totalWorkouts: monthGroups.length,
+      totalVolume,
+      totalCardioMinutes,
+      topRoutine,
+      topDays,
+    }
+  }, [grouped, monthEndStr, monthStartStr, workoutDayMeta])
+
   // Which dates to show in the list
   const listDates = useMemo(() => {
     if (selectedDate) return grouped[selectedDate] ? [selectedDate] : []
@@ -585,6 +651,85 @@ export default function CalendarLog() {
                 <div key={i} className="card h-16 animate-pulse bg-surface2" />
               ))}
             </div>
+          ) : !selectedDate && filter === 'month' ? (
+            monthSummary ? (
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="card">
+                    <p className="text-text-secondary text-[11px] font-semibold uppercase tracking-[0.18em]">Workouts</p>
+                    <p className="mt-2 font-display text-2xl font-bold text-text-primary">{monthSummary.totalWorkouts}</p>
+                    <p className="mt-1 text-sm text-text-secondary">{monthSummary.activeDays} active days</p>
+                  </div>
+                  <div className="card">
+                    <p className="text-text-secondary text-[11px] font-semibold uppercase tracking-[0.18em]">Volume</p>
+                    <p className="mt-2 font-display text-2xl font-bold text-accent-green">{formatCompactVolume(monthSummary.totalVolume)}</p>
+                    <p className="mt-1 text-sm text-text-secondary">lbs this month</p>
+                  </div>
+                  <div className="card">
+                    <p className="text-text-secondary text-[11px] font-semibold uppercase tracking-[0.18em]">Cardio</p>
+                    <p className="mt-2 font-display text-2xl font-bold text-accent">{monthSummary.totalCardioMinutes}m</p>
+                    <p className="mt-1 text-sm text-text-secondary">minutes logged</p>
+                  </div>
+                  <div className="card">
+                    <p className="text-text-secondary text-[11px] font-semibold uppercase tracking-[0.18em]">Best Routine</p>
+                    <p className="mt-2 text-base font-semibold text-text-primary truncate">
+                      {monthSummary.topRoutine?.name || 'No routine yet'}
+                    </p>
+                    <p className="mt-1 text-sm text-text-secondary">
+                      {monthSummary.topRoutine
+                        ? `${monthSummary.topRoutine.workouts} workout${monthSummary.topRoutine.workouts === 1 ? '' : 's'}`
+                        : 'Start logging to surface trends'}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="card">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-text-secondary text-[11px] font-semibold uppercase tracking-[0.18em]">Top Days</p>
+                      <p className="mt-1 text-sm text-text-secondary">Your biggest training days this month</p>
+                    </div>
+                  </div>
+                  <div className="mt-3 space-y-2">
+                    {monthSummary.topDays.map((day, index) => {
+                      const intensityClass = day.intensity === 'heavy'
+                        ? 'bg-[#155E4A] text-[#7CF6BE]'
+                        : day.intensity === 'light'
+                          ? 'bg-[#F2C14E]/18 text-[#F2C14E]'
+                          : 'bg-accent-green/20 text-accent-green'
+                      return (
+                        <button
+                          key={day.date}
+                          onClick={() => handleDayClick(day.date)}
+                          className="w-full rounded-2xl border border-surface2 bg-surface2/40 px-3 py-3 text-left active:scale-[0.99] transition-transform"
+                        >
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2">
+                                <span className="text-text-secondary text-xs font-semibold">#{index + 1}</span>
+                                <p className="text-text-primary font-semibold">{format(parseISO(day.date), 'MMMM d')}</p>
+                              </div>
+                              <p className="mt-1 text-sm text-text-secondary">
+                                {day.workoutCount} workout{day.workoutCount === 1 ? '' : 's'}
+                                {day.totalVolume > 0 ? ` • ${formatCompactVolume(day.totalVolume)} lbs` : ''}
+                                {day.cardioMinutes > 0 ? ` • ${day.cardioMinutes}m cardio` : ''}
+                              </p>
+                            </div>
+                            <span className={`px-2.5 py-1 rounded-full text-[11px] font-semibold ${intensityClass}`}>
+                              {day.intensity === 'heavy' ? 'Heavy' : day.intensity === 'light' ? 'Light' : 'Complete'}
+                            </span>
+                          </div>
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="card flex items-center justify-center py-10">
+                <p className="text-text-secondary text-sm">No sessions found</p>
+              </div>
+            )
           ) : listDates.length === 0 ? (
             <div className="card flex items-center justify-center py-10">
               <p className="text-text-secondary text-sm">No sessions found</p>
