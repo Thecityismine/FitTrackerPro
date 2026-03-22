@@ -44,6 +44,21 @@ function getExerciseBestValue(session) {
   return (session?.sets || []).reduce((max, set) => Math.max(max, Number(set?.weight) || 0), 0)
 }
 
+function getWorkoutDayIntensity(daySessions, workoutCount) {
+  const totalVolume = daySessions.reduce((sum, session) => sum + (session.totalVolume || 0), 0)
+  const cardioMinutes = daySessions
+    .filter((session) => session.muscleGroup?.toLowerCase() === 'cardio')
+    .reduce((sum, session) => sum + getExerciseBestValue(session), 0)
+
+  if (totalVolume >= 30000 || cardioMinutes >= 60 || workoutCount >= 2 || daySessions.length >= 8) {
+    return 'heavy'
+  }
+  if (totalVolume >= 10000 || cardioMinutes >= 25 || daySessions.length >= 4) {
+    return 'complete'
+  }
+  return 'light'
+}
+
 export default function CalendarLog() {
   const { user, profile } = useAuth()
   const { activeWorkout, startRoutineWorkout } = useActiveWorkout()
@@ -93,6 +108,18 @@ export default function CalendarLog() {
     }
     return map
   }, [sessions])
+
+  const workoutDayMeta = useMemo(() => {
+    const meta = {}
+    Object.entries(grouped).forEach(([date, groupsForDate]) => {
+      const dayGroups = Object.values(groupsForDate)
+      const daySessions = dayGroups.flatMap((group) => group.exercises || [])
+      meta[date] = {
+        intensity: getWorkoutDayIntensity(daySessions, dayGroups.length),
+      }
+    })
+    return meta
+  }, [grouped])
 
   const selectedDateSummary = useMemo(() => {
     if (!selectedDate || !grouped[selectedDate]) return null
@@ -400,6 +427,17 @@ export default function CalendarLog() {
               const isToday = dateStr === TODAY
               const hasWorkout = workoutDates.has(dateStr)
               const isSelected = selectedDate === dateStr
+              const intensity = workoutDayMeta[dateStr]?.intensity || null
+              const workoutStateClass = intensity === 'heavy'
+                ? 'bg-[#155E4A] text-[#7CF6BE]'
+                : intensity === 'light'
+                  ? 'bg-[#F2C14E]/18 text-[#F2C14E]'
+                  : 'bg-accent-green/20 text-accent-green'
+              const workoutDotClass = intensity === 'heavy'
+                ? 'bg-[#7CF6BE]'
+                : intensity === 'light'
+                  ? 'bg-[#F2C14E]'
+                  : 'bg-accent-green'
               return (
                 <button
                   key={dateStr}
@@ -407,20 +445,34 @@ export default function CalendarLog() {
                   className={`aspect-square rounded-xl flex flex-col items-center justify-center text-sm font-medium transition-all duration-200 active:scale-95 ${
                     isSelected
                       ? 'bg-accent text-white shadow-[0_10px_24px_rgba(37,99,235,0.32)] ring-1 ring-white/10 scale-[1.02]'
+                      : hasWorkout
+                      ? `${workoutStateClass} ${isToday ? 'ring-1 ring-white/10 shadow-[0_8px_20px_rgba(15,23,42,0.18)]' : ''}`
                       : isToday
                       ? 'bg-surface2 text-text-primary ring-1 ring-accent/35'
-                      : hasWorkout
-                      ? 'bg-accent-green/20 text-accent-green'
                       : 'text-text-secondary'
                   }`}
                 >
                   <span>{day.getDate()}</span>
                   {hasWorkout && (
-                    <div className={`w-1 h-1 rounded-full mt-0.5 ${isSelected ? 'bg-white/80' : isToday ? 'bg-accent' : 'bg-accent-green'}`} />
+                    <div className={`w-1 h-1 rounded-full mt-0.5 ${isSelected ? 'bg-white/80' : isToday ? 'bg-white/80' : workoutDotClass}`} />
                   )}
                 </button>
               )
             })}
+          </div>
+          <div className="mt-3 flex items-center justify-between gap-2 text-[11px] text-text-secondary">
+            <div className="flex items-center gap-1.5">
+              <span className="h-2.5 w-2.5 rounded-full bg-[#F2C14E]" />
+              <span>Light session</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="h-2.5 w-2.5 rounded-full bg-accent-green" />
+              <span>Workout done</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="h-2.5 w-2.5 rounded-full bg-[#7CF6BE]" />
+              <span>Heavy day</span>
+            </div>
           </div>
         </div>
 
