@@ -725,19 +725,23 @@ export default function Dashboard() {
             </div>
 
             <div className="grid grid-cols-4 gap-2">
-              {BODY_PARTS.map((bp) => {
-                const meta = getRecoveryMeta(bp.key)
-                const selected = selectedRecoveryPart === bp.key
-                return (
-                  <button
-                    key={bp.key}
-                    onClick={() => setSelectedRecoveryPart(bp.key)}
-                    className={`relative rounded-xl p-2 flex flex-col items-center gap-1.5 transition-colors text-center tap-glow ${meta.shellClass} ${selected ? 'ring-1 ring-white/20' : ''}`}
-                  >
-                    <div className={`absolute top-1.5 right-1.5 w-2.5 h-2.5 rounded-full ${meta.dotClass}`} />
-                    <img
-                      src={bp.icon}
-                      alt={bp.key}
+	              {BODY_PARTS.map((bp) => {
+	                const meta = getRecoveryMeta(bp.key)
+	                const selected = selectedRecoveryPart === bp.key
+	                return (
+	                  <button
+	                    key={bp.key}
+	                    onClick={() => setSelectedRecoveryPart(bp.key)}
+	                    className={`relative rounded-xl p-2 flex flex-col items-center gap-1.5 text-center tap-glow transition-all duration-200 ${meta.shellClass} ${
+	                      selected
+	                        ? 'ring-2 ring-white/45 scale-[1.03] shadow-[0_0_0_1px_rgba(255,255,255,0.08),0_10px_24px_rgba(15,23,42,0.22)]'
+	                        : 'opacity-92'
+	                    }`}
+	                  >
+	                    <div className={`absolute top-1.5 right-1.5 rounded-full ${meta.dotClass} ${selected ? 'w-3 h-3 ring-2 ring-white/25' : 'w-2.5 h-2.5'}`} />
+	                    <img
+	                      src={bp.icon}
+	                      alt={bp.key}
                       loading="lazy"
                       decoding="async"
                       className={`w-14 h-14 object-contain transition-opacity ${workedParts.has(bp.key) ? 'opacity-100' : 'opacity-45'}`}
