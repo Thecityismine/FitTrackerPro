@@ -1,6 +1,8 @@
 // src/utils/exerciseIcons.js
 // Per-exercise icon lookup. Falls back to a group generic when no specific icon exists.
 
+import { getLineMuscleGroupIcon } from './muscleGroupIcons'
+
 const AB_ICONS = {
   'ab crunch machine':     '/Ab/Ab Crunch Machine.png',
   'bicycle crunches':      '/Ab/Bicycle Crunches.png',
@@ -207,19 +209,6 @@ const CHEST_ICONS = {
   'supine press':                '/Chest/Supine Press.png',
 }
 
-const GROUP_ICONS = {
-  'abs':       '/icons/abs.png',
-  'biceps':    '/icons/arm.png',
-  'triceps':   '/icons/triceps.png',
-  'shoulders': '/icons/shoulder.png',
-  'chest':     '/icons/chest.png',
-  'back':      '/icons/back.png',
-  'legs':      '/icons/legs.png',
-  'glutes':    '/icons/glutes.png',
-  'cardio':    '/icons/cardio.png',
-  'recovery':  '/icons/Recovery.png',
-}
-
 export function getExerciseIcon(exerciseName, muscleGroup) {
   const key = (exerciseName || '').trim().toLowerCase()
   if (AB_ICONS[key])     return AB_ICONS[key]
@@ -233,6 +222,5 @@ export function getExerciseIcon(exerciseName, muscleGroup) {
   if (BACK_ICONS[key])   return BACK_ICONS[key]
   if (CHEST_ICONS[key])  return CHEST_ICONS[key]
   // Fall back to muscle group icon
-  const groupKey = (muscleGroup || '').trim().toLowerCase()
-  return GROUP_ICONS[groupKey] || null
+  return getLineMuscleGroupIcon(muscleGroup)
 }

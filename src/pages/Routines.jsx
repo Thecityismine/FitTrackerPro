@@ -1,19 +1,8 @@
 // src/pages/Routines.jsx
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { format, parseISO } from 'date-fns'
+import { getLineMuscleGroupIcon } from '../utils/muscleGroupIcons'
 
-const MUSCLE_ICONS = {
-  abs:       '/icons/abs.png',
-  biceps:    '/icons/arm.png',
-  triceps:   '/icons/triceps.png',
-  shoulders: '/icons/shoulder.png',
-  chest:     '/icons/chest.png',
-  back:      '/icons/back.png',
-  legs:      '/icons/legs.png',
-  glutes:    '/icons/glutes.png',
-  cardio:    '/icons/cardio.png',
-  recovery:  '/icons/Recovery.png',
-}
 const NAME_KEYWORDS = [
   { re: /\bcalf\b|\bcalves\b/,                                   group: 'legs'      },
   { re: /\brow\b|\bpulldown\b|\bpull.down\b|\bdeadlift\b|\blat\b|\bchin.up\b|\bpull.up\b/, group: 'back' },
@@ -27,11 +16,11 @@ const NAME_KEYWORDS = [
   { re: /\btreadmill\b|\bcardio\b|\bbike\b|\brun\b/,             group: 'cardio'    },
 ]
 function muscleIcon(muscleGroup, exerciseName) {
-  const byGroup = MUSCLE_ICONS[(muscleGroup || '').toLowerCase()]
+  const byGroup = getLineMuscleGroupIcon(muscleGroup)
   if (byGroup) return byGroup
   const name = (exerciseName || '').toLowerCase()
   for (const kw of NAME_KEYWORDS) {
-    if (kw.re.test(name)) return MUSCLE_ICONS[kw.group]
+    if (kw.re.test(name)) return getLineMuscleGroupIcon(kw.group)
   }
   return null
 }

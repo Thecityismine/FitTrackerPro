@@ -13,18 +13,19 @@ import PageWrapper from '../components/layout/PageWrapper'
 import { useAuth } from '../context/AuthContext'
 import { useActiveWorkout } from '../context/ActiveWorkoutContext'
 import { sessionsCol } from '../firebase/collections'
+import { getMainMuscleGroupIcon } from '../utils/muscleGroupIcons'
 
 const TODAY = format(new Date(), 'yyyy-MM-dd')
 
 const BODY_PARTS = [
-  { key: 'Abs', icon: '/icons/abs.png', match: ['abs', 'core', 'abdominal', 'crunch', 'plank', 'situp', 'sit-up'] },
-  { key: 'Arms', icon: '/icons/arm.png', match: ['arms', 'bicep', 'biceps', 'forearm', 'forearms', 'curl', 'triceps', 'tricep', 'pushdown', 'push-down', 'skull', 'dips', 'dip'] },
-  { key: 'Chest', icon: '/icons/chest.png', match: ['chest', 'pec', 'pecs', 'bench', 'fly', 'flye'] },
-  { key: 'Shoulders', icon: '/icons/shoulder.png', match: ['shoulders', 'shoulder', 'delt', 'delts'] },
-  { key: 'Back', icon: '/icons/back.png', match: ['back', 'lats', 'lat', 'rhomboid', 'trap', 'traps', 'rear', 'row', 'rows', 'pulldown', 'pull-down', 'chin', 'deadlift'] },
-  { key: 'Legs', icon: '/icons/legs.png', match: ['legs', 'leg', 'quad', 'quads', 'hamstring', 'hamstrings', 'calf', 'calves', 'calve', 'lunge', 'squat'] },
-  { key: 'Glutes', icon: '/icons/glutes.png', match: ['glutes', 'glute', 'gluts', 'hip', 'hips', 'butt', 'gluteal'] },
-  { key: 'Cardio', icon: '/icons/cardio.png', match: ['cardio', 'walking', 'walk', 'run', 'running', 'bike', 'elliptical', 'swim', 'rowing', 'treadmill', 'fitness bike'] },
+  { key: 'Abs', icon: getMainMuscleGroupIcon('Abs'), match: ['abs', 'core', 'abdominal', 'crunch', 'plank', 'situp', 'sit-up'] },
+  { key: 'Arms', icon: getMainMuscleGroupIcon('Arms'), match: ['arms', 'bicep', 'biceps', 'forearm', 'forearms', 'curl', 'triceps', 'tricep', 'pushdown', 'push-down', 'skull', 'dips', 'dip'] },
+  { key: 'Chest', icon: getMainMuscleGroupIcon('Chest'), match: ['chest', 'pec', 'pecs', 'bench', 'fly', 'flye'] },
+  { key: 'Shoulders', icon: getMainMuscleGroupIcon('Shoulders'), match: ['shoulders', 'shoulder', 'delt', 'delts'] },
+  { key: 'Back', icon: getMainMuscleGroupIcon('Back'), match: ['back', 'lats', 'lat', 'rhomboid', 'trap', 'traps', 'rear', 'row', 'rows', 'pulldown', 'pull-down', 'chin', 'deadlift'] },
+  { key: 'Legs', icon: getMainMuscleGroupIcon('Legs'), match: ['legs', 'leg', 'quad', 'quads', 'hamstring', 'hamstrings', 'calf', 'calves', 'calve', 'lunge', 'squat'] },
+  { key: 'Glutes', icon: getMainMuscleGroupIcon('Glutes'), match: ['glutes', 'glute', 'gluts', 'hip', 'hips', 'butt', 'gluteal'] },
+  { key: 'Cardio', icon: getMainMuscleGroupIcon('Cardio'), match: ['cardio', 'walking', 'walk', 'run', 'running', 'bike', 'elliptical', 'swim', 'rowing', 'treadmill', 'fitness bike'] },
 ]
 
 const MG_MAP = {

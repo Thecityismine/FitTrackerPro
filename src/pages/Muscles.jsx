@@ -13,6 +13,7 @@ import { sessionsCol, exercisesCol, exerciseDoc, globalExercisesCol, routinesCol
 import { db } from '../firebase/config'
 import ConfirmDialog from '../components/ConfirmDialog'
 import { getExerciseIcon } from '../utils/exerciseIcons'
+import { getMainMuscleGroupIcon } from '../utils/muscleGroupIcons'
 
 // ─── Push / Pull / Legs config ────────────────────────────
 const PPL = [
@@ -174,16 +175,16 @@ function formatRoutineName(name = '') {
 }
 
 const GROUPS_META = [
-  { id: 'Abs',       label: 'Abs',       icon: '/icons/abs.png' },
-  { id: 'Biceps',    label: 'Biceps',    icon: '/icons/arm.png' },
-  { id: 'Triceps',   label: 'Triceps',   icon: '/icons/triceps.png' },
-  { id: 'Shoulders', label: 'Shoulders', icon: '/icons/shoulder.png' },
-  { id: 'Chest',     label: 'Chest',     icon: '/icons/chest.png' },
-  { id: 'Back',      label: 'Back',      icon: '/icons/back.png' },
-  { id: 'Legs',      label: 'Legs',      icon: '/icons/legs.png' },
-  { id: 'Glutes',    label: 'Glutes',    icon: '/icons/glutes.png' },
-  { id: 'Cardio',    label: 'Cardio',    icon: '/icons/cardio.png' },
-  { id: 'Recovery',  label: 'Recovery',  icon: '/icons/Recovery.png' },
+  { id: 'Abs',       label: 'Abs',       icon: getMainMuscleGroupIcon('Abs') },
+  { id: 'Biceps',    label: 'Biceps',    icon: getMainMuscleGroupIcon('Biceps') },
+  { id: 'Triceps',   label: 'Triceps',   icon: getMainMuscleGroupIcon('Triceps') },
+  { id: 'Shoulders', label: 'Shoulders', icon: getMainMuscleGroupIcon('Shoulders') },
+  { id: 'Chest',     label: 'Chest',     icon: getMainMuscleGroupIcon('Chest') },
+  { id: 'Back',      label: 'Back',      icon: getMainMuscleGroupIcon('Back') },
+  { id: 'Legs',      label: 'Legs',      icon: getMainMuscleGroupIcon('Legs') },
+  { id: 'Glutes',    label: 'Glutes',    icon: getMainMuscleGroupIcon('Glutes') },
+  { id: 'Cardio',    label: 'Cardio',    icon: getMainMuscleGroupIcon('Cardio') },
+  { id: 'Recovery',  label: 'Recovery',  icon: getMainMuscleGroupIcon('Recovery') },
 ]
 
 // ─── Exercise Card (detail view) ──────────────────────────
