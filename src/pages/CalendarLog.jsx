@@ -1,5 +1,5 @@
 // src/pages/CalendarLog.jsx
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   format, startOfMonth, endOfMonth, eachDayOfInterval,
@@ -14,6 +14,10 @@ import { sessionsCol, routinesCol } from '../firebase/collections'
 
 const TODAY = format(new Date(), 'yyyy-MM-dd')
 const TODAY_DISPLAY = format(new Date(), 'EEE, MMM d')
+
+function formatWorkoutLabel(value) {
+  return value === 'Free Workout' ? 'Quick Log' : value
+}
 
 function getTimestampMs(value) {
   if (!value) return null
@@ -33,11 +37,23 @@ function formatCompactVolume(volume) {
 }
 
 function formatDurationMinutes(minutes) {
-  if (!minutes || minutes < 1) return null
+  if (!minutes || minutes < 1 || minutes > 180) return null
   if (minutes < 60) return `${minutes}m`
   const hours = Math.floor(minutes / 60)
   const remaining = minutes % 60
   return remaining > 0 ? `${hours}h ${remaining}m` : `${hours}h`
+}
+
+function getWorkoutDurationMinutes(sessions = []) {
+  const starts = sessions
+    .flatMap((session) => [getTimestampMs(session.startedAt), getTimestampMs(session.createdAt)])
+    .filter(Boolean)
+  const ends = sessions
+    .flatMap((session) => [getTimestampMs(session.completedAt), getTimestampMs(session.createdAt)])
+    .filter(Boolean)
+  if (!starts.length || !ends.length) return null
+  const minutes = Math.round((Math.max(...ends) - Math.min(...starts)) / 60000)
+  return minutes > 0 ? minutes : null
 }
 
 function getExerciseBestValue(session) {
@@ -72,7 +88,9 @@ export default function CalendarLog() {
   const [currentMonth, setCurrentMonth] = useState(new Date())
   const [selectedDate, setSelectedDate] = useState(null)
   const [expandedKey, setExpandedKey] = useState(null)
+  const [pendingDetailsScroll, setPendingDetailsScroll] = useState(false)
   const [filter, setFilter] = useState('week') // 'week' | 'month'
+  const sessionsListRef = useRef(null)
 
   useEffect(() => {
     if (!user?.uid) return
@@ -120,6 +138,32 @@ export default function CalendarLog() {
     }
     return map
   }, [sessions])
+  const groupedExerciseRows = useMemo(() => {
+    const next = {}
+    Object.entries(grouped).forEach(([date, groupsForDate]) => {
+      next[date] = {}
+      Object.entries(groupsForDate).forEach(([groupName, group]) => {
+        const exerciseMap = new Map()
+        ;(group.exercises || []).forEach((session) => {
+          const exerciseKey = session.exerciseId || session.exerciseName || session.id
+          const current = exerciseMap.get(exerciseKey) || {
+            ...session,
+            id: session.id,
+            sets: [],
+            totalVolume: 0,
+          }
+          current.sets = [...(current.sets || []), ...(session.sets || [])]
+          current.totalVolume += Number(session.totalVolume || 0)
+          if (!current.exerciseName && session.exerciseName) current.exerciseName = session.exerciseName
+          if (!current.exerciseId && session.exerciseId) current.exerciseId = session.exerciseId
+          if (!current.muscleGroup && session.muscleGroup) current.muscleGroup = session.muscleGroup
+          exerciseMap.set(exerciseKey, current)
+        })
+        next[date][groupName] = Array.from(exerciseMap.values())
+      })
+    })
+    return next
+  }, [grouped])
 
   const workoutDayMeta = useMemo(() => {
     const meta = {}
@@ -140,20 +184,13 @@ export default function CalendarLog() {
     const daySessions = groupsForDate.flatMap((group) => group.exercises)
     const routineGroups = groupsForDate.filter((group) => group.routineName && group.routineName !== 'Free Workout')
     const label = groupsForDate.length === 1
-      ? groupsForDate[0].routineName
+      ? formatWorkoutLabel(groupsForDate[0].routineName)
       : routineGroups.length === 1
-        ? `${routineGroups[0].routineName} + ${groupsForDate.length - 1} more`
+        ? `${formatWorkoutLabel(routineGroups[0].routineName)} + ${groupsForDate.length - 1} more`
         : `${groupsForDate.length} workouts`
     const totalVolume = daySessions.reduce((sum, session) => sum + (session.totalVolume || 0), 0)
     const exerciseCount = new Set(daySessions.map((session) => session.exerciseId || session.exerciseName).filter(Boolean)).size
-    const timestamps = daySessions.flatMap((session) => [
-      getTimestampMs(session.createdAt),
-      getTimestampMs(session.updatedAt),
-      getTimestampMs(session.startedAt),
-    ]).filter(Boolean)
-    const durationMinutes = timestamps.length > 1
-      ? Math.max(1, Math.round((Math.max(...timestamps) - Math.min(...timestamps)) / 60000))
-      : null
+    const durationMinutes = getWorkoutDurationMinutes(daySessions)
 
     return {
       label,
@@ -170,6 +207,11 @@ export default function CalendarLog() {
         })[0] || null,
     }
   }, [grouped, selectedDate])
+
+  const selectedPrimaryKey = useMemo(() => {
+    if (!selectedDate || !selectedDateSummary?.primaryGroup) return null
+    return `${selectedDate}-${selectedDateSummary.primaryGroup.routineName}`
+  }, [selectedDate, selectedDateSummary])
 
   const selectedDateCta = useMemo(() => {
     const group = selectedDateSummary?.primaryGroup
@@ -189,7 +231,7 @@ export default function CalendarLog() {
         : exercises[0].id
 
       return {
-        label: isResumingCurrentRoutine ? 'Continue Workout' : 'Repeat Workout',
+        label: isResumingCurrentRoutine ? 'Resume Workout' : 'Repeat Workout',
         run: () => {
           if (!isResumingCurrentRoutine) {
             startRoutineWorkout(routine, { startExerciseId })
@@ -208,7 +250,7 @@ export default function CalendarLog() {
     if (!firstSession?.exerciseId) return null
 
     return {
-      label: 'Train Again',
+      label: 'Repeat Workout',
       run: () => {
         navigate(`/workout/${firstSession.exerciseId}`, {
           state: {
@@ -224,6 +266,16 @@ export default function CalendarLog() {
       },
     }
   }, [activeWorkout, navigate, routineMap, selectedDateSummary, startRoutineWorkout])
+
+  useEffect(() => {
+    if (!pendingDetailsScroll || !selectedPrimaryKey) return
+    setExpandedKey(selectedPrimaryKey)
+    const frame = requestAnimationFrame(() => {
+      sessionsListRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    })
+    setPendingDetailsScroll(false)
+    return () => cancelAnimationFrame(frame)
+  }, [pendingDetailsScroll, selectedPrimaryKey])
 
   const selectedDateInsight = useMemo(() => {
     const group = selectedDateSummary?.primaryGroup
@@ -282,6 +334,53 @@ export default function CalendarLog() {
 
     return null
   }, [grouped, selectedDate, selectedDateSummary])
+  const previousExerciseSummaryBySessionId = useMemo(() => {
+    const summary = {}
+    const sessionsByExercise = {}
+
+    sessions
+      .filter((session) => session?.date && (session.exerciseId || session.exerciseName))
+      .slice()
+      .sort((a, b) => {
+        if (a.date !== b.date) return a.date.localeCompare(b.date)
+        return (getTimestampMs(a.createdAt) || 0) - (getTimestampMs(b.createdAt) || 0)
+      })
+      .forEach((session) => {
+        const key = session.exerciseId || session.exerciseName
+        const history = sessionsByExercise[key] || []
+        const currentVolume = Number(session.totalVolume || 0)
+        const currentBest = getExerciseBestValue(session)
+        const previous = [...history].reverse().find((entry) => entry.date < session.date) || null
+
+        if (session.id && previous) {
+          const previousBest = previous.best
+          const previousVolume = previous.volume
+          if (currentBest > 0 && previousBest > 0 && currentBest !== previousBest) {
+            summary[session.id] = {
+              tone: currentBest > previousBest ? 'text-accent-green' : 'text-[#F2C14E]',
+              text: `${currentBest > previousBest ? '+' : ''}${currentBest - previousBest} lbs vs last session`,
+            }
+          } else if (currentVolume > 0 && previousVolume > 0) {
+            const deltaPct = Math.round(((currentVolume - previousVolume) / previousVolume) * 100)
+            if (deltaPct !== 0) {
+              summary[session.id] = {
+                tone: deltaPct > 0 ? 'text-accent-green' : 'text-[#F2C14E]',
+                text: `${deltaPct > 0 ? '+' : ''}${deltaPct}% volume vs last session`,
+              }
+            }
+          }
+        }
+
+        history.push({
+          date: session.date,
+          best: currentBest,
+          volume: currentVolume,
+        })
+        sessionsByExercise[key] = history
+      })
+
+    return summary
+  }, [sessions])
 
   // Bounds for filters
   const monthStartStr = format(startOfMonth(currentMonth), 'yyyy-MM-dd')
@@ -495,7 +594,11 @@ export default function CalendarLog() {
 
   function handleDayClick(dateStr) {
     if (!workoutDates.has(dateStr)) return
-    setSelectedDate((prev) => (prev === dateStr ? null : dateStr))
+    setSelectedDate((prev) => {
+      const nextValue = prev === dateStr ? null : dateStr
+      setPendingDetailsScroll(nextValue != null)
+      return nextValue
+    })
     setExpandedKey(null)
   }
 
@@ -632,7 +735,7 @@ export default function CalendarLog() {
         </div>
 
         {/* ── Sessions list ────────────────────────────────── */}
-        <div>
+        <div ref={sessionsListRef}>
           {selectedDateSummary && (
             <div className="card border-accent/20 shadow-[0_0_0_1px_rgba(37,99,235,0.08)] bg-[linear-gradient(180deg,rgba(37,99,235,0.06),rgba(15,23,42,0))] mb-3">
               <div className="flex items-start justify-between gap-4">
@@ -681,17 +784,29 @@ export default function CalendarLog() {
                   <p className="mt-1 text-base font-semibold text-text-primary">{selectedDateSummary.durationLabel || '--'}</p>
                 </div>
               </div>
-	              {selectedDateCta && (
-                <button
-                  onClick={selectedDateCta.run}
-                  className="btn-primary w-full mt-4"
-                >
-                  <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.3}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M5.25 5.653c0-1.427 1.529-2.33 2.779-1.643l9.42 5.173c1.295.711 1.295 2.575 0 3.286l-9.42 5.173c-1.25.687-2.779-.216-2.779-1.643V5.653z" />
-                  </svg>
-                  <span>{selectedDateCta.label}</span>
-                </button>
-              )}
+		              <div className="mt-4 flex gap-2">
+                  {selectedDateCta && (
+                    <button
+                      onClick={selectedDateCta.run}
+                      className="btn-primary flex-1"
+                    >
+                      <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.3}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M5.25 5.653c0-1.427 1.529-2.33 2.779-1.643l9.42 5.173c1.295.711 1.295 2.575 0 3.286l-9.42 5.173c-1.25.687-2.779-.216-2.779-1.643V5.653z" />
+                      </svg>
+                      <span>{selectedDateCta.label}</span>
+                    </button>
+                  )}
+                  <button
+                    onClick={() => {
+                      if (!selectedPrimaryKey) return
+                      setExpandedKey(selectedPrimaryKey)
+                      sessionsListRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                    }}
+                    className="btn-secondary flex-1"
+                  >
+                    View Details
+                  </button>
+                </div>
             </div>
           )}
 
@@ -855,7 +970,8 @@ export default function CalendarLog() {
                 Object.values(grouped[date] || {}).map((group) => {
                   const key = `${date}-${group.routineName}`
                   const isExpanded = expandedKey === key
-                  const exerciseCount = group.exercises.length
+                  const exerciseRows = groupedExerciseRows[date]?.[group.routineName] || group.exercises
+                  const exerciseCount = exerciseRows.length
                   const routineTotal = group.routineId ? (routineMap[group.routineId]?.exercises?.length ?? null) : null
                   const isAllCardio = group.exercises.every(e => e.muscleGroup?.toLowerCase() === 'cardio')
 
@@ -865,7 +981,9 @@ export default function CalendarLog() {
                       className={`card overflow-hidden transition-all duration-300 ${
                         isExpanded
                           ? 'bg-surface2/35 border-accent/25 shadow-[0_0_0_1px_rgba(37,99,235,0.12),0_12px_28px_rgba(15,23,42,0.24)]'
-                          : 'shadow-none'
+                          : key === selectedPrimaryKey
+                            ? 'border-accent/20 shadow-[0_0_0_1px_rgba(37,99,235,0.1)]'
+                            : 'shadow-none'
                       }`}
                     >
                       {/* Card header — tap to expand */}
@@ -876,9 +994,9 @@ export default function CalendarLog() {
                         }`}
                       >
                         <div className="min-w-0 flex-1">
-                          <p className="text-text-primary font-semibold text-sm">{group.routineName}</p>
+                          <p className="text-text-primary font-semibold text-sm">{formatWorkoutLabel(group.routineName)}</p>
                           <p className="text-text-secondary text-xs mt-0.5">
-                            {format(parseISO(date), 'MMM d')} · {routineTotal && exerciseCount < routineTotal ? `${exerciseCount} of ${routineTotal}` : exerciseCount} exercise{(routineTotal && exerciseCount < routineTotal ? routineTotal : exerciseCount) !== 1 ? 's' : ''}
+                            {format(parseISO(date), 'MMM d')} · {routineTotal ? `${exerciseCount} / ${routineTotal} exercises completed` : `${exerciseCount} exercise${exerciseCount === 1 ? '' : 's'}`}
                           </p>
                         </div>
                         <div className="flex items-center gap-2 flex-shrink-0 ml-3">
@@ -913,7 +1031,7 @@ export default function CalendarLog() {
                               isExpanded ? 'border-t border-surface2 pt-3' : 'border-t border-transparent pt-0'
                             }`}
                           >
-	                          {group.exercises.map((ex) => {
+		                          {exerciseRows.map((ex) => {
 	                            const isCardio = ex.muscleGroup?.toLowerCase() === 'cardio'
                             const bestWeight = (ex.sets || []).reduce(
                               (m, s) => Math.max(m, s.weight || 0), 0
@@ -941,17 +1059,24 @@ export default function CalendarLog() {
 	                                    <div className="w-1.5 h-1.5 rounded-full bg-accent flex-shrink-0" />
 	                                    <p className="text-text-primary text-sm font-semibold truncate">{ex.exerciseName}</p>
 	                                  </div>
-	                                  <div className="mt-1 pl-3.5">
-	                                    {isCardio ? (
-	                                      <p className="text-text-secondary text-xs">
-	                                        {setCount} set{setCount !== 1 ? 's' : ''}{bestWeight > 0 ? ` • Best ${bestWeight} min` : ''}
-	                                      </p>
-	                                    ) : (
-	                                      <p className="text-text-secondary text-xs">
-	                                        {setCount} set{setCount !== 1 ? 's' : ''}{totalVol > 0 ? ` • Volume ${formatCompactVolume(totalVol)}` : ''}
-	                                      </p>
-	                                    )}
-	                                  </div>
+		                          <div className="mt-1 pl-3.5">
+		                                    {isCardio ? (
+		                                      <p className="text-text-secondary text-xs">
+		                                        {setCount} set{setCount !== 1 ? 's' : ''}{bestWeight > 0 ? ` • Best ${bestWeight} min` : ''}
+		                                      </p>
+		                                    ) : (
+		                                      <div>
+		                                        <p className="text-text-secondary text-xs">
+		                                          {setCount} set{setCount !== 1 ? 's' : ''}{totalVol > 0 ? ` • Volume ${formatCompactVolume(totalVol)}` : ''}
+		                                        </p>
+		                                        {previousExerciseSummaryBySessionId[ex.id] && (
+		                                          <p className={`text-[11px] mt-1 font-medium ${previousExerciseSummaryBySessionId[ex.id].tone}`}>
+		                                            {previousExerciseSummaryBySessionId[ex.id].text}
+		                                          </p>
+		                                        )}
+		                                      </div>
+		                                    )}
+		                                  </div>
 	                                </div>
 	                                <div className="flex items-center gap-3 flex-shrink-0 ml-2">
 	                                  {isCardio ? (

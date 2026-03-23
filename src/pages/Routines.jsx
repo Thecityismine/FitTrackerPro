@@ -160,11 +160,23 @@ function formatCompactVolume(value) {
 
 function formatDurationMinutes(minutes) {
   if (!Number.isFinite(minutes) || minutes <= 0) return null
-  if (minutes > 240) return null
+  if (minutes > 180) return null
   if (minutes < 60) return `${minutes}m`
   const hours = Math.floor(minutes / 60)
   const remaining = minutes % 60
   return remaining > 0 ? `${hours}h ${remaining}m` : `${hours}h`
+}
+
+function getWorkoutDurationMinutes(sessionList = []) {
+  const starts = sessionList
+    .flatMap((session) => [getTimestampMs(session.startedAt), getTimestampMs(session.createdAt)])
+    .filter(Boolean)
+  const ends = sessionList
+    .flatMap((session) => [getTimestampMs(session.completedAt), getTimestampMs(session.createdAt)])
+    .filter(Boolean)
+  if (!starts.length || !ends.length) return null
+  const minutes = Math.round((Math.max(...ends) - Math.min(...starts)) / 60000)
+  return minutes > 0 ? minutes : null
 }
 
 function calcSessionVolume(sessionList = []) {
@@ -512,7 +524,7 @@ Keep it under 220 words and be concrete.`
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="section-title mb-0">Weekly Insights</p>
-          <p className="text-text-secondary text-xs mt-0.5">Review the full week across routines and free workouts.</p>
+          <p className="text-text-secondary text-xs mt-0.5">See your full weekly performance and trends.</p>
         </div>
         <div className="w-9 h-9 rounded-xl bg-accent/10 flex items-center justify-center flex-shrink-0">
           <svg className="w-5 h-5 text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -761,7 +773,7 @@ function RoutineDetail({
             <div className="flex items-center justify-between gap-4">
               <div>
                 <p className="text-white/80 text-[11px] font-semibold uppercase tracking-[0.24em]">
-                  {activeWorkout?.kind === 'routine' && activeWorkout.routine.id === routine.id ? 'Resume workout' : 'Start workout'}
+                  {activeWorkout?.kind === 'routine' && activeWorkout.routine.id === routine.id ? 'Resume Workout' : 'Start Workout'}
                 </p>
                 <p className="text-white font-display text-xl font-bold mt-1">
                   {exercises.length ? `Train ${routine.name}` : 'Add exercises first'}
@@ -937,6 +949,7 @@ function RoutineCard({
   routine,
   onSelect,
   onStart,
+  ctaLabel = 'Start Workout',
   tag,
   detailText,
   progressText,
@@ -1001,7 +1014,7 @@ function RoutineCard({
           }}
           className="btn-primary px-3 py-1.5 text-xs flex-shrink-0"
         >
-          Start
+          {ctaLabel}
         </button>
       </div>
     </div>
@@ -1087,14 +1100,7 @@ export default function Routines() {
       const lastDaySessions = lastDate ? byDate[lastDate] : []
       const exerciseNames = [...new Set(lastDaySessions.map((session) => session.exerciseName).filter(Boolean))]
       const totalSets = lastDaySessions.reduce((sum, session) => sum + (session.sets?.length || 0), 0)
-      const timestamps = lastDaySessions.flatMap((session) => [
-        getTimestampMs(session.createdAt),
-        getTimestampMs(session.updatedAt),
-        getTimestampMs(session.startedAt),
-      ]).filter(Boolean)
-      const durationMinutes = timestamps.length > 1
-        ? Math.max(1, Math.round((Math.max(...timestamps) - Math.min(...timestamps)) / 60000))
-        : null
+      const durationMinutes = getWorkoutDurationMinutes(lastDaySessions)
 
       acc[routine.id] = {
         lastDate,
@@ -1128,18 +1134,11 @@ export default function Routines() {
       : null
     const exerciseNames = [...new Set(lastSessions.map((session) => session.exerciseName).filter(Boolean))]
     const totalSets = lastSessions.reduce((sum, session) => sum + (session.sets?.length || 0), 0)
-    const timestamps = lastSessions.flatMap((session) => [
-      getTimestampMs(session.createdAt),
-      getTimestampMs(session.updatedAt),
-      getTimestampMs(session.startedAt),
-    ]).filter(Boolean)
-    const durationMinutes = timestamps.length > 1
-      ? Math.max(1, Math.round((Math.max(...timestamps) - Math.min(...timestamps)) / 60000))
-      : null
+    const durationMinutes = getWorkoutDurationMinutes(lastSessions)
 
     return {
       lastDate,
-      label: routineNames.length > 1 ? 'Mixed Workout' : (routineNames[0] || 'Free Workout'),
+      label: routineNames.length > 1 ? 'Mixed Workout' : (routineNames[0] || 'Quick Log'),
       volume: calcSessionVolume(lastSessions),
       totalSets,
       exerciseCount: exerciseNames.length,
@@ -1188,7 +1187,7 @@ export default function Routines() {
     })[0] || null
   }, [lastSessionSummary?.routineId, routineInProgress, routineSessionStats, routines])
   const routinesHook = routineInProgress
-    ? 'Pick up where you left off and keep the momentum going.'
+    ? 'Pick up where you left off. Keep the momentum going.'
     : recommendedRoutine
       ? `${formatRoutineName(recommendedRoutine.name)} is ready when you are.`
       : routines.length > 0
@@ -1341,19 +1340,23 @@ export default function Routines() {
               <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0">
                   <p className="text-white/80 text-[11px] font-semibold uppercase tracking-[0.24em]">
-                    {routineInProgress?.routine?.id === recommendedRoutine.id ? 'Resume workout' : "Start today's workout"}
+                    {routineInProgress?.routine?.id === recommendedRoutine.id
+                      ? 'Resume Workout'
+                      : routineSessionStats[recommendedRoutine.id]?.lastDate
+                        ? 'Repeat Workout'
+                        : 'Start Workout'}
                   </p>
                   <p className="text-white font-display text-xl font-bold mt-1 leading-tight">
                     {formatRoutineName(recommendedRoutine.name)}
                   </p>
                   <p className="text-white/85 text-sm mt-1.5">
                     {routineInProgress?.routine?.id === recommendedRoutine.id
-                      ? `${routineInProgress.completed.length} of ${routineInProgress.exercises.length} exercises completed`
+                      ? `${routineInProgress.completed.length} / ${routineInProgress.exercises.length} exercises completed`
                       : `${recommendedRoutine.exercises?.length || 0} exercises ready to train`}
                   </p>
                   <p className="text-white/75 text-xs mt-1">
                     {routineInProgress?.routine?.id === recommendedRoutine.id
-                      ? `Next: ${routineInProgress.exercises.find((exercise) => exercise.id === routineInProgress.currentExerciseId)?.name || 'Continue workout'}`
+                      ? `Next: ${routineInProgress.exercises.find((exercise) => exercise.id === routineInProgress.currentExerciseId)?.name || 'Resume Workout'}`
                       : (routineSessionStats[recommendedRoutine.id]?.lastUsedLabel
                         ? `Last used ${routineSessionStats[recommendedRoutine.id].lastUsedLabel}`
                         : 'Tap to jump straight into training')}
@@ -1371,7 +1374,7 @@ export default function Routines() {
               onClick={() => setShowNew(true)}
               className="card w-full text-left active:scale-[0.99] transition-transform"
             >
-              <p className="text-text-secondary text-[11px] font-semibold uppercase tracking-[0.24em]">Start today's workout</p>
+              <p className="text-text-secondary text-[11px] font-semibold uppercase tracking-[0.24em]">Start Workout</p>
               <p className="text-text-primary font-display text-xl font-bold mt-1">Create your first routine</p>
               <p className="text-text-secondary text-sm mt-1.5">Build a routine once, then start from here in one tap.</p>
             </button>
@@ -1461,15 +1464,22 @@ export default function Routines() {
                     }
                     detailText={
                       routineInProgress?.routine?.id === r.id
-                        ? `${routineInProgress.completed.length} of ${routineInProgress.exercises.length} completed`
+                        ? `${routineInProgress.completed.length} / ${routineInProgress.exercises.length} completed`
                         : routineSessionStats[r.id]?.lastUsedLabel
                           ? `Last used ${routineSessionStats[r.id].lastUsedLabel}`
                           : `${(r.exercises || []).length} exercises`
                     }
                     progressText={
                       routineInProgress?.routine?.id === r.id
-                        ? `${routineInProgress.completed.length} of ${routineInProgress.exercises.length} exercises completed`
+                        ? `${routineInProgress.completed.length} / ${routineInProgress.exercises.length} exercises completed`
                         : null
+                    }
+                    ctaLabel={
+                      routineInProgress?.routine?.id === r.id
+                        ? 'Resume Workout'
+                        : routineSessionStats[r.id]?.lastDate
+                          ? 'Repeat Workout'
+                          : 'Start Workout'
                     }
                     progressRatio={
                       routineInProgress?.routine?.id === r.id

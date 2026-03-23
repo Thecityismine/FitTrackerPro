@@ -511,10 +511,10 @@ function GuidedWorkoutPage() {
             <div className="flex items-center justify-between gap-3">
               <div>
                 <p className="text-text-secondary text-[11px] uppercase tracking-[0.24em]">Progress</p>
-                <p className="text-text-primary font-semibold text-sm mt-1">
+                  <p className="text-text-primary font-semibold text-sm mt-1">
                   {guidedWorkout?.summaryReady
                     ? `Workout complete - ${loggedExerciseCount} exercises logged`
-                    : `${completedCount} of ${totalExercises} completed today`}
+                    : `${completedCount} / ${totalExercises} completed today`}
                 </p>
               </div>
               <div className="text-right">

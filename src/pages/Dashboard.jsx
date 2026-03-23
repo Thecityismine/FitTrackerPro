@@ -149,11 +149,23 @@ function formatCompactVolume(value) {
 
 function formatDurationMinutes(minutes) {
   if (!Number.isFinite(minutes) || minutes <= 0) return null
-  if (minutes > 240) return null
+  if (minutes > 180) return null
   if (minutes < 60) return `${minutes}m`
   const hours = Math.floor(minutes / 60)
   const remaining = minutes % 60
   return remaining > 0 ? `${hours}h ${remaining}m` : `${hours}h`
+}
+
+function getWorkoutDurationMinutes(sessions = []) {
+  const starts = sessions
+    .flatMap((session) => [getTimestampMs(session.startedAt), getTimestampMs(session.createdAt)])
+    .filter(Boolean)
+  const ends = sessions
+    .flatMap((session) => [getTimestampMs(session.completedAt), getTimestampMs(session.createdAt)])
+    .filter(Boolean)
+  if (!starts.length || !ends.length) return null
+  const minutes = Math.round((Math.max(...ends) - Math.min(...starts)) / 60000)
+  return minutes > 0 ? minutes : null
 }
 
 function ChartTooltip({ active, payload, label }) {
@@ -361,17 +373,10 @@ export default function Dashboard() {
     })
     return Array.from(grouped.values())
   }, [lastSessions])
-  const lastSessionDurationMinutes = useMemo(() => {
-    const stamps = lastSessions.flatMap((session) => [
-      getTimestampMs(session.startedAt),
-      getTimestampMs(session.createdAt),
-      getTimestampMs(session.completedAt),
-      getTimestampMs(session.updatedAt),
-    ]).filter(Boolean)
-    if (stamps.length < 2) return null
-    const minutes = Math.round((Math.max(...stamps) - Math.min(...stamps)) / 60000)
-    return minutes > 0 ? minutes : null
-  }, [lastSessions])
+  const lastSessionDurationMinutes = useMemo(
+    () => getWorkoutDurationMinutes(lastSessions),
+    [lastSessions]
+  )
   const lastSessionDurationLabel = formatDurationMinutes(lastSessionDurationMinutes)
   const lastSessionPrCount = useMemo(() => {
     return lastSessions.reduce((count, session) => {
@@ -418,7 +423,7 @@ export default function Dashboard() {
   )
 
   const planTitle = routineInProgress
-    ? `Continue ${routineInProgress.routine?.name || 'Workout'}`
+    ? 'Resume Workout'
     : weakestGroup?.remaining > 0
       ? `Recommended: ${weakestGroup.label} Workout`
       : trainedToday
@@ -426,7 +431,7 @@ export default function Dashboard() {
         : 'Start your next workout'
 
   const planDetail = routineInProgress
-    ? `${routineCompletedCount} of ${routineInProgress.exercises.length} complete${routineCurrentExercise?.name ? ` | Next: ${routineCurrentExercise.name}` : ''}`
+    ? `${routineCompletedCount} / ${routineInProgress.exercises.length} completed${routineCurrentExercise?.name ? ` • Next: ${routineCurrentExercise.name}` : ''}`
     : weakestGroup?.remaining > 0
       ? `${weakestGroup.remaining} more ${weakestGroup.label.toLowerCase()} sets to hit this week`
       : trainedToday
@@ -502,9 +507,9 @@ export default function Dashboard() {
     if (daysAgo <= 2) {
       return {
         status: 'Recovery',
-        dotClass: 'bg-accent-orange',
-        textClass: 'text-accent-orange',
-        shellClass: 'bg-accent-orange/8 border border-accent-orange/16',
+        dotClass: 'bg-[#FACC15]',
+        textClass: 'text-[#FACC15]',
+        shellClass: 'bg-[#FACC15]/10 border border-[#FACC15]/24',
         detail: `${bodyPart} was trained ${daysAgo} day${daysAgo === 1 ? '' : 's'} ago. Moderate work is okay.`,
       }
     }
@@ -758,7 +763,7 @@ export default function Dashboard() {
             <div className="mt-4 flex items-center justify-between gap-3 border-t border-surface2 pt-3 text-[11px] text-text-secondary">
               {[
                 { label: 'Ready', dotClass: 'bg-accent-green' },
-                { label: 'Recovery', dotClass: 'bg-accent-orange' },
+                { label: 'Recovery', dotClass: 'bg-[#FACC15]' },
                 { label: 'Overworked', dotClass: 'bg-accent-red' },
               ].map((item) => (
                 <div key={item.label} className="flex items-center gap-1.5">

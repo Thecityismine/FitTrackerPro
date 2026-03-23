@@ -1,5 +1,5 @@
 // src/pages/BodyMetrics.jsx
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { startTransition, useEffect, useMemo, useRef, useState } from 'react'
 import { format, subDays, subMonths, startOfMonth, endOfMonth } from 'date-fns'
 import { getDocs, addDoc, serverTimestamp } from 'firebase/firestore'
 import { AreaChart, Area, XAxis, Tooltip, ResponsiveContainer } from 'recharts'
@@ -670,6 +670,55 @@ function ProgressPhotoCard({ entries }) {
   )
 }
 
+function SessionInsightsLoadingCard({ title, description, blocks = 3 }) {
+  return (
+    <div className="card">
+      <div className="flex items-start justify-between gap-3 mb-3">
+        <div>
+          <p className="section-title mb-0">{title}</p>
+          <p className="text-text-secondary text-xs mt-0.5">{description}</p>
+        </div>
+        <div className="w-10 h-10 rounded-2xl bg-surface2 animate-pulse" />
+      </div>
+      <div className="rounded-2xl border border-surface2 bg-surface2/60 p-4">
+        <div className="h-4 w-24 rounded-full bg-surface2 animate-pulse" />
+        <div className="h-10 w-32 rounded-2xl bg-surface2 animate-pulse mt-3" />
+        <div className="h-3 w-full rounded-full bg-surface2 animate-pulse mt-3" />
+      </div>
+      <div className="grid grid-cols-3 gap-2 mt-3">
+        {[...Array(blocks)].map((_, index) => (
+          <div key={index} className="rounded-2xl h-[84px] bg-surface2 animate-pulse" />
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function SessionInsightsErrorCard({ title, message, onRetry }) {
+  return (
+    <div className="card">
+      <div className="flex items-start justify-between gap-3 mb-3">
+        <div>
+          <p className="section-title mb-0">{title}</p>
+          <p className="text-text-secondary text-xs mt-0.5">Workout-based insights load after your body metrics.</p>
+        </div>
+        <div className="w-10 h-10 rounded-2xl bg-accent-red/10 flex items-center justify-center flex-shrink-0">
+          <svg className="w-5 h-5 text-accent-red" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v4m0 4h.01M5.072 19h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+          </svg>
+        </div>
+      </div>
+      <div className="rounded-2xl border border-accent-red/20 bg-accent-red/10 p-4">
+        <p className="text-text-primary text-sm font-semibold">Insights temporarily unavailable</p>
+        <p className="text-text-secondary text-sm mt-1">{message}</p>
+        <button onClick={onRetry} className="btn-secondary mt-4 w-full">
+          Retry Insights
+        </button>
+      </div>
+    </div>
+  )
+}
+
 function StrengthScoreCard({ sessions, bodyWeight }) {
   const strengthData = useMemo(
     () => calculateStrengthData(sessions, bodyWeight),
@@ -935,36 +984,59 @@ export default function BodyMetrics() {
   const [entries, setEntries] = useState([])
   const [sessions, setSessions] = useState([])
   const [loading, setLoading] = useState(true)
+  const [sessionsLoading, setSessionsLoading] = useState(true)
   const [showLog, setShowLog] = useState(false)
   const [prefillData, setPrefillData] = useState(null)
   const [showAll, setShowAll] = useState(false)
   const [scanning, setScanning] = useState(false)
   const [scanStatus, setScanStatus] = useState(null)
   const [loadError, setLoadError] = useState(null)
+  const [sessionsError, setSessionsError] = useState(null)
   const [reloadKey, setReloadKey] = useState(0)
   const scanInputRef = useRef(null)
 
   useEffect(() => {
     if (!user?.uid) return
     setLoading(true)
+    setSessionsLoading(true)
     setLoadError(null)
+    setSessionsError(null)
     user.getIdToken()
-      .then(() => Promise.all([
-        getDocs(bodyMetricsCol(user.uid)),
-        getDocs(sessionsCol(user.uid)),
-      ]))
-      .then(([metricsSnap, sessionsSnap]) => {
-        const sorted = metricsSnap.docs
-          .map(d => ({ id: d.id, ...d.data() }))
-          .sort((a, b) => b.date.localeCompare(a.date))
-        setEntries(sorted)
-        setSessions(sessionsSnap.docs.map(d => ({ id: d.id, ...d.data() })))
-        setLoading(false)
+      .then(() => {
+        getDocs(bodyMetricsCol(user.uid))
+          .then((metricsSnap) => {
+            const sorted = metricsSnap.docs
+              .map(d => ({ id: d.id, ...d.data() }))
+              .sort((a, b) => b.date.localeCompare(a.date))
+            setEntries(sorted)
+            setLoading(false)
+          })
+          .catch((err) => {
+            console.error('BodyMetrics metrics load error:', err)
+            setLoadError('Could not load your body metrics right now.')
+            setLoading(false)
+          })
+
+        getDocs(sessionsCol(user.uid))
+          .then((sessionsSnap) => {
+            const nextSessions = sessionsSnap.docs.map(d => ({ id: d.id, ...d.data() }))
+            startTransition(() => {
+              setSessions(nextSessions)
+              setSessionsLoading(false)
+            })
+          })
+          .catch((err) => {
+            console.error('BodyMetrics sessions load error:', err)
+            setSessionsError('Workout-based insights are still loading. Retry to refresh them.')
+            setSessionsLoading(false)
+          })
       })
       .catch((err) => {
-        console.error('BodyMetrics load error:', err)
+        console.error('BodyMetrics auth load error:', err)
         setLoadError('Could not load your body metrics right now.')
+        setSessionsError('Workout-based insights are still loading. Retry to refresh them.')
         setLoading(false)
+        setSessionsLoading(false)
       })
   }, [reloadKey, user?.uid])
 
@@ -976,8 +1048,8 @@ export default function BodyMetrics() {
   const previous = entries[1]
   const strengthWeight = latest?.weight || entries.find((entry) => entry.weight)?.weight || null
   const strengthSummary = useMemo(
-    () => calculateStrengthData(sessions, strengthWeight),
-    [sessions, strengthWeight]
+    () => (sessionsLoading ? { overallScore: null } : calculateStrengthData(sessions, strengthWeight)),
+    [sessions, sessionsLoading, strengthWeight]
   )
   const bodyFocus = getBodyFocus(latest, previous, strengthSummary)
   const weightInsight = useMemo(() => getWeightInsight(entries), [entries])
@@ -1197,7 +1269,20 @@ Notes: weight/boneMass/fatFreeBodyWeight/muscleMassLbs are in lbs; bodyFat/bodyW
             {scanStatus.message}
           </div>
         )}
-        <StrengthScoreCard sessions={sessions} bodyWeight={strengthWeight} />
+        {sessionsLoading ? (
+          <SessionInsightsLoadingCard
+            title="Strength Score"
+            description="Estimating your score from recent logged sets."
+          />
+        ) : sessionsError ? (
+          <SessionInsightsErrorCard
+            title="Strength Score"
+            message={sessionsError}
+            onRetry={retryLoad}
+          />
+        ) : (
+          <StrengthScoreCard sessions={sessions} bodyWeight={strengthWeight} />
+        )}
 
         {/* Progress photos */}
         {entries.some(e => e.photoBase64) && (
@@ -1205,7 +1290,15 @@ Notes: weight/boneMass/fatFreeBodyWeight/muscleMassLbs are in lbs; bodyFat/bodyW
         )}
 
         {/* AI Monthly Report */}
-        <AiReportCard entries={entries} sessions={sessions} />
+        {sessionsLoading ? (
+          <SessionInsightsLoadingCard
+            title="Monthly Insights"
+            description="Pulling in your latest workouts for a faster summary."
+            blocks={1}
+          />
+        ) : !sessionsError ? (
+          <AiReportCard entries={entries} sessions={sessions} />
+        ) : null}
 
         {/* Metric cards — single collapsible card */}
         <div className="card">

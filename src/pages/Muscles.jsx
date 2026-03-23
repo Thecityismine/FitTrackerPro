@@ -156,6 +156,13 @@ function lastDoneLabel(days) {
   if (days === 1) return '1d ago'
   return `${days}d ago`
 }
+function lastTrainedDetail(dateStr) {
+  const days = daysAgo(dateStr)
+  if (days === null) return 'Last trained: Not yet'
+  if (days === 0) return 'Last trained: Today'
+  if (days === 1) return 'Last trained: Yesterday'
+  return `Last trained: ${days} days ago`
+}
 function toSlug(name) {
   return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
 }
@@ -325,7 +332,7 @@ function CircleProgress({ pct, color, size = 44, strokeWidth = 5 }) {
   )
 }
 
-function GroupRow({ group, sets, expanded, onToggle, isLowest }) {
+function GroupRow({ group, sets, expanded, onToggle, isLowest, lastTrainedLabel }) {
   const totalActual = group.muscles.reduce((s, m) => s + (sets[group.id]?.[m.id] || 0), 0)
   const pct = Math.min(totalActual / group.targetTotal, 1)
   const toGo = Math.max(group.targetTotal - totalActual, 0)
@@ -349,6 +356,7 @@ function GroupRow({ group, sets, expanded, onToggle, isLowest }) {
           <p className="text-text-secondary text-xs">
             {totalActual} / {group.targetTotal} Sets
           </p>
+          <p className="text-text-secondary text-[11px] mt-1">{lastTrainedLabel}</p>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
           {toGo > 0 && (
@@ -389,7 +397,7 @@ function GroupRow({ group, sets, expanded, onToggle, isLowest }) {
             )
           })}
           <p className="text-text-secondary text-xs pt-1 border-t border-surface2 mt-2">
-            Primary muscles = 1 set · Secondary muscles = 0.5 sets
+            Primary = 1 set, Secondary = 0.5
           </p>
         </div>
       )}
@@ -687,6 +695,18 @@ export default function Muscles() {
     const ws = sessions.filter(s => s.date >= weekStartStr && s.date <= weekEndStr)
     return computeWeekSets(ws)
   }, [sessions, weekStartStr, weekEndStr])
+  const groupLastTrainedMap = useMemo(() => {
+    const latestByGroup = {}
+    sessions.forEach((session) => {
+      if (!session?.date) return
+      const category = getMuscleCategory(session.muscleGroup, session.exerciseName)
+      if (!category?.groupId) return
+      if (!latestByGroup[category.groupId] || session.date > latestByGroup[category.groupId]) {
+        latestByGroup[category.groupId] = session.date
+      }
+    })
+    return latestByGroup
+  }, [sessions])
 
   // ── Detail view (/muscles/:groupId) ──────────────────────
   if (groupId) {
@@ -896,10 +916,10 @@ export default function Muscles() {
   const paceTone = overallPct >= expectedPct - 0.08 ? 'text-[#62E38D]' : 'text-[#F2C14E]'
   const lowestWorkoutCount = lowestGroup?.toGo > 0 ? Math.max(Math.ceil(lowestGroup.toGo / 7), 1) : 0
   const focusInsight = lowestWorkoutCount > 0
-    ? `You need ${lowestWorkoutCount} more ${lowestGroup.id} workout${lowestWorkoutCount === 1 ? '' : 's'} this week`
+    ? `${lowestWorkoutCount} more ${lowestGroup?.id === 'legs' ? 'leg' : lowestGroup?.id} session${lowestWorkoutCount === 1 ? '' : 's'} to hit your weekly goal`
     : 'All weekly muscle targets are on pace'
   const motivationLine = overallPct >= expectedPct + 0.08
-    ? 'Strong week. Keep pressing the advantage.'
+    ? 'Strong week. Keep it going.'
     : overallPct >= expectedPct - 0.08
       ? 'Stay steady. You are right on pace.'
       : `A focused ${lowestGroup?.label?.toLowerCase() || 'training'} session gets you back in rhythm.`
@@ -947,15 +967,17 @@ export default function Muscles() {
 
     return candidates[0]?.routine || null
   })()
+  const recommendedRoutineHasHistory = Boolean(recommendedRoutine?.id && routineSessionStats[recommendedRoutine.id])
   const recommendedActionLabel = routineInProgress
-    ? 'Continue Workout'
-    : lowestGroup?.id === 'legs'
-      ? 'Start Leg Workout'
-      : lowestGroup?.id === 'push'
-        ? 'Start Push Workout'
-        : lowestGroup?.id === 'pull'
-          ? 'Start Pull Workout'
-          : 'Start Workout'
+    ? 'Resume Workout'
+    : recommendedRoutineHasHistory
+      ? 'Repeat Workout'
+      : 'Start Workout'
+  const recommendationLine = routineInProgress?.routine?.name
+    ? `Recommended next: Resume ${formatRoutineName(routineInProgress.routine.name)}`
+    : recommendedRoutine?.name
+      ? `Recommended next: ${formatRoutineName(recommendedRoutine.name)}`
+      : null
 
   function launchRecommendedWorkout() {
     if (routineInProgress?.routine?.id) {
@@ -1000,6 +1022,9 @@ export default function Muscles() {
           </div>
           <p className="mt-2 text-sm font-medium text-[#62E38D]">{focusInsight}</p>
           <p className="mt-1 text-sm text-text-secondary">{motivationLine}</p>
+          {recommendationLine && (
+            <p className="mt-1 text-sm font-medium text-accent">{recommendationLine}</p>
+          )}
           {(routineInProgress || recommendedRoutine) && (
             <button
               onClick={launchRecommendedWorkout}
@@ -1053,6 +1078,7 @@ export default function Muscles() {
               sets={weeklySets}
               expanded={expandedId === group.id}
               isLowest={lowestGroup?.id === group.id && lowestGroup?.toGo > 0}
+              lastTrainedLabel={lastTrainedDetail(groupLastTrainedMap[group.id])}
               onToggle={() => setExpandedId(prev => prev === group.id ? null : group.id)}
             />
           ))}
