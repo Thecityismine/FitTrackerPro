@@ -1,11 +1,11 @@
 // src/pages/BodyMetrics.jsx
 import { startTransition, useEffect, useMemo, useRef, useState } from 'react'
 import { format, subDays, subMonths, startOfMonth, endOfMonth } from 'date-fns'
-import { getDocs, addDoc, serverTimestamp } from 'firebase/firestore'
+import { getDocs, serverTimestamp, setDoc } from 'firebase/firestore'
 import { AreaChart, Area, XAxis, Tooltip, ResponsiveContainer } from 'recharts'
 import PageWrapper from '../components/layout/PageWrapper'
 import { useAuth } from '../context/AuthContext'
-import { bodyMetricsCol, sessionsCol } from '../firebase/collections'
+import { bodyMetricDoc, bodyMetricsCol, sessionsCol } from '../firebase/collections'
 import { analyzeImageWithAi, generateAiText } from '../utils/aiClient'
 
 const TODAY = format(new Date(), 'yyyy-MM-dd')
@@ -14,6 +14,44 @@ const TODAY = format(new Date(), 'yyyy-MM-dd')
 function calcBMI(weightLbs, heightInches) {
   if (!weightLbs || !heightInches) return null
   return parseFloat(((weightLbs * 703) / (heightInches ** 2)).toFixed(1))
+}
+
+function getEntryTimestampValue(entry) {
+  const timestamp = entry?.updatedAt || entry?.createdAt
+  if (!timestamp) return Date.parse(`${entry?.date || ''}T00:00:00`) || 0
+  if (typeof timestamp?.toMillis === 'function') return timestamp.toMillis()
+  if (timestamp instanceof Date) return timestamp.getTime()
+  if (typeof timestamp === 'number') return timestamp
+  if (typeof timestamp?.seconds === 'number') {
+    return (timestamp.seconds * 1000) + Math.round((timestamp.nanoseconds || 0) / 1000000)
+  }
+
+  const parsed = Date.parse(timestamp)
+  return Number.isFinite(parsed) ? parsed : (Date.parse(`${entry?.date || ''}T00:00:00`) || 0)
+}
+
+function compareEntriesNewestFirst(a, b) {
+  const dateCompare = String(b?.date || '').localeCompare(String(a?.date || ''))
+  if (dateCompare !== 0) return dateCompare
+
+  const timestampCompare = getEntryTimestampValue(b) - getEntryTimestampValue(a)
+  if (timestampCompare !== 0) return timestampCompare
+
+  return String(b?.id || '').localeCompare(String(a?.id || ''))
+}
+
+function normalizeBodyMetricEntries(entries = []) {
+  const latestByDate = new Map()
+
+  entries.forEach((entry) => {
+    if (!entry?.date) return
+    const current = latestByDate.get(entry.date)
+    if (!current || compareEntriesNewestFirst(entry, current) < 0) {
+      latestByDate.set(entry.date, entry)
+    }
+  })
+
+  return [...latestByDate.values()].sort(compareEntriesNewestFirst)
 }
 
 function bmiLabel(bmi) {
@@ -1005,10 +1043,10 @@ export default function BodyMetrics() {
       .then(() => {
         getDocs(bodyMetricsCol(user.uid))
           .then((metricsSnap) => {
-            const sorted = metricsSnap.docs
+            const normalized = normalizeBodyMetricEntries(metricsSnap.docs
               .map(d => ({ id: d.id, ...d.data() }))
-              .sort((a, b) => b.date.localeCompare(a.date))
-            setEntries(sorted)
+            )
+            setEntries(normalized)
             setLoading(false)
           })
           .catch((err) => {
@@ -1086,11 +1124,11 @@ export default function BodyMetrics() {
     { label: 'Bone Mass', value: latest?.boneMass, unit: 'lb', delta: deltaValue(latest, previous, 'boneMass'), lowerIsBetter: false },
   ]
 
-  // Weight history chart (last 12 entries, oldest first)
+  // Weight history chart (last 12 weigh-in days, oldest first)
   const chartData = [...entries]
     .reverse()
     .slice(-12)
-    .filter(e => e.weight)
+    .filter(e => e.weight != null)
     .map(e => ({ date: e.date.slice(5), weight: e.weight }))
 
   async function handleScanPhoto(e) {
@@ -1128,9 +1166,10 @@ Notes: weight/boneMass/fatFreeBodyWeight/muscleMassLbs are in lbs; bodyFat/bodyW
   }
 
   async function handleSave(formData) {
+    const currentDayEntry = entries.find((entry) => entry.date === TODAY) || null
     const heightInches = formData.heightFt
       ? (Number(formData.heightFt) * 12) + (Number(formData.heightIn) || 0)
-      : latest?.heightInches || null
+      : currentDayEntry?.heightInches || latest?.heightInches || null
 
     // Use extracted BMI from scan if available, otherwise compute from weight + height
     const bmi = formData.bmi
@@ -1138,6 +1177,7 @@ Notes: weight/boneMass/fatFreeBodyWeight/muscleMassLbs are in lbs; bodyFat/bodyW
       : calcBMI(Number(formData.weight), heightInches)
 
     const n = (v) => (v !== '' && v != null ? Number(v) : null)
+    const savedAt = new Date().toISOString()
 
     const entry = {
       date: TODAY,
@@ -1155,12 +1195,22 @@ Notes: weight/boneMass/fatFreeBodyWeight/muscleMassLbs are in lbs; bodyFat/bodyW
       metabolicAge:      n(formData.metabolicAge),
       heightInches,
       bmi,
-      photoBase64: formData.photoBase64 || null,
-      createdAt: serverTimestamp(),
+      photoBase64: formData.photoBase64 || currentDayEntry?.photoBase64 || null,
+      updatedAt: serverTimestamp(),
+      createdAt: currentDayEntry?.createdAt || serverTimestamp(),
     }
 
-    const ref = await addDoc(bodyMetricsCol(user.uid), entry)
-    setEntries(prev => [{ ...entry, id: ref.id }, ...prev])
+    await setDoc(bodyMetricDoc(user.uid, TODAY), entry, { merge: true })
+    setEntries(prev => normalizeBodyMetricEntries([
+      ...prev,
+      {
+        ...(currentDayEntry || {}),
+        ...entry,
+        id: TODAY,
+        updatedAt: savedAt,
+        createdAt: currentDayEntry?.createdAt || savedAt,
+      },
+    ]))
     setShowLog(false)
     setPrefillData(null)
   }
