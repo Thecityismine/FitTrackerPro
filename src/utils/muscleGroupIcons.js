@@ -1,6 +1,6 @@
 const MAIN_CARD_ICONS = {
   abs: '/icons/Ab.png',
-  arms: '/icons/Biceps.png',
+  arms: '/icons/Arms.png',
   biceps: '/icons/Biceps.png',
   triceps: '/icons/Triceps.png',
   shoulders: '/icons/Shoulder.png',
