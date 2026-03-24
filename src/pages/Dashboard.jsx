@@ -700,11 +700,13 @@ export default function Dashboard() {
                 <p className="mt-1.5 text-[11px] text-white/72 leading-tight">{heroProgressText}</p>
               </div>
 
-              <div className="flex w-fit min-w-[10.25rem] items-center justify-center gap-2 self-end rounded-full bg-white px-5 py-2.5 text-sm font-semibold text-accent shadow-sm shadow-black/10">
-                <span>{planCtaLabel}</span>
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 12h14M13 5l7 7-7 7" />
-                </svg>
+              <div className="flex justify-end">
+                <div className="flex w-fit min-w-[10.25rem] items-center justify-center gap-2 rounded-full bg-white px-5 py-2.5 text-sm font-semibold text-accent shadow-sm shadow-black/10">
+                  <span>{planCtaLabel}</span>
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 12h14M13 5l7 7-7 7" />
+                  </svg>
+                </div>
               </div>
             </div>
           </div>
