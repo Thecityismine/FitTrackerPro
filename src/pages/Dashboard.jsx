@@ -645,16 +645,18 @@ export default function Dashboard() {
           className="card card-enter tap-glow w-full text-left active:scale-[0.99] transition-transform border border-accent/30 bg-gradient-to-r from-accent via-[#245BEB] to-[#1A56DB] shadow-lg shadow-accent/20"
         >
           <div className="space-y-4">
-            <div className="flex flex-wrap items-center gap-2">
-              <p className="section-title mb-0 text-white/75">Today&apos;s Plan</p>
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="section-title mb-0 text-white/75">Today&apos;s Plan</p>
+                <p className="mt-2 text-white/70 text-[11px] uppercase tracking-[0.2em]">{planFocusLabel}</p>
+              </div>
               <span className="rounded-full border border-white/12 bg-white/12 px-2.5 py-1 text-[11px] font-semibold text-white">
                 Daily Score {dailyScore}%
               </span>
             </div>
 
             <div className="min-w-0">
-              <p className="text-white/70 text-[11px] uppercase tracking-[0.2em]">{planFocusLabel}</p>
-              <p className="mt-2 text-white font-semibold text-xl leading-tight">{planHeadline}</p>
+              <p className="text-white font-semibold text-xl leading-tight">{planHeadline}</p>
               <p className="text-white/85 text-sm mt-2 leading-relaxed">{planReason}</p>
             </div>
 
