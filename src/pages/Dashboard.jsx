@@ -16,6 +16,7 @@ import { sessionsCol } from '../firebase/collections'
 import { getMainMuscleGroupIcon } from '../utils/muscleGroupIcons'
 
 const TODAY = format(new Date(), 'yyyy-MM-dd')
+const CARDIO_RE = /\b(cardio|walking|walk|run|running|jog|jogging|bike|cycling|cycle|elliptical|swim|swimming|rowing|treadmill|stair|hiit)\b/i
 
 const BODY_PARTS = [
   { key: 'Abs', icon: getMainMuscleGroupIcon('Abs'), match: ['abs', 'core', 'abdominal', 'crunch', 'plank', 'situp', 'sit-up'] },
@@ -191,6 +192,10 @@ function StatCard({ label, value, sub, valueClass = 'text-text-primary' }) {
   )
 }
 
+function isCardioSession(session) {
+  return session?.type === 'time' || CARDIO_RE.test(session?.muscleGroup || '') || CARDIO_RE.test(session?.exerciseName || '')
+}
+
 function SegmentedTargetRing({ groups, size = 80, strokeWidth = 8, gapDegrees = 16 }) {
   const radius = (size - strokeWidth) / 2
   const circumference = 2 * Math.PI * radius
@@ -359,6 +364,7 @@ export default function Dashboard() {
   const lastSessions = lastDate ? activeSessions.filter((session) => session.date === lastDate) : []
   const lastExercises = lastSessions.map((session) => session.exerciseName).filter(Boolean)
   const lastSessionVolume = lastSessions.reduce((sum, session) => sum + getSessionVolume(session), 0)
+  const lastSessionIsAllCardio = lastSessions.length > 0 && lastSessions.every(isCardioSession)
   const lastSessionSetTotal = lastSessions.reduce((sum, session) => sum + (session.sets?.length || 0), 0)
   const lastSessionExerciseRows = useMemo(() => {
     const grouped = new Map()
@@ -379,6 +385,13 @@ export default function Dashboard() {
     [lastSessions]
   )
   const lastSessionDurationLabel = formatDurationMinutes(lastSessionDurationMinutes)
+  const lastSessionSummaryLabel = lastSessionIsAllCardio ? 'Workout Time' : 'Total Volume'
+  const lastSessionSummaryValue = lastSessionIsAllCardio
+    ? `${Math.round(lastSessionVolume).toLocaleString()} Minutes`
+    : formatCompactVolume(lastSessionVolume)
+  const lastSessionGaugeValue = lastSessionIsAllCardio
+    ? `${Math.round(lastSessionVolume).toLocaleString()}m`
+    : formatCompactVolume(lastSessionVolume)
   const lastSessionPrCount = useMemo(() => {
     return lastSessions.reduce((count, session) => {
       const currentBest = getSessionMaxWeight(session)
@@ -677,7 +690,7 @@ export default function Dashboard() {
               {lastSessionExerciseRows.length} exercises
               {lastSessionDurationLabel ? ` | ${lastSessionDurationLabel}` : ''}
               {` | ${lastSessionSetTotal} sets | `}
-              <span className="text-text-primary font-semibold text-sm">Total Volume: {formatCompactVolume(lastSessionVolume)}</span>
+              <span className="text-text-primary font-semibold text-sm">{lastSessionSummaryLabel}: {lastSessionSummaryValue}</span>
               {lastSessionPrCount > 0 ? ` | ${lastSessionPrCount} PR${lastSessionPrCount === 1 ? '' : 's'} achieved` : ''}
             </p>
 
@@ -710,8 +723,8 @@ export default function Dashboard() {
                   />
                 </svg>
                 <div className="absolute inset-0 flex flex-col items-center justify-center">
-                  <p className="font-display text-base font-bold text-text-primary leading-tight">{formatCompactVolume(lastSessionVolume)}</p>
-                  <p className="text-text-secondary text-[9px]">Weekly Goal</p>
+                  <p className="font-display text-base font-bold text-text-primary leading-tight">{lastSessionGaugeValue}</p>
+                  <p className="text-text-secondary text-[9px]">{lastSessionSummaryLabel}</p>
                 </div>
               </div>
             </div>
