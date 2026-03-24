@@ -332,7 +332,6 @@ export default function Dashboard() {
   const maxVol = chartData.length ? Math.max(...chartData.map((point) => point.vol)) : 0
   const thisWeekKey = format(startOfWeek(new Date(), { weekStartsOn: 0 }), 'yyyy-MM-dd')
   const weekEndStr = format(endOfWeek(new Date(), { weekStartsOn: 0 }), 'yyyy-MM-dd')
-  const thisWeekVol = weeklyMap[thisWeekKey] || 0
   const thisWeekSessions = activeSessions.filter((session) => session.date >= thisWeekKey && session.date <= weekEndStr)
   const weekSets = computeDashSets(thisWeekSessions)
   const weekTotal = pplConfig.reduce(
@@ -352,7 +351,6 @@ export default function Dashboard() {
   const weakestGroup = weekGroupStats.slice().sort((a, b) => a.ratio - b.ratio || b.remaining - a.remaining)[0]
 
   const lastSessions = lastDate ? activeSessions.filter((session) => session.date === lastDate) : []
-  const lastExercises = lastSessions.map((session) => session.exerciseName).filter(Boolean)
   const lastSessionVolume = lastSessions.reduce((sum, session) => sum + getSessionVolume(session), 0)
   const lastSessionIsAllCardio = lastSessions.length > 0 && lastSessions.every(isCardioSession)
   const lastSessionSetTotal = lastSessions.reduce((sum, session) => sum + (session.sets?.length || 0), 0)
@@ -418,16 +416,6 @@ export default function Dashboard() {
     : 0
   const routineCurrentExercise = routineInProgress?.exercises.find((exercise) => exercise.id === routineInProgress.currentExerciseId)
 
-  const planDetail = routineInProgress
-    ? `${routineCompletedCount} / ${routineInProgress.exercises.length} completed${routineCurrentExercise?.name ? ` • Next: ${routineCurrentExercise.name}` : ''}`
-    : weakestGroup?.remaining > 0
-      ? `${weakestGroup.remaining} more ${weakestGroup.label.toLowerCase()} sets to hit this week`
-      : trainedToday
-        ? 'Recovery, steps, or mobility is the right move now.'
-        : streak > 0
-          ? `Keep your ${streak}-day streak going with one focused session.`
-          : 'One workout today gets your week moving.'
-
   const weeklyInsight = weakestGroup?.remaining > 0
     ? `${weakestGroup.label} needs ${weakestGroup.remaining} more sets this week.`
     : 'Your weekly targets are on track.'
@@ -463,10 +451,8 @@ export default function Dashboard() {
         `${lastSessionSetTotal} sets`,
         `${lastSessionSummaryLabel}: ${lastSessionSummaryValue}`,
         lastSessionPrCount > 0 ? `${lastSessionPrCount} PR${lastSessionPrCount === 1 ? '' : 's'}` : null,
-      ].filter(Boolean).join(' • ')
+      ].filter(Boolean).join(' | ')
     : 'Your latest workout details will show up here.'
-  const planDetailText = planDetail.replace(/[^\x00-\x7F]+/g, '|').replace(/\s*\|+\s*/g, ' | ')
-  const recentActivitySummaryText = recentActivitySummary.replace(/[^\x00-\x7F]+/g, '|').replace(/\s*\|+\s*/g, ' | ')
   const recentExerciseNames = lastSessionExerciseRows.length > 0
     ? `${lastSessionExerciseRows.slice(0, 2).map((row) => row.exerciseName).join(' | ')}${lastSessionExerciseRows.length > 2 ? ` | +${lastSessionExerciseRows.length - 2} more` : ''}`
     : 'No exercises logged yet'
@@ -948,12 +934,7 @@ export default function Dashboard() {
                 </span>
               )}
             </div>
-            <p className="hidden">{recentExerciseNames}</p>
-            <p className="hidden">
-              {lastExercises.length > 0 ? lastExercises.slice(0, 2).join(' • ') : 'No exercises logged yet'}
-              {lastExercises.length > 2 ? ` • +${lastExercises.length - 2} more` : ''}
-            </p>
-            <p className="mt-3 text-xs text-text-secondary">{recentActivitySummaryText}</p>
+            <p className="mt-3 text-xs text-text-secondary">{recentActivitySummary}</p>
           </div>
         </div>
 
