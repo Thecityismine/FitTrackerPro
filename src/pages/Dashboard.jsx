@@ -182,16 +182,6 @@ function ChartTooltip({ active, payload, label }) {
   )
 }
 
-function StatCard({ label, value, sub, valueClass = 'text-text-primary' }) {
-  return (
-    <div className="card card-enter">
-      <p className="section-title">{label}</p>
-      <p className={`stat-number ${valueClass}`}>{value}</p>
-      {sub && <p className="text-text-secondary text-xs mt-0.5">{sub}</p>}
-    </div>
-  )
-}
-
 function isCardioSession(session) {
   return session?.type === 'time' || CARDIO_RE.test(session?.muscleGroup || '') || CARDIO_RE.test(session?.exerciseName || '')
 }
@@ -428,22 +418,6 @@ export default function Dashboard() {
     : 0
   const routineCurrentExercise = routineInProgress?.exercises.find((exercise) => exercise.id === routineInProgress.currentExerciseId)
 
-  const dailyScore = Math.max(
-    0,
-    Math.min(
-      100,
-      Math.round((weekPct * 45) + (trainedToday ? 30 : 0) + (routineInProgress ? 15 : 0) + (Math.min(streak, 5) * 2))
-    )
-  )
-
-  const planTitle = routineInProgress
-    ? 'Resume Workout'
-    : weakestGroup?.remaining > 0
-      ? `Recommended: ${weakestGroup.label} Workout`
-      : trainedToday
-        ? 'Today is on track'
-        : 'Start your next workout'
-
   const planDetail = routineInProgress
     ? `${routineCompletedCount} / ${routineInProgress.exercises.length} completed${routineCurrentExercise?.name ? ` • Next: ${routineCurrentExercise.name}` : ''}`
     : weakestGroup?.remaining > 0
@@ -455,15 +429,8 @@ export default function Dashboard() {
           : 'One workout today gets your week moving.'
 
   const weeklyInsight = weakestGroup?.remaining > 0
-    ? `You're behind on ${weakestGroup.label}. ${weakestGroup.remaining} more sets will put you back on track.`
-    : 'All weekly set targets are on track.'
-  const focusLabel = routineInProgress
-    ? `Focus Today: ${routineCurrentExercise?.muscleGroup || 'Current workout'}`
-    : weakestGroup?.remaining > 0
-      ? `Priority: ${weakestGroup.label} Day`
-      : trainedToday
-        ? 'Focus Today: Recovery'
-        : 'Focus Today: Training'
+    ? `${weakestGroup.label} needs ${weakestGroup.remaining} more sets this week.`
+    : 'Your weekly targets are on track.'
   const planProgressRatio = routineInProgress
     ? routineCompletedCount / Math.max(routineInProgress.exercises.length, 1)
     : weakestGroup
@@ -479,6 +446,31 @@ export default function Dashboard() {
           ? `One focused ${weakestGroup.label.toLowerCase()} session puts you back on pace.`
           : 'One workout today is enough to build momentum.'
 
+  const lastWorkoutValue = daysSince === 0
+    ? 'Today'
+    : daysSince === 1
+      ? '1 day'
+      : daysSince != null
+        ? `${daysSince}d`
+        : '-'
+  const streakValue = streak > 0 ? `${streak}d` : '-'
+  const recentSessionValue = lastSessionDurationLabel || (lastSessions.length > 0 ? lastSessionGaugeValue : '-')
+  const recentSessionSub = lastSessions.length > 0
+    ? `${lastSessionExerciseRows.length} exercises on ${lastDate?.slice(5).replace('-', '/')}`
+    : 'No recent session'
+  const recentActivitySummary = lastSessions.length > 0
+    ? [
+        `${lastSessionSetTotal} sets`,
+        `${lastSessionSummaryLabel}: ${lastSessionSummaryValue}`,
+        lastSessionPrCount > 0 ? `${lastSessionPrCount} PR${lastSessionPrCount === 1 ? '' : 's'}` : null,
+      ].filter(Boolean).join(' • ')
+    : 'Your latest workout details will show up here.'
+  const planDetailText = planDetail.replace(/[^\x00-\x7F]+/g, '|').replace(/\s*\|+\s*/g, ' | ')
+  const recentActivitySummaryText = recentActivitySummary.replace(/[^\x00-\x7F]+/g, '|').replace(/\s*\|+\s*/g, ' | ')
+  const recentExerciseNames = lastSessionExerciseRows.length > 0
+    ? `${lastSessionExerciseRows.slice(0, 2).map((row) => row.exerciseName).join(' | ')}${lastSessionExerciseRows.length > 2 ? ` | +${lastSessionExerciseRows.length - 2} more` : ''}`
+    : 'No exercises logged yet'
+
   const chartCurrentPoint = chartData[chartData.length - 1] || null
   const chartPreviousPoint = chartData[chartData.length - 2] || null
   const chartTrendPct = chartCurrentPoint && chartPreviousPoint?.vol
@@ -487,13 +479,34 @@ export default function Dashboard() {
   const peakIndex = chartData.length ? chartData.findIndex((point) => point.vol === Math.max(...chartData.map((item) => item.vol))) : -1
   const dipIndex = chartData.length ? chartData.findIndex((point) => point.vol === Math.min(...chartData.map((item) => item.vol))) : -1
   const chartInsight = chartTrendPct == null
-    ? 'A few more sessions will unlock trend insight.'
+    ? 'Log a few more sessions to unlock a trend.'
     : chartTrendPct >= 0
-      ? `Up ${chartTrendPct}% vs last ${chartPeriod === 'weekly' ? 'week' : 'period'}`
-      : `Down ${Math.abs(chartTrendPct)}% vs last ${chartPeriod === 'weekly' ? 'week' : 'period'}`
+      ? `Volume is up ${chartTrendPct}% from last ${chartPeriod === 'weekly' ? 'week' : 'period'}.`
+      : `Volume is down ${Math.abs(chartTrendPct)}% from last ${chartPeriod === 'weekly' ? 'week' : 'period'}.`
   const chartSecondaryInsight = peakIndex >= 0 && dipIndex >= 0 && chartData.length > 2
-    ? `Peak ${chartData[peakIndex]?.week} | Lowest ${chartData[dipIndex]?.week}`
-    : 'Volume trend updates as more data comes in.'
+    ? `Peak week ${chartData[peakIndex]?.week} | Lowest week ${chartData[dipIndex]?.week}`
+    : 'Trend detail will sharpen as more sessions come in.'
+  const chartCurrentLabel = chartPeriod === 'weekly'
+    ? 'This week'
+    : chartPeriod === 'monthly'
+      ? 'This month'
+      : 'Latest period'
+  const chartBestLabel = chartPeriod === 'weekly'
+    ? 'Best Week'
+    : chartPeriod === 'monthly'
+      ? 'Best Month'
+      : 'Best Period'
+  const chartAverageVolume = chartData.length > 1
+    ? Math.round(chartData.slice(0, -1).reduce((sum, point) => sum + point.vol, 0) / (chartData.length - 1))
+    : null
+  const chartTakeawayTitle = chartTrendPct == null
+    ? 'Volume trend is still forming.'
+    : chartTrendPct >= 0
+      ? `${chartCurrentLabel} is ahead of your recent pace.`
+      : `${chartCurrentLabel} is below your recent pace.`
+  const chartTakeawayDetail = chartAverageVolume
+    ? `${chartCurrentLabel} volume is ${formatCompactVolume(chartCurrentPoint?.vol || 0)} versus a recent average of ${formatCompactVolume(chartAverageVolume)}.`
+    : chartInsight
 
   function getRecoveryMeta(bodyPart) {
     const lastTrained = bodyPartLastTrained[bodyPart]
@@ -538,6 +551,84 @@ export default function Dashboard() {
   }
 
   const selectedRecoveryMeta = selectedRecoveryPart ? getRecoveryMeta(selectedRecoveryPart) : null
+  const recoveryStateCounts = BODY_PARTS.reduce((counts, part) => {
+    const status = getRecoveryMeta(part.key).status
+    if (status === 'Ready') counts.ready += 1
+    if (status === 'Recovery') counts.recovery += 1
+    if (status === 'Overworked') counts.overworked += 1
+    return counts
+  }, { ready: 0, recovery: 0, overworked: 0 })
+  const recoverySummaryLine = recoveryStateCounts.overworked > 0
+    ? `${recoveryStateCounts.ready} ready, ${recoveryStateCounts.recovery} recovering, ${recoveryStateCounts.overworked} overworked. Skip the most fatigued zones today.`
+    : recoveryStateCounts.ready >= recoveryStateCounts.recovery
+      ? `${recoveryStateCounts.ready} zones are ready. Most of your body is open for quality work.`
+      : `${recoveryStateCounts.recovery} zones are still recovering. Keep today's work lighter or more selective.`
+  const recoverySummaryPills = [
+    { label: 'Ready', value: recoveryStateCounts.ready, dotClass: 'bg-accent-green', shellClass: 'border-accent-green/20 bg-accent-green/10 text-accent-green' },
+    { label: 'Recovery', value: recoveryStateCounts.recovery, dotClass: 'bg-[#FACC15]', shellClass: 'border-yellow-300/20 bg-yellow-300/10 text-yellow-200' },
+    { label: 'Overworked', value: recoveryStateCounts.overworked, dotClass: 'bg-accent-red', shellClass: 'border-accent-red/20 bg-accent-red/10 text-red-200' },
+  ]
+
+  const readinessMeta = routineInProgress
+    ? {
+        label: 'Active',
+        detail: `${routineCompletedCount}/${routineInProgress.exercises.length} exercises complete`,
+        className: 'text-white',
+        badgeClass: 'bg-white/12 border-white/15 text-white',
+      }
+    : trainedToday || recoveryStateCounts.overworked >= 2
+      ? {
+          label: 'Low',
+          detail: trainedToday ? 'You trained already today' : `${recoveryStateCounts.overworked} zones are overworked`,
+          className: 'text-[#FCA5A5]',
+          badgeClass: 'bg-white/12 border-white/15 text-[#FCA5A5]',
+        }
+      : recoveryStateCounts.ready >= 4
+        ? {
+            label: 'High',
+            detail: `${recoveryStateCounts.ready} zones are ready`,
+            className: 'text-[#BBF7D0]',
+            badgeClass: 'bg-white/12 border-white/15 text-[#BBF7D0]',
+          }
+        : {
+            label: 'Moderate',
+            detail: `${recoveryStateCounts.ready} ready, ${recoveryStateCounts.recovery} recovering`,
+            className: 'text-[#FDE68A]',
+            badgeClass: 'bg-white/12 border-white/15 text-[#FDE68A]',
+          }
+
+  const planHeadline = routineInProgress
+    ? 'Resume workout'
+    : weakestGroup?.remaining > 0
+      ? `Train ${weakestGroup.label} today`
+    : trainedToday
+        ? 'Recovery is the right move'
+        : 'Start a workout'
+  const planReason = routineInProgress
+    ? routineCurrentExercise?.name
+      ? `Next up: ${routineCurrentExercise.name}`
+      : 'Pick up where you left off.'
+    : weakestGroup?.remaining > 0
+      ? `${weakestGroup.remaining} ${weakestGroup.label.toLowerCase()} sets are still needed this week.`
+      : trainedToday
+        ? 'You already trained today, so recovery, walking, or mobility makes more sense now.'
+        : streak > 0
+          ? `Keep the ${streak}-day streak alive with one focused session.`
+          : 'One focused session gets this week moving.'
+  const planCtaLabel = routineInProgress
+    ? 'Resume now'
+    : weakestGroup?.remaining > 0
+      ? `Start ${weakestGroup.label}`
+      : trainedToday
+        ? 'View routines'
+        : 'Start now'
+  const planFocusLabel = routineInProgress
+    ? 'Workout in progress'
+    : weakestGroup?.remaining > 0
+      ? `Focus: ${weakestGroup.label}`
+      : trainedToday
+        ? 'Focus: Recovery'
+        : 'Focus: Training'
 
   function handleWorkoutCta() {
     if (routineInProgress?.currentExerciseId) {
@@ -587,7 +678,7 @@ export default function Dashboard() {
             <h1 className="font-display text-2xl font-bold text-text-primary">
               Hey, {firstName}
             </h1>
-            <p className="text-text-secondary text-sm mt-0.5">Here&apos;s your fitness overview</p>
+            <p className="text-text-secondary text-sm mt-0.5">Your training overview</p>
           </div>
 
           {loadError ? (
@@ -630,7 +721,7 @@ export default function Dashboard() {
             <h1 className="font-display text-2xl font-bold text-text-primary mt-1">
               Hey, {firstName}
             </h1>
-            <p className="text-text-secondary text-sm mt-0.5 opacity-70">Here&apos;s your fitness overview</p>
+            <p className="text-text-secondary text-sm mt-0.5 opacity-70">Your training overview</p>
             <p className="text-accent-green text-sm font-medium mt-2">{dashboardHook}</p>
           </div>
         </div>
@@ -639,106 +730,78 @@ export default function Dashboard() {
           onClick={handleWorkoutCta}
           className="card card-enter tap-glow w-full text-left active:scale-[0.99] transition-transform border border-accent/30 bg-gradient-to-r from-accent via-[#245BEB] to-[#1A56DB] shadow-lg shadow-accent/20"
         >
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <p className="section-title mb-1 text-white/75">Today&apos;s Plan</p>
-              <p className="text-white/70 text-[11px] uppercase tracking-[0.2em] mb-1.5">{focusLabel}</p>
-              <p className="text-white font-semibold text-base leading-tight">{planTitle}</p>
-              <p className="text-white/80 text-sm mt-1.5">{planDetail}</p>
-              <div className="mt-3 h-1.5 w-full rounded-full bg-white/15 overflow-hidden">
-                <div
-                  className="h-full rounded-full bg-white/80 transition-all duration-500 progress-reveal"
-                  style={{ width: `${Math.max(planProgressRatio * 100, 8)}%` }}
-                />
-              </div>
+          <div className="space-y-4">
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="section-title mb-0 text-white/75">Today&apos;s Plan</p>
+              <span className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold ${readinessMeta.badgeClass}`}>
+                Ready now: {readinessMeta.label}
+              </span>
             </div>
-            <div className="flex flex-col items-end gap-2 flex-shrink-0">
-              <div className="px-2.5 py-1 rounded-full bg-white/12 border border-white/10 backdrop-blur-sm">
-                <span className="text-[11px] font-semibold text-white">Daily Score {dailyScore}%</span>
+
+            <div className="min-w-0">
+              <p className="text-white/70 text-[11px] uppercase tracking-[0.2em]">{planFocusLabel}</p>
+              <p className="mt-2 text-white font-semibold text-xl leading-tight">{planHeadline}</p>
+              <p className="text-white/85 text-sm mt-2 leading-relaxed">{planReason}</p>
+            </div>
+
+            <div className="rounded-2xl border border-white/12 bg-white/10 px-3.5 py-3 backdrop-blur-sm">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-white/55">Today&apos;s signal</p>
+              <p className={`mt-1.5 text-sm font-medium ${readinessMeta.className}`}>{readinessMeta.detail}</p>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <div className="flex-1 min-w-0">
+                <div className="h-1.5 w-full rounded-full bg-white/15 overflow-hidden">
+                  <div
+                    className="h-full rounded-full bg-white/80 transition-all duration-500 progress-reveal"
+                    style={{ width: `${Math.max(planProgressRatio * 100, 8)}%` }}
+                  />
+                </div>
+                <p className="mt-1.5 text-[11px] text-white/70">
+                  {routineInProgress
+                    ? `${routineCompletedCount}/${routineInProgress.exercises.length} exercises complete`
+                    : weakestGroup?.remaining > 0
+                      ? `${weakestGroup.actual}/${weakestGroup.targetTotal} ${weakestGroup.label.toLowerCase()} sets complete this week`
+                      : trainedToday
+                        ? 'Today is logged. Recovery is the better move now.'
+                        : 'Ready to start your next session.'}
+                </p>
               </div>
-              <div className="w-12 h-12 rounded-2xl flex items-center justify-center bg-white/14 text-white border border-white/35 shadow-sm shadow-white/10">
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.4}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.348a1.125 1.125 0 010 1.971l-11.54 6.347a1.125 1.125 0 01-1.667-.985V5.653z" />
+
+              <div className="flex items-center gap-2 rounded-full bg-white px-4 py-2 text-sm font-semibold text-accent shadow-sm shadow-black/10">
+                <span>{planCtaLabel}</span>
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 12h14M13 5l7 7-7 7" />
                 </svg>
               </div>
             </div>
           </div>
         </button>
 
-        <div className="grid grid-cols-2 gap-3">
-          <StatCard
-            label="Last Workout"
-            value={daysSince === 0 ? 'Today' : daysSince === 1 ? '1 day' : daysSince != null ? `${daysSince}d` : '-'}
-            sub={daysSince === 0 ? 'Keep it up!' : daysSince != null ? 'ago' : 'No workouts yet'}
-            valueClass={daysSince === 0 ? 'text-accent-green' : daysSince != null && daysSince > 5 ? 'text-accent-orange' : 'text-text-primary'}
-          />
-          <StatCard
-            label="Streak"
-            value={streak > 0 ? `${streak}d` : '-'}
-            sub={streak > 0 ? 'consecutive days' : 'Start logging!'}
-            valueClass={streak >= 7 ? 'text-accent-green' : 'text-text-primary'}
-          />
-        </div>
-
-        {!loading && lastExercises.length > 0 && (
-          <div className="card card-enter card-enter-delay-1">
-            <div className="flex items-center justify-between mb-2">
-              <p className="section-title mb-0">Last Session</p>
-              <p className="text-text-secondary text-xs">{lastDate?.slice(5).replace('-', '/')}</p>
-            </div>
-            <p className="text-text-secondary text-xs mb-3">
-              {lastSessionExerciseRows.length} exercises
-              {lastSessionDurationLabel ? ` | ${lastSessionDurationLabel}` : ''}
-              {` | ${lastSessionSetTotal} sets | `}
-              <span className="text-text-primary font-semibold text-sm">{lastSessionSummaryLabel}: {lastSessionSummaryValue}</span>
-              {lastSessionPrCount > 0 ? ` | ${lastSessionPrCount} PR${lastSessionPrCount === 1 ? '' : 's'} achieved` : ''}
-            </p>
-
-            <div className="flex items-end gap-3">
-              <div className="flex-1 min-w-0 space-y-2">
-                {lastSessionExerciseRows.slice(0, 3).map((row) => (
-                  <div key={row.exerciseName} className="min-w-0 flex items-center gap-2">
-                    <div className="w-1.5 h-1.5 rounded-full bg-accent flex-shrink-0" />
-                    <p className="text-text-primary text-sm font-medium truncate">{row.exerciseName}</p>
-                  </div>
-                ))}
-                {lastSessionExerciseRows.length > 3 && (
-                  <p className="text-text-secondary text-xs">+{lastSessionExerciseRows.length - 3} more</p>
-                )}
-              </div>
-
-              <div className="relative w-20 h-20 flex-shrink-0">
-                <svg className="w-20 h-20 -rotate-90" viewBox="0 0 120 120">
-                  <circle cx="60" cy="60" r="50" fill="none" stroke="currentColor" strokeWidth="10" className="text-accent-green/15" />
-                  <circle
-                    cx="60"
-                    cy="60"
-                    r="50"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="10"
-                    strokeLinecap="round"
-                    strokeDasharray={`${Math.min((lastSessionVolume / (profile?.weeklyVolumeGoal || 100000)) * 314, 314)} 314`}
-                    className="text-accent-green transition-all duration-700"
-                  />
-                </svg>
-                <div className="absolute inset-0 flex flex-col items-center justify-center">
-                  <p className="font-display text-base font-bold text-text-primary leading-tight">{lastSessionGaugeValue}</p>
-                  <p className="text-text-secondary text-[9px]">{lastSessionSummaryLabel}</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
         {!loading && lastSessions.length > 0 && (
-          <div className="card card-enter card-enter-delay-2">
+          <div className="card card-enter card-enter-delay-1 card-tonal">
             <div className="mb-3">
               <p className="text-text-secondary text-[11px] font-semibold uppercase tracking-[0.24em] mb-0">Recovery Status</p>
-              <p className="text-text-secondary text-xs mt-1">Tap a zone to see what to train or rest.</p>
+              <p className="text-text-secondary text-xs mt-1">Train ready zones. Rest recovering ones.</p>
             </div>
 
-            <div className="grid grid-cols-4 gap-2">
+            <div className="panel-inset rounded-2xl px-3.5 py-3.5">
+              <p className="text-text-primary text-sm font-semibold">{recoverySummaryLine}</p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {recoverySummaryPills.map((item) => (
+                  <div
+                    key={item.label}
+                    className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium ${item.shellClass}`}
+                  >
+                    <span className={`h-2.5 w-2.5 rounded-full ${item.dotClass}`} />
+                    <span>{item.value}</span>
+                    <span className="text-current/80">{item.label}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-4 gap-2 mt-3">
 	              {BODY_PARTS.map((bp) => {
 	                const meta = getRecoveryMeta(bp.key)
 	                const selected = selectedRecoveryPart === bp.key
@@ -767,7 +830,7 @@ export default function Dashboard() {
             </div>
 
             {selectedRecoveryMeta && (
-              <div className="mt-3 rounded-xl bg-surface2 px-3 py-3">
+              <div className="panel-inset mt-3 rounded-xl px-3 py-3">
                 <div className="flex items-center gap-2">
                   <span className={`w-2.5 h-2.5 rounded-full ${selectedRecoveryMeta.dotClass}`} />
                   <p className="text-text-primary text-sm font-semibold">
@@ -796,7 +859,7 @@ export default function Dashboard() {
         {!loading && (
           <button
             onClick={() => navigate('/muscles')}
-            className="card card-enter card-enter-delay-3 tap-glow w-full text-left active:scale-[0.98] transition-transform"
+            className="card card-elevated card-enter card-enter-delay-2 tap-glow w-full text-left active:scale-[0.98] transition-transform"
           >
             <div className="flex items-center gap-4">
 	              <div className="relative flex-shrink-0">
@@ -818,7 +881,7 @@ export default function Dashboard() {
 
               <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between mb-2">
-                  <p className="section-title mb-0">Weekly Set Targets</p>
+                  <p className="section-title mb-0">Weekly Targets</p>
                   <svg className="w-4 h-4 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
                   </svg>
@@ -851,9 +914,52 @@ export default function Dashboard() {
           </button>
         )}
 
-        <div className="card card-enter card-enter-delay-4 pb-4">
+        <div className="card card-enter card-enter-delay-3">
+          <div className="flex items-center justify-between gap-3 mb-4">
+            <div>
+              <p className="section-title mb-1">Recent Activity</p>
+              <p className="text-text-secondary text-xs">A quick read on your latest training.</p>
+            </div>
+            {lastDate && <p className="text-text-secondary text-xs">{lastDate.slice(5).replace('-', '/')}</p>}
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            <span className={`rounded-full border px-3 py-1.5 text-xs font-medium ${daysSince === 0 ? 'border-accent-green/30 bg-accent-green/10 text-accent-green' : daysSince != null && daysSince > 5 ? 'border-amber-400/25 bg-amber-400/10 text-amber-200' : 'border-white/10 bg-surface2/75 text-text-primary'}`}>
+              Last workout: {lastWorkoutValue}
+            </span>
+            <span className={`rounded-full border px-3 py-1.5 text-xs font-medium ${streak >= 7 ? 'border-accent-green/30 bg-accent-green/10 text-accent-green' : 'border-white/10 bg-surface2/75 text-text-primary'}`}>
+              Streak: {streak > 0 ? streakValue : 'None'}
+            </span>
+            <span className="rounded-full border border-accent/30 bg-accent/10 px-3 py-1.5 text-xs font-medium text-accent-light">
+              Last session: {recentSessionValue}
+            </span>
+          </div>
+
+          <div className="panel-inset mt-4 rounded-xl px-3.5 py-3.5">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-text-secondary">Last Session</p>
+                <p className="mt-2 text-text-primary text-sm font-semibold">{recentExerciseNames}</p>
+                <p className="mt-1.5 text-xs text-text-secondary">{recentSessionSub}</p>
+              </div>
+              {lastSessionPrCount > 0 && (
+                <span className="rounded-full border border-accent-green/30 bg-accent-green/10 px-2.5 py-1 text-[11px] font-semibold text-accent-green">
+                  {lastSessionPrCount} PR{lastSessionPrCount === 1 ? '' : 's'}
+                </span>
+              )}
+            </div>
+            <p className="hidden">{recentExerciseNames}</p>
+            <p className="hidden">
+              {lastExercises.length > 0 ? lastExercises.slice(0, 2).join(' • ') : 'No exercises logged yet'}
+              {lastExercises.length > 2 ? ` • +${lastExercises.length - 2} more` : ''}
+            </p>
+            <p className="mt-3 text-xs text-text-secondary">{recentActivitySummaryText}</p>
+          </div>
+        </div>
+
+        <div className="card card-analytics card-enter card-enter-delay-4 pb-4">
           <div className="flex items-center justify-between mb-2">
-            <p className="section-title mb-0">Total Volume</p>
+            <p className="section-title mb-0">Volume Trend</p>
             <div className="flex items-center gap-1 bg-surface2 rounded-lg p-0.5">
               {['weekly', 'monthly', 'all'].map((period) => (
                 <button
@@ -871,9 +977,32 @@ export default function Dashboard() {
 
           {totalSessions > 0 && (
             <>
-              <p className="text-text-secondary text-xs">{totalSessions} sessions total</p>
-              <p className="text-text-primary text-sm font-medium mt-2">{chartInsight}</p>
-              <p className="text-text-secondary text-xs mt-1 mb-2">{chartSecondaryInsight}</p>
+              <div className="panel-inset rounded-2xl px-3.5 py-3.5 mb-3">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-text-secondary">Takeaway</p>
+                <p className="mt-2 text-text-primary text-base font-semibold">{chartTakeawayTitle}</p>
+                <p className="mt-1.5 text-xs text-text-secondary">{chartTakeawayDetail}</p>
+              </div>
+
+              <div className="grid grid-cols-3 gap-2 mb-3">
+                <div className="panel-inset rounded-xl p-3">
+                  <p className="text-text-secondary text-[11px]">{chartCurrentLabel}</p>
+                  <p className="mt-1 text-text-primary font-display font-bold text-lg">
+                    {formatCompactVolume(chartCurrentPoint?.vol || 0)}
+                  </p>
+                </div>
+                <div className="panel-inset rounded-xl p-3">
+                  <p className="text-text-secondary text-[11px]">Recent Avg</p>
+                  <p className="mt-1 text-text-primary font-display font-bold text-lg">
+                    {chartAverageVolume ? formatCompactVolume(chartAverageVolume) : '-'}
+                  </p>
+                </div>
+                <div className="panel-inset rounded-xl p-3">
+                  <p className="text-text-secondary text-[11px]">Logged</p>
+                  <p className="mt-1 text-text-primary font-display font-bold text-lg">{totalSessions}</p>
+                </div>
+              </div>
+
+              <p className="text-text-secondary text-xs mb-2">{chartSecondaryInsight}</p>
             </>
           )}
 
@@ -909,22 +1038,22 @@ export default function Dashboard() {
               </ResponsiveContainer>
 
               <div className="grid grid-cols-2 gap-2 mt-3">
-                <div className="bg-surface2 rounded-xl p-3">
-                  <p className="text-text-secondary text-xs">Best Week</p>
+                <div className="panel-inset rounded-xl p-3">
+                  <p className="text-text-secondary text-xs">{chartBestLabel}</p>
                   <p className="text-text-primary font-display font-bold text-xl mt-1">{formatCompactVolume(maxVol)}</p>
-                  <p className="text-text-secondary text-xs mt-1">Total Volume</p>
+                  <p className="text-text-secondary text-xs mt-1">Volume</p>
                 </div>
-                <div className="bg-surface2 rounded-xl p-3">
-                  <p className="text-text-secondary text-xs">This Week</p>
-                  <p className="text-accent-green font-display font-bold text-xl mt-1">{formatCompactVolume(thisWeekVol)}</p>
-                  <p className="text-text-secondary text-xs mt-1">Total Volume</p>
+                <div className="panel-inset rounded-xl p-3">
+                  <p className="text-text-secondary text-xs">{chartCurrentLabel}</p>
+                  <p className="text-accent-green font-display font-bold text-xl mt-1">{formatCompactVolume(chartCurrentPoint?.vol || 0)}</p>
+                  <p className="text-text-secondary text-xs mt-1">Volume</p>
                 </div>
               </div>
             </>
           ) : (
             <div className="h-36 flex flex-col items-center justify-center text-center px-6">
               <p className="text-text-primary text-sm font-semibold">Log your first workout</p>
-              <p className="text-text-secondary text-xs mt-1">Volume trends will show up here as you train.</p>
+              <p className="text-text-secondary text-xs mt-1">Your volume trend will appear here as you log sessions.</p>
             </div>
           )}
         </div>
