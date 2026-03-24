@@ -116,14 +116,6 @@ function computeDashSets(weekSessions) {
   return counts
 }
 
-function getTimestampMs(value) {
-  if (!value) return null
-  if (typeof value?.toMillis === 'function') return value.toMillis()
-  if (typeof value?.seconds === 'number') return value.seconds * 1000
-  const parsed = new Date(value).getTime()
-  return Number.isFinite(parsed) ? parsed : null
-}
-
 function getSessionVolume(session) {
   if (typeof session?.totalVolume === 'number') return session.totalVolume
   return (session?.sets || []).reduce((sum, set) => {
@@ -147,27 +139,6 @@ function formatCompactVolume(value) {
     return `${compact.replace('.0', '')}k`
   }
   return Math.round(value).toLocaleString()
-}
-
-function formatDurationMinutes(minutes) {
-  if (!Number.isFinite(minutes) || minutes <= 0) return null
-  if (minutes > 180) return null
-  if (minutes < 60) return `${minutes}m`
-  const hours = Math.floor(minutes / 60)
-  const remaining = minutes % 60
-  return remaining > 0 ? `${hours}h ${remaining}m` : `${hours}h`
-}
-
-function getWorkoutDurationMinutes(sessions = []) {
-  const starts = sessions
-    .flatMap((session) => [getTimestampMs(session.startedAt), getTimestampMs(session.createdAt)])
-    .filter(Boolean)
-  const ends = sessions
-    .flatMap((session) => [getTimestampMs(session.completedAt), getTimestampMs(session.createdAt)])
-    .filter(Boolean)
-  if (!starts.length || !ends.length) return null
-  const minutes = Math.round((Math.max(...ends) - Math.min(...starts)) / 60000)
-  return minutes > 0 ? minutes : null
 }
 
 function ChartTooltip({ active, payload, label }) {
@@ -368,17 +339,9 @@ export default function Dashboard() {
     })
     return Array.from(grouped.values())
   }, [lastSessions])
-  const lastSessionDurationMinutes = useMemo(
-    () => getWorkoutDurationMinutes(lastSessions),
-    [lastSessions]
-  )
-  const lastSessionDurationLabel = formatDurationMinutes(lastSessionDurationMinutes)
   const lastSessionSummaryLabel = lastSessionIsAllCardio ? 'Workout Time' : 'Total Volume'
   const lastSessionSummaryValue = lastSessionIsAllCardio
     ? `${Math.round(lastSessionVolume).toLocaleString()} Minutes`
-    : formatCompactVolume(lastSessionVolume)
-  const lastSessionGaugeValue = lastSessionIsAllCardio
-    ? `${Math.round(lastSessionVolume).toLocaleString()}m`
     : formatCompactVolume(lastSessionVolume)
   const lastSessionPrCount = useMemo(() => {
     return lastSessions.reduce((count, session) => {
@@ -419,11 +382,6 @@ export default function Dashboard() {
   const weeklyInsight = weakestGroup?.remaining > 0
     ? `${weakestGroup.label} needs ${weakestGroup.remaining} more sets this week.`
     : 'Your weekly targets are on track.'
-  const planProgressRatio = routineInProgress
-    ? routineCompletedCount / Math.max(routineInProgress.exercises.length, 1)
-    : weakestGroup
-      ? Math.min(weakestGroup.actual / Math.max(weakestGroup.targetTotal, 1), 1)
-      : 0
   const dashboardHook = routineInProgress
     ? 'Momentum is already building. Finish this session strong.'
     : trainedToday
@@ -442,17 +400,9 @@ export default function Dashboard() {
         ? `${daysSince}d`
         : '-'
   const streakValue = streak > 0 ? `${streak}d` : '-'
-  const recentSessionValue = lastSessionDurationLabel || (lastSessions.length > 0 ? lastSessionGaugeValue : '-')
   const recentSessionSub = lastSessions.length > 0
     ? `${lastSessionExerciseRows.length} exercises on ${lastDate?.slice(5).replace('-', '/')}`
     : 'No recent session'
-  const recentActivitySummary = lastSessions.length > 0
-    ? [
-        `${lastSessionSetTotal} sets`,
-        `${lastSessionSummaryLabel}: ${lastSessionSummaryValue}`,
-        lastSessionPrCount > 0 ? `${lastSessionPrCount} PR${lastSessionPrCount === 1 ? '' : 's'}` : null,
-      ].filter(Boolean).join(' | ')
-    : 'Your latest workout details will show up here.'
   const recentExerciseNames = lastSessionExerciseRows.length > 0
     ? `${lastSessionExerciseRows.slice(0, 2).map((row) => row.exerciseName).join(' | ')}${lastSessionExerciseRows.length > 2 ? ` | +${lastSessionExerciseRows.length - 2} more` : ''}`
     : 'No exercises logged yet'
@@ -549,39 +499,13 @@ export default function Dashboard() {
     : recoveryStateCounts.ready >= recoveryStateCounts.recovery
       ? `${recoveryStateCounts.ready} zones are ready. Most of your body is open for quality work.`
       : `${recoveryStateCounts.recovery} zones are still recovering. Keep today's work lighter or more selective.`
-  const recoverySummaryPills = [
-    { label: 'Ready', value: recoveryStateCounts.ready, dotClass: 'bg-accent-green', shellClass: 'border-accent-green/20 bg-accent-green/10 text-accent-green' },
-    { label: 'Recovery', value: recoveryStateCounts.recovery, dotClass: 'bg-[#FACC15]', shellClass: 'border-yellow-300/20 bg-yellow-300/10 text-yellow-200' },
-    { label: 'Overworked', value: recoveryStateCounts.overworked, dotClass: 'bg-accent-red', shellClass: 'border-accent-red/20 bg-accent-red/10 text-red-200' },
-  ]
-
-  const readinessMeta = routineInProgress
-    ? {
-        label: 'Active',
-        detail: `${routineCompletedCount}/${routineInProgress.exercises.length} exercises complete`,
-        className: 'text-white',
-        badgeClass: 'bg-white/12 border-white/15 text-white',
-      }
-    : trainedToday || recoveryStateCounts.overworked >= 2
-      ? {
-          label: 'Low',
-          detail: trainedToday ? 'You trained already today' : `${recoveryStateCounts.overworked} zones are overworked`,
-          className: 'text-[#FCA5A5]',
-          badgeClass: 'bg-white/12 border-white/15 text-[#FCA5A5]',
-        }
-      : recoveryStateCounts.ready >= 4
-        ? {
-            label: 'High',
-            detail: `${recoveryStateCounts.ready} zones are ready`,
-            className: 'text-[#BBF7D0]',
-            badgeClass: 'bg-white/12 border-white/15 text-[#BBF7D0]',
-          }
-        : {
-            label: 'Moderate',
-            detail: `${recoveryStateCounts.ready} ready, ${recoveryStateCounts.recovery} recovering`,
-            className: 'text-[#FDE68A]',
-            badgeClass: 'bg-white/12 border-white/15 text-[#FDE68A]',
-          }
+  const dailyScore = Math.max(
+    0,
+    Math.min(
+      100,
+      Math.round((weekPct * 45) + (trainedToday ? 30 : 0) + (routineInProgress ? 15 : 0) + (Math.min(streak, 5) * 2))
+    )
+  )
 
   const planHeadline = routineInProgress
     ? 'Resume workout'
@@ -601,13 +525,7 @@ export default function Dashboard() {
         : streak > 0
           ? `Keep the ${streak}-day streak alive with one focused session.`
           : 'One focused session gets this week moving.'
-  const planCtaLabel = routineInProgress
-    ? 'Resume now'
-    : weakestGroup?.remaining > 0
-      ? `Start ${weakestGroup.label}`
-      : trainedToday
-        ? 'View routines'
-        : 'Start now'
+  const planCtaLabel = routineInProgress ? 'Continue' : 'Start'
   const planFocusLabel = routineInProgress
     ? 'Workout in progress'
     : weakestGroup?.remaining > 0
@@ -615,6 +533,16 @@ export default function Dashboard() {
       : trainedToday
         ? 'Focus: Recovery'
         : 'Focus: Training'
+  const heroProgressRatio = routineInProgress
+    ? routineCompletedCount / Math.max(routineInProgress.exercises.length, 1)
+    : trainedToday
+      ? 1
+      : 0
+  const heroProgressText = routineInProgress
+    ? `${routineCompletedCount}/${routineInProgress.exercises.length} exercises complete`
+    : trainedToday
+      ? "Today's workout is complete."
+      : 'No workout started yet.'
 
   function handleWorkoutCta() {
     if (routineInProgress?.currentExerciseId) {
@@ -719,8 +647,8 @@ export default function Dashboard() {
           <div className="space-y-4">
             <div className="flex flex-wrap items-center gap-2">
               <p className="section-title mb-0 text-white/75">Today&apos;s Plan</p>
-              <span className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold ${readinessMeta.badgeClass}`}>
-                Ready now: {readinessMeta.label}
+              <span className="rounded-full border border-white/12 bg-white/12 px-2.5 py-1 text-[11px] font-semibold text-white">
+                Daily Score {dailyScore}%
               </span>
             </div>
 
@@ -730,28 +658,15 @@ export default function Dashboard() {
               <p className="text-white/85 text-sm mt-2 leading-relaxed">{planReason}</p>
             </div>
 
-            <div className="rounded-2xl border border-white/12 bg-white/10 px-3.5 py-3 backdrop-blur-sm">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-white/55">Today&apos;s signal</p>
-              <p className={`mt-1.5 text-sm font-medium ${readinessMeta.className}`}>{readinessMeta.detail}</p>
-            </div>
-
             <div className="flex items-center gap-3">
               <div className="flex-1 min-w-0">
                 <div className="h-1.5 w-full rounded-full bg-white/15 overflow-hidden">
                   <div
                     className="h-full rounded-full bg-white/80 transition-all duration-500 progress-reveal"
-                    style={{ width: `${Math.max(planProgressRatio * 100, 8)}%` }}
+                    style={{ width: `${Math.max(heroProgressRatio * 100, 8)}%` }}
                   />
                 </div>
-                <p className="mt-1.5 text-[11px] text-white/70">
-                  {routineInProgress
-                    ? `${routineCompletedCount}/${routineInProgress.exercises.length} exercises complete`
-                    : weakestGroup?.remaining > 0
-                      ? `${weakestGroup.actual}/${weakestGroup.targetTotal} ${weakestGroup.label.toLowerCase()} sets complete this week`
-                      : trainedToday
-                        ? 'Today is logged. Recovery is the better move now.'
-                        : 'Ready to start your next session.'}
-                </p>
+                <p className="mt-1.5 text-[11px] text-white/70">{heroProgressText}</p>
               </div>
 
               <div className="flex items-center gap-2 rounded-full bg-white px-4 py-2 text-sm font-semibold text-accent shadow-sm shadow-black/10">
@@ -773,18 +688,6 @@ export default function Dashboard() {
 
             <div className="panel-inset rounded-2xl px-3.5 py-3.5">
               <p className="text-text-primary text-sm font-semibold">{recoverySummaryLine}</p>
-              <div className="mt-3 flex flex-wrap gap-2">
-                {recoverySummaryPills.map((item) => (
-                  <div
-                    key={item.label}
-                    className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium ${item.shellClass}`}
-                  >
-                    <span className={`h-2.5 w-2.5 rounded-full ${item.dotClass}`} />
-                    <span>{item.value}</span>
-                    <span className="text-current/80">{item.label}</span>
-                  </div>
-                ))}
-              </div>
             </div>
 
             <div className="grid grid-cols-4 gap-2 mt-3">
@@ -829,13 +732,14 @@ export default function Dashboard() {
 
             <div className="mt-4 flex items-center justify-between gap-3 border-t border-surface2 pt-3 text-[11px] text-text-secondary">
               {[
-                { label: 'Ready', dotClass: 'bg-accent-green' },
-                { label: 'Recovery', dotClass: 'bg-[#FACC15]' },
-                { label: 'Overworked', dotClass: 'bg-accent-red' },
+                { label: 'Ready', dotClass: 'bg-accent-green', count: recoveryStateCounts.ready },
+                { label: 'Recovery', dotClass: 'bg-[#FACC15]', count: recoveryStateCounts.recovery },
+                { label: 'Overworked', dotClass: 'bg-accent-red', count: recoveryStateCounts.overworked },
               ].map((item) => (
                 <div key={item.label} className="flex items-center gap-1.5">
                   <span className={`h-2.5 w-2.5 rounded-full ${item.dotClass}`} />
                   <span>{item.label}</span>
+                  <span className="text-text-primary">{item.count}</span>
                 </div>
               ))}
             </div>
@@ -916,9 +820,6 @@ export default function Dashboard() {
             <span className={`rounded-full border px-3 py-1.5 text-xs font-medium ${streak >= 7 ? 'border-accent-green/30 bg-accent-green/10 text-accent-green' : 'border-white/10 bg-surface2/75 text-text-primary'}`}>
               Streak: {streak > 0 ? streakValue : 'None'}
             </span>
-            <span className="rounded-full border border-accent/30 bg-accent/10 px-3 py-1.5 text-xs font-medium text-accent-light">
-              Last session: {recentSessionValue}
-            </span>
           </div>
 
           <div className="panel-inset mt-4 rounded-xl px-3.5 py-3.5">
@@ -934,7 +835,13 @@ export default function Dashboard() {
                 </span>
               )}
             </div>
-            <p className="mt-3 text-xs text-text-secondary">{recentActivitySummary}</p>
+            <div className="mt-3 flex items-center justify-between gap-3">
+              <p className="text-xs text-text-secondary">{lastSessionSetTotal} sets</p>
+              <div className="rounded-full border border-accent/30 bg-accent/10 px-3 py-1.5 text-sm font-semibold text-white">
+                <span className="mr-1.5 text-[11px] font-medium text-white/70">{lastSessionSummaryLabel}</span>
+                <span>{lastSessionSummaryValue}</span>
+              </div>
+            </div>
           </div>
         </div>
 
