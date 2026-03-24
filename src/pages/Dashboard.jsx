@@ -549,17 +549,6 @@ export default function Dashboard() {
     : trainedToday
         ? 'Recovery is the right move'
         : 'Start a workout'
-  const planReason = routineInProgress
-    ? routineCurrentExercise?.name
-      ? `Next up: ${routineCurrentExercise.name}`
-      : 'Pick up where you left off.'
-    : weakestGroup?.remaining > 0
-      ? 'Best fit for today based on your split and recovery.'
-      : trainedToday
-        ? 'You already trained today, so recovery, walking, or mobility makes more sense now.'
-        : streak > 0
-          ? `Keep the ${streak}-day streak alive with one focused session.`
-          : 'One focused session gets this week moving.'
   const planCtaLabel = routineInProgress ? 'Continue Workout' : 'Start Workout'
   const planFocusLabel = routineInProgress
     ? 'Workout in progress'
@@ -669,14 +658,14 @@ export default function Dashboard() {
 
   return (
     <PageWrapper showSettings>
-      <div className="px-4 pt-3 space-y-6">
+      <div className="px-4 pt-3 space-y-[18px]">
         <div className="flex items-start justify-between gap-3">
-          <div className="space-y-3">
-            <h1 className="font-display text-2xl font-bold text-text-primary mt-1">
+          <div className="space-y-1.5">
+            <h1 className="font-display text-2xl font-bold leading-none text-text-primary mt-1">
               Hey, {firstName}
             </h1>
-            <p className="text-text-secondary text-sm opacity-75">Your training overview</p>
-            <p className="text-accent-green text-base font-semibold leading-snug">{dashboardHook}</p>
+            <p className="text-text-secondary text-sm leading-tight opacity-75">Your training overview</p>
+            <p className="text-accent-green text-base font-semibold leading-tight">{dashboardHook}</p>
           </div>
         </div>
 
@@ -684,7 +673,7 @@ export default function Dashboard() {
           onClick={handleWorkoutCta}
           className="card card-enter tap-glow w-full text-left active:scale-[0.99] transition-transform border border-accent/30 bg-gradient-to-r from-accent via-[#245BEB] to-[#1A56DB] shadow-lg shadow-accent/20"
         >
-          <div className="space-y-4">
+          <div className="space-y-3">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <p className="section-title mb-0 text-white/75">Today&apos;s Plan</p>
@@ -697,21 +686,21 @@ export default function Dashboard() {
 
             <div className="min-w-0">
               <p className="text-white font-semibold text-[2.05rem] leading-[1.02] tracking-[-0.02em]">{planHeadline}</p>
-              <p className="text-white/80 text-sm mt-3 leading-relaxed">{planReason}</p>
+              <p className="text-white/82 text-sm mt-2.5 leading-relaxed">{missionLine}</p>
             </div>
 
-            <div className="flex items-center gap-3">
-              <div className="flex-1 min-w-0">
+            <div className="flex items-end gap-3">
+              <div className="min-w-0 flex-[0.62]">
                 <div className="h-1.5 w-full rounded-full bg-white/15 overflow-hidden">
                   <div
                     className="h-full rounded-full bg-white/80 transition-all duration-500 progress-reveal"
                     style={{ width: `${Math.max(heroProgressRatio * 100, 8)}%` }}
                   />
                 </div>
-                <p className="mt-1.5 text-[11px] text-white/72">{heroProgressText}</p>
+                <p className="mt-1.5 text-[11px] text-white/72 leading-tight">{heroProgressText}</p>
               </div>
 
-              <div className="flex items-center gap-2 rounded-full bg-white px-4.5 py-2.5 text-sm font-semibold text-accent shadow-sm shadow-black/10">
+              <div className="flex min-w-[12.5rem] items-center justify-center gap-2 rounded-full bg-white px-6 py-3 text-sm font-semibold text-accent shadow-sm shadow-black/10">
                 <span>{planCtaLabel}</span>
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M5 12h14M13 5l7 7-7 7" />
@@ -720,8 +709,6 @@ export default function Dashboard() {
             </div>
           </div>
         </button>
-
-        <p className="px-1 text-sm font-medium text-text-primary/90">{missionLine}</p>
 
         {!loading && lastSessions.length > 0 && (
           <div className="card card-enter card-enter-delay-1 card-tonal">
