@@ -558,7 +558,9 @@ export default function Dashboard() {
         ? 'Focus: Recovery'
         : 'Focus: Training'
   const missionLine = weakestGroup?.remaining > 0
-    ? `You need ${weakestGroup.remaining} ${weakestGroup.label.toLowerCase()} sets to stay on track this week.`
+    ? trainedToday && !routineInProgress
+      ? "You've completed today's workout. Keep building your weekly target."
+      : `You need ${weakestGroup.remaining} ${weakestGroup.label.toLowerCase()} sets to stay on track this week.`
     : routineInProgress
       ? "Finish today's workout to stay on pace this week."
       : 'You are on pace for this week.'
@@ -570,7 +572,7 @@ export default function Dashboard() {
   const heroProgressText = routineInProgress
     ? `${routineCompletedCount}/${routineInProgress.exercises.length} exercises complete`
     : trainedToday
-      ? "Today's workout is complete."
+      ? 'Daily progress complete.'
       : 'No workout started yet.'
 
   function handleWorkoutCta() {
