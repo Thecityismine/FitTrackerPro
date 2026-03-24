@@ -58,6 +58,9 @@ const PPL_MAP_DASH = {
   glutes: 'legs/glutes', glute: 'legs/glutes', hip: 'legs/glutes',
 }
 
+const UPPER_BODY_PARTS = new Set(['Abs', 'Arms', 'Chest', 'Shoulders', 'Back'])
+const LOWER_BODY_PARTS = new Set(['Legs', 'Glutes', 'Cardio'])
+
 const EX_KW_DASH = [
   [/\brow\b/, 'pull/back'],
   [/\bpulldown\b/, 'pull/back'],
@@ -139,6 +142,14 @@ function formatCompactVolume(value) {
     return `${compact.replace('.0', '')}k`
   }
   return Math.round(value).toLocaleString()
+}
+
+function formatPartList(parts, maxItems = 2) {
+  if (!parts.length) return null
+  if (parts.length === 1) return parts[0]
+  if (parts.length === 2) return `${parts[0]} & ${parts[1]}`
+  const visible = parts.slice(0, maxItems)
+  return `${visible.join(' & ')} +${parts.length - visible.length} more`
 }
 
 function ChartTooltip({ active, payload, label }) {
@@ -383,14 +394,12 @@ export default function Dashboard() {
     ? `${weakestGroup.label} needs ${weakestGroup.remaining} more sets this week.`
     : 'Your weekly targets are on track.'
   const dashboardHook = routineInProgress
-    ? 'Momentum is already building. Finish this session strong.'
+    ? "You're on track. Finish strong."
     : trainedToday
-      ? 'Strong work today. Recovery still counts.'
+      ? "You're on track. Finish strong."
       : streak >= 3
-        ? `You're ${streak} days deep. Keep the chain alive.`
-        : weakestGroup?.remaining > 0
-          ? `One focused ${weakestGroup.label.toLowerCase()} session puts you back on pace.`
-          : 'One workout today is enough to build momentum.'
+        ? "You're building momentum. Don't break it."
+        : 'Stay consistent. Results follow.'
 
   const lastWorkoutValue = daysSince === 0
     ? 'Today'
@@ -406,6 +415,7 @@ export default function Dashboard() {
   const recentExerciseNames = lastSessionExerciseRows.length > 0
     ? `${lastSessionExerciseRows.slice(0, 2).map((row) => row.exerciseName).join(' | ')}${lastSessionExerciseRows.length > 2 ? ` | +${lastSessionExerciseRows.length - 2} more` : ''}`
     : 'No exercises logged yet'
+  const lastWorkoutPillLabel = daysSince === 0 ? 'Today ✓' : `Last workout: ${lastWorkoutValue}`
 
   const chartCurrentPoint = chartData[chartData.length - 1] || null
   const chartPreviousPoint = chartData[chartData.length - 2] || null
@@ -487,6 +497,10 @@ export default function Dashboard() {
   }
 
   const selectedRecoveryMeta = selectedRecoveryPart ? getRecoveryMeta(selectedRecoveryPart) : null
+  const recoveryParts = BODY_PARTS.map((part) => ({
+    key: part.key,
+    status: getRecoveryMeta(part.key).status,
+  }))
   const recoveryStateCounts = BODY_PARTS.reduce((counts, part) => {
     const status = getRecoveryMeta(part.key).status
     if (status === 'Ready') counts.ready += 1
@@ -494,11 +508,32 @@ export default function Dashboard() {
     if (status === 'Overworked') counts.overworked += 1
     return counts
   }, { ready: 0, recovery: 0, overworked: 0 })
-  const recoverySummaryLine = recoveryStateCounts.overworked > 0
-    ? `${recoveryStateCounts.ready} ready, ${recoveryStateCounts.recovery} recovering, ${recoveryStateCounts.overworked} overworked. Skip the most fatigued zones today.`
-    : recoveryStateCounts.ready >= recoveryStateCounts.recovery
-      ? `${recoveryStateCounts.ready} zones are ready. Most of your body is open for quality work.`
-      : `${recoveryStateCounts.recovery} zones are still recovering. Keep today's work lighter or more selective.`
+  const readyParts = recoveryParts.filter((part) => part.status === 'Ready').map((part) => part.key)
+  const recoveryOnlyParts = recoveryParts.filter((part) => part.status === 'Recovery').map((part) => part.key)
+  const overworkedParts = recoveryParts.filter((part) => part.status === 'Overworked').map((part) => part.key)
+  const fatiguedParts = recoveryParts.filter((part) => part.status !== 'Ready').map((part) => part.key)
+  const readyUpperParts = readyParts.filter((part) => UPPER_BODY_PARTS.has(part))
+  const readyLowerParts = readyParts.filter((part) => LOWER_BODY_PARTS.has(part))
+  const fatiguedUpperCount = fatiguedParts.filter((part) => UPPER_BODY_PARTS.has(part)).length
+  const fatiguedLowerCount = fatiguedParts.filter((part) => LOWER_BODY_PARTS.has(part)).length
+  const recoverySummaryLine = (() => {
+    if (fatiguedUpperCount >= 3 && readyLowerParts.length > 0) {
+      return `Your upper body is fatigued. Focus ${formatPartList(readyLowerParts)}.`
+    }
+    if (fatiguedLowerCount >= 2 && readyUpperParts.length > 0) {
+      return `Your lower body is fatigued. Focus ${formatPartList(readyUpperParts)}.`
+    }
+    if (overworkedParts.length > 0 && readyParts.length > 0) {
+      return `Avoid ${formatPartList(overworkedParts)} today. Train ${formatPartList(readyParts)}.`
+    }
+    if (recoveryOnlyParts.length > 0 && readyParts.length > 0) {
+      return `Go lighter on ${formatPartList(recoveryOnlyParts)}. Focus ${formatPartList(readyParts)}.`
+    }
+    if (readyParts.length > 0) {
+      return `Best options today: ${formatPartList(readyParts)}.`
+    }
+    return 'Most zones are fatigued. Keep today light and recover.'
+  })()
   const dailyScore = Math.max(
     0,
     Math.min(
@@ -519,13 +554,13 @@ export default function Dashboard() {
       ? `Next up: ${routineCurrentExercise.name}`
       : 'Pick up where you left off.'
     : weakestGroup?.remaining > 0
-      ? `${weakestGroup.remaining} ${weakestGroup.label.toLowerCase()} sets are still needed this week.`
+      ? 'Best fit for today based on your split and recovery.'
       : trainedToday
         ? 'You already trained today, so recovery, walking, or mobility makes more sense now.'
         : streak > 0
           ? `Keep the ${streak}-day streak alive with one focused session.`
           : 'One focused session gets this week moving.'
-  const planCtaLabel = routineInProgress ? 'Continue' : 'Start'
+  const planCtaLabel = routineInProgress ? 'Continue Workout' : 'Start Workout'
   const planFocusLabel = routineInProgress
     ? 'Workout in progress'
     : weakestGroup?.remaining > 0
@@ -533,6 +568,11 @@ export default function Dashboard() {
       : trainedToday
         ? 'Focus: Recovery'
         : 'Focus: Training'
+  const missionLine = weakestGroup?.remaining > 0
+    ? `You need ${weakestGroup.remaining} ${weakestGroup.label.toLowerCase()} sets to stay on track this week.`
+    : routineInProgress
+      ? "Finish today's workout to stay on pace this week."
+      : 'You are on pace for this week.'
   const heroProgressRatio = routineInProgress
     ? routineCompletedCount / Math.max(routineInProgress.exercises.length, 1)
     : trainedToday
@@ -629,14 +669,14 @@ export default function Dashboard() {
 
   return (
     <PageWrapper showSettings>
-      <div className="px-4 pt-2 space-y-5">
+      <div className="px-4 pt-3 space-y-6">
         <div className="flex items-start justify-between gap-3">
-          <div>
+          <div className="space-y-3">
             <h1 className="font-display text-2xl font-bold text-text-primary mt-1">
               Hey, {firstName}
             </h1>
-            <p className="text-text-secondary text-sm mt-0.5 opacity-70">Your training overview</p>
-            <p className="text-accent-green text-sm font-medium mt-2">{dashboardHook}</p>
+            <p className="text-text-secondary text-sm opacity-75">Your training overview</p>
+            <p className="text-accent-green text-base font-semibold leading-snug">{dashboardHook}</p>
           </div>
         </div>
 
@@ -648,16 +688,16 @@ export default function Dashboard() {
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <p className="section-title mb-0 text-white/75">Today&apos;s Plan</p>
-                <p className="mt-2 text-white/70 text-[11px] uppercase tracking-[0.2em]">{planFocusLabel}</p>
+                <p className="mt-1.5 text-white/70 text-[11px] uppercase tracking-[0.2em]">{planFocusLabel}</p>
               </div>
-              <span className="rounded-full border border-white/12 bg-white/12 px-2.5 py-1 text-[11px] font-semibold text-white">
+              <span className="rounded-full border border-white/10 bg-white/10 px-2.5 py-1 text-[10px] font-semibold text-white/92">
                 Daily Score {dailyScore}%
               </span>
             </div>
 
             <div className="min-w-0">
-              <p className="text-white font-semibold text-xl leading-tight">{planHeadline}</p>
-              <p className="text-white/85 text-sm mt-2 leading-relaxed">{planReason}</p>
+              <p className="text-white font-semibold text-[2.05rem] leading-[1.02] tracking-[-0.02em]">{planHeadline}</p>
+              <p className="text-white/80 text-sm mt-3 leading-relaxed">{planReason}</p>
             </div>
 
             <div className="flex items-center gap-3">
@@ -668,10 +708,10 @@ export default function Dashboard() {
                     style={{ width: `${Math.max(heroProgressRatio * 100, 8)}%` }}
                   />
                 </div>
-                <p className="mt-1.5 text-[11px] text-white/70">{heroProgressText}</p>
+                <p className="mt-1.5 text-[11px] text-white/72">{heroProgressText}</p>
               </div>
 
-              <div className="flex items-center gap-2 rounded-full bg-white px-4 py-2 text-sm font-semibold text-accent shadow-sm shadow-black/10">
+              <div className="flex items-center gap-2 rounded-full bg-white px-4.5 py-2.5 text-sm font-semibold text-accent shadow-sm shadow-black/10">
                 <span>{planCtaLabel}</span>
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M5 12h14M13 5l7 7-7 7" />
@@ -680,6 +720,8 @@ export default function Dashboard() {
             </div>
           </div>
         </button>
+
+        <p className="px-1 text-sm font-medium text-text-primary/90">{missionLine}</p>
 
         {!loading && lastSessions.length > 0 && (
           <div className="card card-enter card-enter-delay-1 card-tonal">
@@ -817,7 +859,7 @@ export default function Dashboard() {
 
           <div className="flex flex-wrap gap-2">
             <span className={`rounded-full border px-3 py-1.5 text-xs font-medium ${daysSince === 0 ? 'border-accent-green/30 bg-accent-green/10 text-accent-green' : daysSince != null && daysSince > 5 ? 'border-amber-400/25 bg-amber-400/10 text-amber-200' : 'border-white/10 bg-surface2/75 text-text-primary'}`}>
-              Last workout: {lastWorkoutValue}
+              {lastWorkoutPillLabel}
             </span>
             <span className={`rounded-full border px-3 py-1.5 text-xs font-medium ${streak >= 7 ? 'border-accent-green/30 bg-accent-green/10 text-accent-green' : 'border-white/10 bg-surface2/75 text-text-primary'}`}>
               Streak: {streak > 0 ? streakValue : 'None'}
