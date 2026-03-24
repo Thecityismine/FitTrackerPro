@@ -677,14 +677,14 @@ export default function Dashboard() {
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <p className="section-title mb-0 text-white/75">Today&apos;s Plan</p>
-                <p className="mt-1.5 text-white/70 text-[11px] uppercase tracking-[0.2em]">{planFocusLabel}</p>
               </div>
               <span className="rounded-full border border-white/10 bg-white/10 px-2.5 py-1 text-[10px] font-semibold text-white/92">
                 Daily Score {dailyScore}%
               </span>
             </div>
 
-            <div className="min-w-0">
+            <div className="min-w-0 pt-1">
+              <p className="text-white/70 text-[11px] uppercase tracking-[0.2em]">{planFocusLabel}</p>
               <p className="text-white font-semibold text-[1.82rem] leading-[1.05] tracking-[-0.02em]">{planHeadline}</p>
               <p className="text-white/82 text-sm mt-2.5 leading-relaxed">{missionLine}</p>
             </div>
