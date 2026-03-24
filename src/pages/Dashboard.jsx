@@ -489,7 +489,7 @@ export default function Dashboard() {
         status: 'Ready',
         dotClass: 'bg-accent-green',
         textClass: 'text-accent-green',
-        shellClass: 'bg-accent-green/12 border border-accent-green/25',
+        shellClass: 'border border-white/20 bg-surface/85',
         detail: `${bodyPart} has not been hit recently. Good candidate for today.`,
       }
     }
@@ -500,7 +500,7 @@ export default function Dashboard() {
         status: 'Overworked',
         dotClass: 'bg-accent-red',
         textClass: 'text-accent-red',
-        shellClass: 'bg-accent-red/6 border border-accent-red/12',
+        shellClass: 'border border-white/20 bg-surface/85',
         detail: `${bodyPart} was trained today. Let it recover before pushing it again.`,
       }
     }
@@ -510,7 +510,7 @@ export default function Dashboard() {
         status: 'Recovery',
         dotClass: 'bg-[#FACC15]',
         textClass: 'text-[#FACC15]',
-        shellClass: 'bg-[#FACC15]/10 border border-[#FACC15]/24',
+        shellClass: 'border border-white/20 bg-surface/85',
         detail: `${bodyPart} was trained ${daysAgo} day${daysAgo === 1 ? '' : 's'} ago. Moderate work is okay.`,
       }
     }
@@ -519,7 +519,7 @@ export default function Dashboard() {
       status: 'Ready',
       dotClass: 'bg-accent-green',
       textClass: 'text-accent-green',
-      shellClass: 'bg-accent-green/12 border border-accent-green/25',
+      shellClass: 'border border-white/20 bg-surface/85',
       detail: `${bodyPart} is recovered and ready for a harder session.`,
     }
   }
@@ -747,7 +747,7 @@ export default function Dashboard() {
                       decoding="async"
                       className={`w-14 h-14 object-contain transition-opacity ${workedParts.has(bp.key) ? 'opacity-100' : 'opacity-45'}`}
                     />
-                    <p className={`text-[10px] font-semibold leading-none ${meta.textClass}`}>{bp.key}</p>
+                    <p className="text-[10px] font-semibold leading-none text-white">{bp.key}</p>
                   </button>
                 )
               })}
