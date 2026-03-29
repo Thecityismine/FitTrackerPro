@@ -152,14 +152,33 @@ function formatPartList(parts, maxItems = 2) {
   return `${visible.join(' & ')} +${parts.length - visible.length} more`
 }
 
-function ChartTooltip({ active, payload, label }) {
+function formatChoiceList(parts, maxItems = 2) {
+  if (!parts.length) return null
+  if (parts.length === 1) return parts[0]
+  if (parts.length === 2) return `${parts[0]} or ${parts[1]}`
+  const visible = parts.slice(0, maxItems)
+  return `${visible.join(' or ')} +${parts.length - visible.length} more`
+}
+
+function ChartTooltip({ active, payload, label, chartPeriod }) {
   if (!active || !payload?.length) return null
+  const periodLabel = chartPeriod === 'weekly' ? 'week' : chartPeriod === 'monthly' ? 'month' : 'period'
+  const tone = payload[0]?.payload?.tone || 'normal'
+  const toneMeta = tone === 'best'
+    ? { label: `Best ${periodLabel}`, dotClass: 'bg-accent-green' }
+    : tone === 'low'
+      ? { label: `Low ${periodLabel}`, dotClass: 'bg-[#F59E0B]' }
+      : { label: `Normal ${periodLabel}`, dotClass: 'bg-accent' }
   return (
     <div className="bg-surface border border-surface2 rounded-xl px-3 py-2 text-xs shadow-lg">
       <p className="text-text-secondary mb-0.5">{label}</p>
       <p className="text-accent font-bold font-mono">
         {Number(payload[0].value).toLocaleString()} lbs
       </p>
+      <div className="mt-1.5 flex items-center gap-1.5 text-[11px] text-text-secondary">
+        <span className={`h-2.5 w-2.5 rounded-full ${toneMeta.dotClass}`} />
+        <span>{toneMeta.label}</span>
+      </div>
     </div>
   )
 }
@@ -331,6 +350,7 @@ export default function Dashboard() {
     }
   })
   const weakestGroup = weekGroupStats.slice().sort((a, b) => a.ratio - b.ratio || b.remaining - a.remaining)[0]
+  const weakestGroupSetLabel = weakestGroup?.label === 'Legs' ? 'leg' : weakestGroup?.label?.toLowerCase()
 
   const lastSessions = lastDate ? activeSessions.filter((session) => session.date === lastDate) : []
   const lastSessionVolume = lastSessions.reduce((sum, session) => sum + getSessionVolume(session), 0)
@@ -391,7 +411,7 @@ export default function Dashboard() {
   const routineCurrentExercise = routineInProgress?.exercises.find((exercise) => exercise.id === routineInProgress.currentExerciseId)
 
   const weeklyInsight = weakestGroup?.remaining > 0
-    ? `${weakestGroup.label} needs ${weakestGroup.remaining} more sets this week.`
+    ? `Finish ${weakestGroup.remaining} more ${weakestGroupSetLabel} sets to stay on track.`
     : 'Your weekly targets are on track.'
   const dashboardHook = routineInProgress
     ? "You're on track. Finish strong."
@@ -424,6 +444,10 @@ export default function Dashboard() {
     : null
   const peakIndex = chartData.length ? chartData.findIndex((point) => point.vol === Math.max(...chartData.map((item) => item.vol))) : -1
   const dipIndex = chartData.length ? chartData.findIndex((point) => point.vol === Math.min(...chartData.map((item) => item.vol))) : -1
+  const chartDataWithTone = chartData.map((point, index) => ({
+    ...point,
+    tone: index === peakIndex ? 'best' : index === dipIndex ? 'low' : 'normal',
+  }))
   const chartInsight = chartTrendPct == null
     ? 'Log a few more sessions to unlock a trend.'
     : chartTrendPct >= 0
@@ -442,14 +466,19 @@ export default function Dashboard() {
     : chartPeriod === 'monthly'
       ? 'Best Month'
       : 'Best Period'
+  const chartTimePhrase = chartPeriod === 'weekly'
+    ? 'this week'
+    : chartPeriod === 'monthly'
+      ? 'this month'
+      : 'this period'
   const chartAverageVolume = chartData.length > 1
     ? Math.round(chartData.slice(0, -1).reduce((sum, point) => sum + point.vol, 0) / (chartData.length - 1))
     : null
   const chartTakeawayTitle = chartTrendPct == null
     ? 'Volume trend is still forming.'
     : chartTrendPct >= 0
-      ? `${chartCurrentLabel} is ahead of your recent pace.`
-      : `${chartCurrentLabel} is below your recent pace.`
+      ? `You're ahead of your normal training pace ${chartTimePhrase}.`
+      : `You're below your normal training pace ${chartTimePhrase}.`
   const chartTakeawayDetail = chartAverageVolume
     ? `${chartCurrentLabel} volume is ${formatCompactVolume(chartCurrentPoint?.vol || 0)} versus a recent average of ${formatCompactVolume(chartAverageVolume)}.`
     : chartInsight
@@ -461,7 +490,7 @@ export default function Dashboard() {
         status: 'Ready',
         dotClass: 'bg-accent-green',
         textClass: 'text-accent-green',
-        shellClass: 'border border-white/20 bg-surface/85',
+        shellClass: 'border border-accent-green/20 bg-[linear-gradient(180deg,rgba(15,23,42,0.92),rgba(10,26,20,0.96))] shadow-[inset_0_1px_0_rgba(255,255,255,0.03),0_0_0_1px_rgba(34,197,94,0.05),0_0_24px_rgba(34,197,94,0.08)]',
         detail: `${bodyPart} has not been hit recently. Good candidate for today.`,
       }
     }
@@ -472,7 +501,7 @@ export default function Dashboard() {
         status: 'Overworked',
         dotClass: 'bg-accent-red',
         textClass: 'text-accent-red',
-        shellClass: 'border border-white/20 bg-surface/85',
+        shellClass: 'border border-white/8 bg-surface/55 opacity-75 saturate-[0.86]',
         detail: `${bodyPart} was trained today. Let it recover before pushing it again.`,
       }
     }
@@ -482,7 +511,7 @@ export default function Dashboard() {
         status: 'Recovery',
         dotClass: 'bg-[#FACC15]',
         textClass: 'text-[#FACC15]',
-        shellClass: 'border border-white/20 bg-surface/85',
+        shellClass: 'border border-[#FACC15]/15 bg-[linear-gradient(180deg,rgba(15,23,42,0.92),rgba(38,31,12,0.88))]',
         detail: `${bodyPart} was trained ${daysAgo} day${daysAgo === 1 ? '' : 's'} ago. Moderate work is okay.`,
       }
     }
@@ -491,7 +520,7 @@ export default function Dashboard() {
       status: 'Ready',
       dotClass: 'bg-accent-green',
       textClass: 'text-accent-green',
-      shellClass: 'border border-white/20 bg-surface/85',
+      shellClass: 'border border-accent-green/20 bg-[linear-gradient(180deg,rgba(15,23,42,0.92),rgba(10,26,20,0.96))] shadow-[inset_0_1px_0_rgba(255,255,255,0.03),0_0_0_1px_rgba(34,197,94,0.05),0_0_24px_rgba(34,197,94,0.08)]',
       detail: `${bodyPart} is recovered and ready for a harder session.`,
     }
   }
@@ -518,19 +547,19 @@ export default function Dashboard() {
   const fatiguedLowerCount = fatiguedParts.filter((part) => LOWER_BODY_PARTS.has(part)).length
   const recoverySummaryLine = (() => {
     if (fatiguedUpperCount >= 3 && readyLowerParts.length > 0) {
-      return `Your upper body is fatigued. Focus ${formatPartList(readyLowerParts)}.`
+      return `Upper body is fatigued. Train ${formatChoiceList(readyLowerParts)} today.`
     }
     if (fatiguedLowerCount >= 2 && readyUpperParts.length > 0) {
-      return `Your lower body is fatigued. Focus ${formatPartList(readyUpperParts)}.`
+      return `Lower body is fatigued. Train ${formatChoiceList(readyUpperParts)} today.`
     }
     if (overworkedParts.length > 0 && readyParts.length > 0) {
-      return `Avoid ${formatPartList(overworkedParts)} today. Train ${formatPartList(readyParts)}.`
+      return `Skip ${formatPartList(overworkedParts)}. Train ${formatChoiceList(readyParts)} today.`
     }
     if (recoveryOnlyParts.length > 0 && readyParts.length > 0) {
-      return `Go lighter on ${formatPartList(recoveryOnlyParts)}. Focus ${formatPartList(readyParts)}.`
+      return `Go lighter on ${formatPartList(recoveryOnlyParts)}. Train ${formatChoiceList(readyParts)} today.`
     }
     if (readyParts.length > 0) {
-      return `Best options today: ${formatPartList(readyParts)}.`
+      return `Train ${formatChoiceList(readyParts)} today.`
     }
     return 'Most zones are fatigued. Keep today light and recover.'
   })()
@@ -544,26 +573,32 @@ export default function Dashboard() {
 
   const planHeadline = routineInProgress
     ? 'Resume workout'
-    : weakestGroup?.remaining > 0
-      ? `Train ${weakestGroup.label} today`
     : trainedToday
-        ? 'Recovery is the right move'
+      ? "Today's workout is done"
+      : weakestGroup?.remaining > 0
+      ? `Train ${weakestGroup.label} today`
         : 'Start a workout'
-  const planCtaLabel = routineInProgress ? 'Continue Workout' : 'Start Workout'
+  const planCtaLabel = routineInProgress
+    ? 'Continue Workout'
+    : trainedToday
+      ? 'View Workout'
+      : 'Start Workout'
   const planFocusLabel = routineInProgress
     ? 'Workout in progress'
-    : weakestGroup?.remaining > 0
+    : trainedToday
+      ? 'Focus: Recovery'
+      : weakestGroup?.remaining > 0
       ? `Focus: ${weakestGroup.label}`
-      : trainedToday
-        ? 'Focus: Recovery'
         : 'Focus: Training'
   const missionLine = weakestGroup?.remaining > 0
     ? trainedToday && !routineInProgress
-      ? "You've completed today's workout. Keep building your weekly target."
-      : `You need ${weakestGroup.remaining} ${weakestGroup.label.toLowerCase()} sets to stay on track this week.`
+      ? `Finish ${weakestGroup.remaining} more ${weakestGroupSetLabel} sets to stay on track.`
+      : `You need ${weakestGroup.remaining} ${weakestGroupSetLabel} sets to stay on track this week.`
     : routineInProgress
       ? "Finish today's workout to stay on pace this week."
-      : 'You are on pace for this week.'
+      : trainedToday
+        ? 'Today is done. Recover well and keep the week moving.'
+        : 'You are on pace for this week.'
   const heroProgressRatio = routineInProgress
     ? routineCompletedCount / Math.max(routineInProgress.exercises.length, 1)
     : trainedToday
@@ -589,20 +624,30 @@ export default function Dashboard() {
       return
     }
 
+    if (trainedToday && lastDate) {
+      navigate('/calendar', {
+        state: {
+          selectedDate: lastDate,
+          scrollToDetails: true,
+        },
+      })
+      return
+    }
+
     navigate('/routines')
   }
 
   function renderVolumeDot(props) {
-    const { cx, cy, index } = props
+    const { cx, cy, index, payload } = props
     if (typeof cx !== 'number' || typeof cy !== 'number') return null
 
     let fill = '#1A56DB'
     let radius = 3
     const isCurrent = index === chartData.length - 1
-    if (index === peakIndex) {
+    if (payload?.tone === 'best') {
       fill = '#22C55E'
       radius = 4
-    } else if (index === dipIndex) {
+    } else if (payload?.tone === 'low') {
       fill = '#F59E0B'
       radius = 4
     }
@@ -617,7 +662,10 @@ export default function Dashboard() {
 
   if (!loading && (sessions.length === 0 || loadError)) {
     return (
-      <PageWrapper showSettings>
+      <PageWrapper
+        showSettings
+        headerAction={{ label: 'My Plan', onClick: () => navigate('/profile') }}
+      >
         <div className="px-4 pt-2 space-y-4">
           <div>
             <h1 className="font-display text-2xl font-bold text-text-primary">
@@ -659,7 +707,10 @@ export default function Dashboard() {
   }
 
   return (
-    <PageWrapper showSettings>
+    <PageWrapper
+      showSettings
+      headerAction={{ label: 'My Plan', onClick: () => navigate('/profile') }}
+    >
       <div className="px-4 pt-3 space-y-[18px]">
         <div className="flex items-start justify-between gap-3">
           <div className="space-y-1.5">
@@ -673,7 +724,7 @@ export default function Dashboard() {
 
         <button
           onClick={handleWorkoutCta}
-          className="card card-enter tap-glow w-full text-left active:scale-[0.99] transition-transform border border-accent/30 bg-gradient-to-r from-accent via-[#245BEB] to-[#1A56DB] shadow-lg shadow-accent/20"
+          className="card card-enter tap-glow w-full text-left active:scale-[0.99] transition-transform border border-accent/30 bg-gradient-to-r from-accent via-[#245BEB] to-[#1A56DB] shadow-[0_18px_40px_rgba(26,86,219,0.24)]"
         >
           <div className="space-y-3">
             <div className="flex items-start justify-between gap-3">
@@ -696,14 +747,14 @@ export default function Dashboard() {
                 <div className="h-1.5 w-full rounded-full bg-white/15 overflow-hidden">
                   <div
                     className="h-full rounded-full bg-white/80 transition-all duration-500 progress-reveal"
-                    style={{ width: `${Math.max(heroProgressRatio * 100, 8)}%` }}
+                    style={{ width: `${Math.max(heroProgressRatio * 100, 0)}%` }}
                   />
                 </div>
                 <p className="mt-1.5 text-[11px] text-white/72 leading-tight">{heroProgressText}</p>
               </div>
 
               <div className="flex w-full">
-                <div className="ml-auto flex w-fit min-w-[10.25rem] items-center justify-center gap-2 rounded-full bg-white px-5 py-2.5 text-sm font-semibold text-accent shadow-sm shadow-black/10">
+                <div className={`ml-auto flex w-fit min-w-[11.5rem] items-center justify-center gap-2.5 rounded-full bg-white px-6 py-3 text-[15px] font-semibold text-accent ring-1 ring-white/15 shadow-[0_14px_34px_rgba(255,255,255,0.2),0_14px_32px_rgba(15,23,42,0.2)] ${heroProgressRatio === 0 ? 'hero-cta-glow' : ''}`}>
                   <span>{planCtaLabel}</span>
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M5 12h14M13 5l7 7-7 7" />
@@ -733,11 +784,11 @@ export default function Dashboard() {
 	                  <button
 	                    key={bp.key}
 	                    onClick={() => setSelectedRecoveryPart(bp.key)}
-	                    className={`relative rounded-xl p-2 flex flex-col items-center gap-1.5 text-center tap-glow transition-all duration-200 ${meta.shellClass} ${
-	                      selected
-	                        ? 'ring-2 ring-white/45 scale-[1.03] shadow-[0_0_0_1px_rgba(255,255,255,0.08),0_10px_24px_rgba(15,23,42,0.22)]'
-	                        : 'opacity-92'
-	                    }`}
+		                    className={`relative rounded-xl p-2 flex flex-col items-center gap-1.5 text-center tap-glow transition-all duration-300 ${meta.shellClass} ${
+		                      selected
+		                        ? 'selection-pop -translate-y-0.5 ring-2 ring-white/45 scale-[1.04] shadow-[0_0_0_1px_rgba(255,255,255,0.08),0_12px_28px_rgba(15,23,42,0.24)]'
+		                        : 'opacity-95'
+		                    }`}
 	                  >
 	                    <div className={`absolute top-1.5 right-1.5 rounded-full ${meta.dotClass} ${selected ? 'w-3 h-3 ring-2 ring-white/25' : 'w-2.5 h-2.5'}`} />
 	                    <img
@@ -842,8 +893,8 @@ export default function Dashboard() {
         <div className="card card-enter card-enter-delay-3">
           <div className="flex items-center justify-between gap-3 mb-4">
             <div>
-              <p className="section-title mb-1">Recent Activity</p>
-              <p className="text-text-secondary text-xs">A quick read on your latest training.</p>
+              <p className="section-title mb-1">Latest Workout</p>
+              <p className="text-text-secondary text-xs">A quick read on your latest session.</p>
             </div>
             {lastDate && <p className="text-text-secondary text-xs">{lastDate.slice(5).replace('-', '/')}</p>}
           </div>
@@ -865,7 +916,7 @@ export default function Dashboard() {
                 <p className="mt-1.5 text-xs text-text-secondary">{recentSessionSub}</p>
               </div>
               {lastSessionPrCount > 0 && (
-                <span className="rounded-full border border-accent-green/30 bg-accent-green/10 px-2.5 py-1 text-[11px] font-semibold text-accent-green">
+                <span className="flex-shrink-0 self-start whitespace-nowrap rounded-full border border-accent-green/30 bg-accent-green/10 px-2.5 py-1 text-[11px] font-semibold leading-none text-accent-green">
                   {lastSessionPrCount} PR{lastSessionPrCount === 1 ? '' : 's'}
                 </span>
               )}
@@ -934,7 +985,7 @@ export default function Dashboard() {
           ) : chartData.length > 0 ? (
             <>
               <ResponsiveContainer width="100%" height={120}>
-                <AreaChart data={chartData} margin={{ top: 4, right: 4, left: 4, bottom: 0 }}>
+                <AreaChart data={chartDataWithTone} margin={{ top: 4, right: 4, left: 4, bottom: 0 }}>
                   <defs>
                     <linearGradient id="dashGrad" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="5%" stopColor="#1A56DB" stopOpacity={0.35} />
@@ -947,7 +998,7 @@ export default function Dashboard() {
                     axisLine={false}
                     tickLine={false}
                   />
-                  <Tooltip content={<ChartTooltip />} />
+                  <Tooltip content={<ChartTooltip chartPeriod={chartPeriod} />} />
                   <Area
                     type="monotone"
                     dataKey="vol"

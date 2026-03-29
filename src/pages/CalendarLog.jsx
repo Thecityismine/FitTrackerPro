@@ -1,6 +1,6 @@
 // src/pages/CalendarLog.jsx
 import { useState, useEffect, useMemo, useRef } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import {
   format, startOfMonth, endOfMonth, eachDayOfInterval,
 	  getDay, addMonths, subMonths, parseISO,
@@ -78,6 +78,7 @@ function getWorkoutDayIntensity(daySessions, workoutCount) {
 export default function CalendarLog() {
   const { user, profile } = useAuth()
   const { activeWorkout, startRoutineWorkout } = useActiveWorkout()
+  const location = useLocation()
   const navigate = useNavigate()
 
   const [sessions, setSessions] = useState([])
@@ -276,6 +277,21 @@ export default function CalendarLog() {
     setPendingDetailsScroll(false)
     return () => cancelAnimationFrame(frame)
   }, [pendingDetailsScroll, selectedPrimaryKey])
+
+  useEffect(() => {
+    const requestedDate = location.state?.selectedDate
+    if (!requestedDate || !grouped[requestedDate]) return
+
+    setSelectedDate(requestedDate)
+    setPendingDetailsScroll(Boolean(location.state?.scrollToDetails))
+    setExpandedKey(null)
+    setFilter('week')
+
+    const requestedMonth = parseISO(requestedDate)
+    if (!Number.isNaN(requestedMonth.getTime())) {
+      setCurrentMonth(requestedMonth)
+    }
+  }, [grouped, location.state?.scrollToDetails, location.state?.selectedDate])
 
   const selectedDateInsight = useMemo(() => {
     const group = selectedDateSummary?.primaryGroup
