@@ -662,7 +662,10 @@ export default function Dashboard() {
 
   if (!loading && (sessions.length === 0 || loadError)) {
     return (
-      <PageWrapper showSettings>
+      <PageWrapper
+        showSettings
+        headerAction={{ label: 'My Plan', onClick: () => navigate('/profile') }}
+      >
         <div className="px-4 pt-2 space-y-4">
           <div>
             <h1 className="font-display text-2xl font-bold text-text-primary">
@@ -704,7 +707,10 @@ export default function Dashboard() {
   }
 
   return (
-    <PageWrapper showSettings>
+    <PageWrapper
+      showSettings
+      headerAction={{ label: 'My Plan', onClick: () => navigate('/profile') }}
+    >
       <div className="px-4 pt-3 space-y-[18px]">
         <div className="flex items-start justify-between gap-3">
           <div className="space-y-1.5">
