@@ -1,14 +1,12 @@
 // src/components/layout/Header.jsx
-import { useState } from 'react'
 import { format } from 'date-fns'
 import { useAuth } from '../../context/AuthContext'
 import { useNavigate } from 'react-router-dom'
 
-export default function Header({ showSettings = false }) {
+export default function Header({ headerAction = null, showProfileLink = true }) {
   const { user, profile } = useAuth()
   const navigate = useNavigate()
   const today = format(new Date(), 'EEE, MMM d')
-  const [showQr, setShowQr] = useState(false)
 
   const photoURL = profile?.photoURL || user?.photoURL
   const initials = (profile?.displayName || user?.displayName || 'U')
@@ -18,29 +16,46 @@ export default function Header({ showSettings = false }) {
     .toUpperCase()
     .slice(0, 2)
 
+  const actionLabel = headerAction?.label || 'My Plan'
+  const handleActionPress = headerAction?.onClick || (() => navigate('/profile'))
+
   return (
-    <>
-      <div className="flex items-center justify-between px-4 pt-3 pb-2 flex-shrink-0">
-        {/* Date */}
-        <span className="text-text-secondary text-sm font-medium">{today}</span>
+    <div className="flex items-center justify-between px-4 pt-3 pb-2 flex-shrink-0">
+      <span className="text-text-secondary text-sm font-medium">{today}</span>
 
-        {/* Right side: QR icon (optional) + Profile avatar */}
-        <div className="flex items-center gap-2">
-          {showSettings && (
-            <button
-              onClick={() => setShowQr(true)}
-              className="icon-button"
-              title="Gym QR Code"
+      <div className="flex items-center gap-2">
+        {headerAction ? (
+          <button
+            onClick={handleActionPress}
+            className="group flex items-center gap-2 rounded-full border border-white/10 bg-surface2/92 py-1 pl-1.5 pr-3 shadow-[0_8px_24px_rgba(15,23,42,0.18)] transition-all active:scale-95"
+          >
+            {photoURL ? (
+              <img
+                src={photoURL}
+                alt="Profile"
+                loading="lazy"
+                decoding="async"
+                className="w-8 h-8 rounded-full object-cover border border-accent/45"
+              />
+            ) : (
+              <div className="w-8 h-8 rounded-full bg-accent flex items-center justify-center border border-accent/50">
+                <span className="text-white text-[10px] font-bold font-display">{initials}</span>
+              </div>
+            )}
+            <span className="text-[12px] font-semibold tracking-[0.01em] text-text-primary">
+              {actionLabel}
+            </span>
+            <svg
+              className="w-3.5 h-3.5 text-text-secondary transition-transform group-hover:translate-x-0.5"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2.1}
             >
-              {/* QR code icon */}
-              <svg className="w-5 h-5 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 013.75 9.375v-4.5zM3.75 14.625c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5a1.125 1.125 0 01-1.125-1.125v-4.5zM13.5 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0113.5 9.375v-4.5z" />
-                <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 6.75h.75v.75h-.75v-.75zM6.75 16.5h.75v.75h-.75V16.5zM16.5 6.75h.75v.75h-.75v-.75zM13.5 13.5h.75v.75h-.75v-.75zM13.5 18.75h.75v.75h-.75v-.75zM18.75 13.5h.75v.75h-.75v-.75zM18.75 18.75h.75v.75h-.75v-.75zM16.5 16.5h.75v.75h-.75V16.5z" />
-              </svg>
-            </button>
-          )}
-
-          {/* Profile avatar */}
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+            </svg>
+          </button>
+        ) : showProfileLink ? (
           <button onClick={() => navigate('/profile')} className="active:scale-95 transition-transform">
             {photoURL ? (
               <img src={photoURL} alt="Profile" loading="lazy" decoding="async" className="w-9 h-9 rounded-full object-cover border-2 border-accent" />
@@ -50,56 +65,8 @@ export default function Header({ showSettings = false }) {
               </div>
             )}
           </button>
-        </div>
+        ) : null}
       </div>
-
-      {/* ── Gym QR Modal ─────────────────────────────────────── */}
-      {showQr && (
-        <div
-          className="fixed inset-0 z-[80] flex flex-col items-center justify-center bg-black/75"
-          onClick={() => setShowQr(false)}
-        >
-          <div
-            className="bg-surface rounded-3xl p-6 mx-6 w-full max-w-sm flex flex-col items-center gap-4"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <p className="font-display text-lg font-bold text-text-primary">Gym QR Code</p>
-
-            {profile?.gymQrUrl ? (
-              <div className="bg-white rounded-2xl p-4 w-full flex items-center justify-center">
-                <img
-                  src={profile.gymQrUrl}
-                  alt="Gym QR Code"
-                  loading="lazy"
-                  decoding="async"
-                  className="w-56 h-56 object-contain"
-                />
-              </div>
-            ) : (
-              <div className="w-full flex flex-col items-center gap-3 bg-surface2 rounded-2xl py-10 px-4 card-enter">
-                <svg className="w-12 h-12 text-text-secondary/50" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 013.75 9.375v-4.5zM3.75 14.625c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5a1.125 1.125 0 01-1.125-1.125v-4.5zM13.5 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0113.5 9.375v-4.5z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 6.75h.75v.75h-.75v-.75zM6.75 16.5h.75v.75h-.75V16.5zM16.5 6.75h.75v.75h-.75v-.75zM13.5 13.5h.75v.75h-.75v-.75zM13.5 18.75h.75v.75h-.75v-.75zM18.75 13.5h.75v.75h-.75v-.75zM18.75 18.75h.75v.75h-.75v-.75zM16.5 16.5h.75v.75h-.75V16.5z" />
-                </svg>
-                <p className="text-text-secondary text-sm text-center">Upload your gym code to keep check-in fast and frictionless.</p>
-                <button
-                  onClick={() => { setShowQr(false); navigate('/profile') }}
-                  className="btn-primary text-sm px-5 py-2"
-                >
-                  Upload in Profile
-                </button>
-              </div>
-            )}
-
-            <button
-              onClick={() => setShowQr(false)}
-              className="btn-secondary text-sm px-5 py-2"
-            >
-              Dismiss
-            </button>
-          </div>
-        </div>
-      )}
-    </>
+    </div>
   )
 }
