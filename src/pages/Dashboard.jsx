@@ -590,14 +590,12 @@ export default function Dashboard() {
       : weakestGroup?.remaining > 0
       ? `Focus: ${weakestGroup.label}`
         : 'Focus: Training'
-  const missionLine = weakestGroup?.remaining > 0
-    ? trainedToday && !routineInProgress
-      ? `Finish ${weakestGroup.remaining} more ${weakestGroupSetLabel} sets to stay on track.`
-      : `You need ${weakestGroup.remaining} ${weakestGroupSetLabel} sets to stay on track this week.`
-    : routineInProgress
-      ? "Finish today's workout to stay on pace this week."
-      : trainedToday
-        ? 'Today is done. Recover well and keep the week moving.'
+  const missionLine = routineInProgress
+    ? "Finish today's workout to stay on pace this week."
+    : trainedToday
+      ? 'Recovery day. Let your body rebuild.'
+      : weakestGroup?.remaining > 0
+        ? `You need ${weakestGroup.remaining} ${weakestGroupSetLabel} sets to stay on track this week.`
         : 'You are on pace for this week.'
   const heroProgressRatio = routineInProgress
     ? routineCompletedCount / Math.max(routineInProgress.exercises.length, 1)
@@ -654,7 +652,12 @@ export default function Dashboard() {
 
     return (
       <>
-        {isCurrent && <circle cx={cx} cy={cy} r={8} fill="#1A56DB" opacity={0.14} />}
+        {isCurrent && (
+          <>
+            <circle cx={cx} cy={cy} r={11} fill="#1A56DB" opacity={0.12} />
+            <circle cx={cx} cy={cy} r={7} fill="none" stroke="#60A5FA" strokeOpacity={0.28} strokeWidth={1.5} />
+          </>
+        )}
         <circle cx={cx} cy={cy} r={isCurrent ? radius + 1 : radius} fill={fill} strokeWidth={0} />
       </>
     )
@@ -784,11 +787,11 @@ export default function Dashboard() {
 	                  <button
 	                    key={bp.key}
 	                    onClick={() => setSelectedRecoveryPart(bp.key)}
-		                    className={`relative rounded-xl p-2 flex flex-col items-center gap-1.5 text-center tap-glow transition-all duration-300 ${meta.shellClass} ${
-		                      selected
-		                        ? 'selection-pop -translate-y-0.5 ring-2 ring-white/45 scale-[1.04] shadow-[0_0_0_1px_rgba(255,255,255,0.08),0_12px_28px_rgba(15,23,42,0.24)]'
-		                        : 'opacity-95'
-		                    }`}
+			                    className={`relative rounded-xl p-2 flex flex-col items-center gap-1.5 text-center tap-glow transition-all duration-300 ${meta.shellClass} ${
+			                      selected
+			                        ? 'selection-pop -translate-y-0.5 scale-[1.05] brightness-[1.06] ring-[3px] ring-white/65 shadow-[0_0_0_1px_rgba(255,255,255,0.18),0_0_0_7px_rgba(96,165,250,0.08),0_16px_32px_rgba(15,23,42,0.28)]'
+			                        : 'opacity-95'
+			                    }`}
 	                  >
 	                    <div className={`absolute top-1.5 right-1.5 rounded-full ${meta.dotClass} ${selected ? 'w-3 h-3 ring-2 ring-white/25' : 'w-2.5 h-2.5'}`} />
 	                    <img
@@ -848,12 +851,15 @@ export default function Dashboard() {
 	                  size={80}
 	                  strokeWidth={8}
 	                />
-	                <div className="absolute inset-0 flex flex-col items-center justify-center">
-	                  <p className="font-display text-base font-bold text-text-primary leading-none">
-	                    {Math.round(weekPct * 100)}%
-	                  </p>
-                </div>
-              </div>
+		                <div className="absolute inset-0 flex flex-col items-center justify-center">
+		                  <p className="font-display text-base font-bold text-text-primary leading-none">
+		                    {Math.round(weekPct * 100)}%
+		                  </p>
+		                  <p className="mt-1 text-[8px] font-medium uppercase tracking-[0.18em] text-text-secondary/90">
+		                    Weekly progress
+		                  </p>
+	                </div>
+	              </div>
 
               <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between mb-2">

@@ -64,20 +64,24 @@ export default function BottomNav() {
           {TABS.map((tab) => {
             const active = isActive(tab.path)
             return (
-              <button
-                key={tab.path}
-                onClick={() => navigate(tab.path)}
-                className={`flex flex-col items-center gap-1 py-2.5 px-3 min-w-[60px] active:scale-90 transition-transform ${
-                  active ? 'opacity-100' : 'opacity-70'
-                }`}
-              >
-                <span className={`flex h-8 w-8 items-center justify-center rounded-xl transition-colors ${active ? 'bg-accent/10' : 'bg-transparent'}`}>
-                  {tab.icon(active)}
-                </span>
-                <span className={`text-[10px] font-medium ${active ? 'text-accent' : 'text-text-secondary'}`}>
-                  {tab.label}
-                </span>
-              </button>
+	              <button
+	                key={tab.path}
+	                onClick={() => navigate(tab.path)}
+	                className={`flex flex-col items-center gap-1 py-2.5 px-3 min-w-[60px] active:scale-90 transition-transform ${
+	                  active ? 'opacity-100' : 'opacity-70'
+	                }`}
+	              >
+	                <span className={`flex items-center justify-center rounded-xl transition-all ${
+	                  active
+	                    ? 'h-9 w-9 scale-[1.06] bg-accent/14 shadow-[0_0_0_1px_rgba(59,130,246,0.16),0_10px_20px_rgba(26,86,219,0.2)]'
+	                    : 'h-8 w-8 bg-transparent'
+	                }`}>
+	                  {tab.icon(active)}
+	                </span>
+	                <span className={`text-[10px] ${active ? 'font-semibold text-accent brightness-110' : 'font-medium text-text-secondary'}`}>
+	                  {tab.label}
+	                </span>
+	              </button>
             )
           })}
         </div>
