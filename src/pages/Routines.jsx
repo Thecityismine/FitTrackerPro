@@ -1296,19 +1296,13 @@ export default function Routines() {
 
   return (
     <>
-      <PageWrapper showHeader>
+      <PageWrapper showHeader showProfileLink={false}>
         <div className="px-4 pt-2 space-y-5">
-          <div className="flex items-start justify-between gap-3">
+          <div>
             <div>
               <h1 className="font-display text-2xl font-bold text-text-primary">Routines</h1>
               <p className="text-accent-green text-sm font-medium mt-2">{routinesHook}</p>
             </div>
-            <button onClick={() => setShowNew(true)} className="btn-primary text-sm py-2.5 px-4">
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-              </svg>
-              New Routine
-            </button>
           </div>
 
           {(routinesError || sessionsError) && (
@@ -1399,6 +1393,18 @@ export default function Routines() {
                   <p className="text-text-secondary text-sm pl-4">+{lastSessionSummary.exerciseNames.length - 4} more</p>
                 )}
               </div>
+              <div className="mt-4 flex items-center justify-between gap-3 border-t border-white/6 pt-3">
+                <p className="text-text-secondary text-xs">
+                  {lastSessionSummary.totalSets} sets
+                  {lastSessionSummary.durationLabel ? ` • ${lastSessionSummary.durationLabel}` : ''}
+                </p>
+                {lastSessionSummary.volume > 0 && (
+                  <div className="rounded-full border border-accent/30 bg-accent/10 px-3 py-1.5 text-sm font-semibold text-white">
+                    <span className="mr-1.5 text-[11px] font-medium text-white/70">Total Volume</span>
+                    <span>{formatCompactVolume(lastSessionSummary.volume)}</span>
+                  </div>
+                )}
+              </div>
             </button>
           )}
 
@@ -1432,8 +1438,16 @@ export default function Routines() {
           ) : (
             <>
               <div className="flex items-center justify-between px-1">
-                <p className="section-title mb-0">Your Routines</p>
-                <p className="text-text-secondary text-xs">{routines.length} saved</p>
+                <div>
+                  <p className="section-title mb-0">Your Routines</p>
+                  <p className="text-text-secondary text-xs mt-1">{routines.length} saved</p>
+                </div>
+                <button onClick={() => setShowNew(true)} className="btn-secondary h-10 px-3.5 text-sm">
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                  </svg>
+                  Add Routine
+                </button>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 {routines.map((r) => (

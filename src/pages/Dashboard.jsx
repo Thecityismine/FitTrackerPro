@@ -14,6 +14,7 @@ import { useAuth } from '../context/AuthContext'
 import { useActiveWorkout } from '../context/ActiveWorkoutContext'
 import { sessionsCol } from '../firebase/collections'
 import { getMainMuscleGroupIcon } from '../utils/muscleGroupIcons'
+import { getLowerBodyCategory } from '../utils/lowerBodyClassifier'
 
 const TODAY = format(new Date(), 'yyyy-MM-dd')
 const CARDIO_RE = /\b(cardio|walking|walk|run|running|jog|jogging|bike|cycling|cycle|elliptical|swim|swimming|rowing|treadmill|stair|hiit)\b/i
@@ -76,6 +77,11 @@ const EX_KW_DASH = [
 ]
 
 function getBodyPart(muscleGroup, exerciseName) {
+  const lowerBodyCategory = getLowerBodyCategory(muscleGroup, exerciseName)
+  if (lowerBodyCategory) {
+    return lowerBodyCategory.muscleId === 'glutes' ? 'Glutes' : 'Legs'
+  }
+
   const mgKey = (muscleGroup || '').trim().toLowerCase()
   if (MG_MAP[mgKey]) return MG_MAP[mgKey]
 
@@ -87,6 +93,11 @@ function getBodyPart(muscleGroup, exerciseName) {
 }
 
 function getPplCat(muscleGroup, exerciseName) {
+  const lowerBodyCategory = getLowerBodyCategory(muscleGroup, exerciseName)
+  if (lowerBodyCategory) {
+    return `${lowerBodyCategory.groupId}/${lowerBodyCategory.muscleId}`
+  }
+
   const mg = (muscleGroup || '').trim().toLowerCase()
   if (PPL_MAP_DASH[mg]) return PPL_MAP_DASH[mg]
 

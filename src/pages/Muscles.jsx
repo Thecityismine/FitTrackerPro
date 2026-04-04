@@ -14,6 +14,7 @@ import { db } from '../firebase/config'
 import ConfirmDialog from '../components/ConfirmDialog'
 import { getExerciseIcon } from '../utils/exerciseIcons'
 import { getMainMuscleGroupIcon } from '../utils/muscleGroupIcons'
+import { getLowerBodyCategory } from '../utils/lowerBodyClassifier'
 
 // ─── Push / Pull / Legs config ────────────────────────────
 const PPL = [
@@ -89,6 +90,9 @@ const EXERCISE_KEYWORDS = [
 ]
 
 function getMuscleCategory(muscleGroup, exerciseName) {
+  const lowerBodyCategory = getLowerBodyCategory(muscleGroup, exerciseName)
+  if (lowerBodyCategory) return lowerBodyCategory
+
   const mg = (muscleGroup || '').trim().toLowerCase()
   if (PPL_MAP[mg]) return PPL_MAP[mg]
   const search = `${mg} ${(exerciseName || '').toLowerCase()}`
