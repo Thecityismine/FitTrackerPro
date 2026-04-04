@@ -1296,7 +1296,7 @@ export default function Routines() {
 
   return (
     <>
-      <PageWrapper showHeader showProfileLink={false}>
+      <PageWrapper showHeader>
         <div className="px-4 pt-2 space-y-5">
           <div>
             <div>
@@ -1345,7 +1345,7 @@ export default function Routines() {
                         : 'Tap to jump straight into training')}
                   </p>
                 </div>
-                <div className="w-12 h-12 rounded-2xl bg-white/14 border border-white/35 shadow-sm shadow-white/10 flex items-center justify-center flex-shrink-0 mt-1">
+	                <div className="w-12 h-12 rounded-2xl bg-white/14 border border-white/35 shadow-sm shadow-white/10 flex items-center justify-center flex-shrink-0 self-center">
                   <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M5.25 5.653c0-1.427 1.529-2.33 2.779-1.643l9.42 5.173c1.295.711 1.295 2.575 0 3.286l-9.42 5.173c-1.25.687-2.779-.216-2.779-1.643V5.653z" />
                   </svg>
@@ -1442,7 +1442,7 @@ export default function Routines() {
                   <p className="section-title mb-0">Your Routines</p>
                   <p className="text-text-secondary text-xs mt-1">{routines.length} saved</p>
                 </div>
-                <button onClick={() => setShowNew(true)} className="btn-secondary h-10 px-3.5 text-sm">
+                <button onClick={() => setShowNew(true)} className="btn-primary h-10 px-3.5 text-sm">
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
                   </svg>
