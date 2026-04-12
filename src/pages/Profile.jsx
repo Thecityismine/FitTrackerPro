@@ -463,7 +463,7 @@ export default function Profile() {
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-4 pb-8 space-y-5">
+      <div className="flex-1 overflow-y-auto px-4 pb-10 space-y-8">
 
         {/* ── Avatar ─────────────────────────────────────────── */}
         <div className="flex flex-col items-center pt-4 pb-2">
@@ -511,9 +511,9 @@ export default function Profile() {
         )}
 
         {/* ── Profile + Preferences ──────────────────────────── */}
-        <div>
+        <div className="space-y-4">
           <p className="section-title">Profile & Preferences</p>
-          <div className="card space-y-6">
+          <div className="card space-y-7">
             {/* Display name */}
             <div>
               <label className="label">Display Name</label>
@@ -539,7 +539,7 @@ export default function Profile() {
                     min="3"
                     max="8"
                     placeholder="5"
-                    className="profile-input text-lg"
+                    className="profile-input profile-height-input"
                     value={heightFt}
                     onChange={(e) => setHeightFt(e.target.value)}
                   />
@@ -552,7 +552,7 @@ export default function Profile() {
                     min="0"
                     max="11"
                     placeholder="5"
-                    className="profile-input text-lg"
+                    className="profile-input profile-height-input"
                     value={heightIn}
                     onChange={(e) => setHeightIn(e.target.value)}
                   />
@@ -639,7 +639,7 @@ export default function Profile() {
             <button
               onClick={handleSave}
               disabled={saving}
-              className="btn-primary w-full"
+              className="profile-save-button disabled:opacity-60 disabled:cursor-not-allowed"
             >
               {saving ? 'Saving...' : saved ? 'Saved' : 'Save Changes'}
             </button>
@@ -648,9 +648,9 @@ export default function Profile() {
 
 
         {/* ── Weekly Set Targets ─────────────────────────────── */}
-        <div>
+        <div className="space-y-4">
           <p className="section-title">Weekly Set Targets</p>
-          <div className="card space-y-4">
+          <div className="card space-y-5">
             <p className="text-text-secondary text-xs">
               Set your weekly set targets and workout volume target. These goals appear on your Dashboard and Recovery tab.
             </p>
@@ -659,77 +659,77 @@ export default function Profile() {
               { label: 'Pull (Back - Biceps)', value: pullTarget, set: setPullTarget },
               { label: 'Legs (Quads - Hamstrings - Glutes)', value: legsTarget, set: setLegsTarget },
             ].map(({ label, value, set }) => (
-              <div key={label}>
+              <div key={label} className="space-y-2.5">
                 <label className="label">{label}</label>
                 <div className="flex items-center gap-3">
                   <button
                     onClick={() => set(v => Math.max(1, Number(v) - 1))}
-                    className="w-9 h-9 rounded-xl bg-surface2 flex items-center justify-center text-text-primary font-bold active:scale-95 transition-transform flex-shrink-0"
+                    className="profile-stepper-button"
                   >-</button>
                   <input
                     type="number"
                     min="1"
                     max="99"
-                    className="input text-center flex-1"
+                    className="profile-stepper-value w-[6.25rem] flex-1 max-w-[12rem]"
                     value={value}
                     onChange={e => set(e.target.value)}
                   />
                   <button
                     onClick={() => set(v => Math.min(99, Number(v) + 1))}
-                    className="w-9 h-9 rounded-xl bg-surface2 flex items-center justify-center text-text-primary font-bold active:scale-95 transition-transform flex-shrink-0"
+                    className="profile-stepper-button"
                   >+</button>
                 </div>
               </div>
             ))}
-            <div>
+            <div className="space-y-2.5 pt-1">
               <label className="label">Workout Days per Week</label>
               <div className="flex items-center gap-3">
                 <button
                   onClick={() => setWorkoutGoal(v => Math.max(1, Number(v) - 1))}
-                  className="w-9 h-9 rounded-xl bg-surface2 flex items-center justify-center text-text-primary font-bold active:scale-95 transition-transform flex-shrink-0"
+                  className="profile-stepper-button"
                 >-</button>
                 <input
                   type="number"
                   min="1"
                   max="7"
-                  className="input text-center flex-1"
+                  className="profile-stepper-value w-[6.25rem] flex-1 max-w-[12rem]"
                   value={workoutGoal}
                   onChange={e => setWorkoutGoal(e.target.value)}
                 />
                 <button
                   onClick={() => setWorkoutGoal(v => Math.min(7, Number(v) + 1))}
-                  className="w-9 h-9 rounded-xl bg-surface2 flex items-center justify-center text-text-primary font-bold active:scale-95 transition-transform flex-shrink-0"
+                  className="profile-stepper-button"
                 >+</button>
               </div>
               <p className="text-text-secondary text-xs mt-1">Shown as X / {Number(workoutGoal) || 3} days on the Progress tab</p>
             </div>
-            <div>
+            <div className="space-y-2.5 pt-1">
               <label className="label">Weekly Volume Goal</label>
               <div className="flex items-center gap-3">
                 <button
                   onClick={() => setVolumeGoal(v => Math.max(10000, Number(v) - 5000))}
-                  className="w-9 h-9 rounded-xl bg-surface2 flex items-center justify-center text-text-primary font-bold active:scale-95 transition-transform flex-shrink-0"
+                  className="profile-stepper-button"
                 >-</button>
-                <div className="input flex-1 text-center flex items-center justify-center">
+                <div className="profile-stepper-value flex flex-1 items-center justify-center w-[8.25rem] max-w-[13.5rem]">
                   <span className="text-text-primary font-semibold">
                     {Number(volumeGoal) >= 1000 ? `${Math.round(Number(volumeGoal) / 1000)}k` : Number(volumeGoal)} lbs
                   </span>
                 </div>
                 <button
                   onClick={() => setVolumeGoal(v => Number(v) + 5000)}
-                  className="w-9 h-9 rounded-xl bg-surface2 flex items-center justify-center text-text-primary font-bold active:scale-95 transition-transform flex-shrink-0"
+                  className="profile-stepper-button"
                 >+</button>
               </div>
               <p className="text-text-secondary text-xs mt-1">Fills the Dashboard volume ring toward this target in 5k steps.</p>
             </div>
             <p className="text-text-secondary text-xs">
-              Sets total: <span className="text-text-primary font-semibold">{(Number(pushTarget) || 0) + (Number(pullTarget) || 0) + (Number(legsTarget) || 0)} sets/week</span>
+              <span className="text-text-primary font-semibold">{(Number(pushTarget) || 0) + (Number(pullTarget) || 0) + (Number(legsTarget) || 0)} sets per week</span>
             </p>
           </div>
         </div>
 
         {/* ── Gym QR Code ────────────────────────────────────── */}
-        <div>
+        <div className="space-y-4">
           <p className="section-title">Gym QR Code</p>
           <div className="card space-y-3">
             <p className="text-text-secondary text-xs">
