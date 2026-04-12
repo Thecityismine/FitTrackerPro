@@ -420,25 +420,23 @@ export default function Profile() {
         </button>
         <div className="flex min-w-0 flex-1 items-center justify-between gap-3">
           <h1 className="font-display text-xl font-bold text-text-primary">Profile</h1>
-          {profile?.gymQrUrl ? (
-            <button
-              type="button"
-              onClick={() => setShowQrModal(true)}
-              className="group flex items-center gap-2 rounded-full border border-white/10 bg-surface2/92 py-1 pl-1.5 pr-3 shadow-[0_8px_24px_rgba(15,23,42,0.18)] transition-all active:scale-95"
-              aria-label="Open gym membership QR code"
-            >
-              <div className="flex h-8 w-8 items-center justify-center rounded-xl border border-white/5 bg-[#37445d]">
-                <svg className="h-[18px] w-[18px] shrink-0 text-[#9aa6bb]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M4.75 5.5A.75.75 0 015.5 4.75h4a.75.75 0 01.75.75v4a.75.75 0 01-.75.75h-4a.75.75 0 01-.75-.75v-4zM4.75 14.5a.75.75 0 01.75-.75h4a.75.75 0 01.75.75v4a.75.75 0 01-.75.75h-4a.75.75 0 01-.75-.75v-4zM13.75 5.5a.75.75 0 01.75-.75h4a.75.75 0 01.75.75v4a.75.75 0 01-.75.75h-4a.75.75 0 01-.75-.75v-4z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M7 7h1v1H7V7zM7 16h1v1H7v-1zM16 7h1v1h-1V7zM14 14h1v1h-1v-1zM14 18h1v1h-1v-1zM18 14h1v1h-1v-1zM18 18h1v1h-1v-1zM16 16h1v1h-1v-1z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M17 11.5v1M14.5 11.5h1M18.5 11.5h.5M11.5 14v.5M11.5 18v.5" />
-                </svg>
-              </div>
-              <span className="text-[12px] font-semibold uppercase tracking-[0.12em] text-text-primary whitespace-nowrap">
-                My Gym
-              </span>
-            </button>
-          ) : null}
+          <button
+            type="button"
+            onClick={() => setShowQrModal(true)}
+            className="group flex items-center gap-2 rounded-full border border-white/10 bg-surface2/92 py-1 pl-1.5 pr-3 shadow-[0_8px_24px_rgba(15,23,42,0.18)] transition-all active:scale-95"
+            aria-label="Open gym membership QR code"
+          >
+            <div className="flex h-8 w-8 items-center justify-center rounded-xl border border-white/5 bg-[#37445d]">
+              <svg className="h-[18px] w-[18px] shrink-0 text-[#9aa6bb]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4.75 5.5A.75.75 0 015.5 4.75h4a.75.75 0 01.75.75v4a.75.75 0 01-.75.75h-4a.75.75 0 01-.75-.75v-4zM4.75 14.5a.75.75 0 01.75-.75h4a.75.75 0 01.75.75v4a.75.75 0 01-.75.75h-4a.75.75 0 01-.75-.75v-4zM13.75 5.5a.75.75 0 01.75-.75h4a.75.75 0 01.75.75v4a.75.75 0 01-.75.75h-4a.75.75 0 01-.75-.75v-4z" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M7 7h1v1H7V7zM7 16h1v1H7v-1zM16 7h1v1h-1V7zM14 14h1v1h-1v-1zM14 18h1v1h-1v-1zM18 14h1v1h-1v-1zM18 18h1v1h-1v-1zM16 16h1v1h-1v-1z" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M17 11.5v1M14.5 11.5h1M18.5 11.5h.5M11.5 14v.5M11.5 18v.5" />
+              </svg>
+            </div>
+            <span className="text-[12px] font-semibold uppercase tracking-[0.12em] text-text-primary whitespace-nowrap">
+              My Gym
+            </span>
+          </button>
         </div>
       </div>
 
@@ -809,7 +807,7 @@ export default function Profile() {
           onConfirm={confirmImportData}
         />
       )}
-      {showQrModal && profile?.gymQrUrl && (
+      {showQrModal && (
         <div
           className="fixed inset-0 z-[90] flex items-center justify-center bg-black/80 px-4 animate-fade-in"
           onClick={() => setShowQrModal(false)}
@@ -821,7 +819,9 @@ export default function Profile() {
             <div className="mb-3 flex items-center justify-between gap-3">
               <div>
                 <p className="text-sm font-semibold text-text-primary">My Gym</p>
-                <p className="text-xs text-text-secondary">Show this at the front desk.</p>
+                <p className="text-xs text-text-secondary">
+                  {profile?.gymQrUrl ? 'Show this at the front desk.' : 'Upload QR code photo from camera roll.'}
+                </p>
               </div>
               <button
                 type="button"
@@ -834,9 +834,33 @@ export default function Profile() {
                 </svg>
               </button>
             </div>
-            <div className="flex justify-center rounded-[28px] bg-white p-4">
-              <img src={profile.gymQrUrl} alt="Gym membership QR code" loading="eager" decoding="async" className="h-full w-full max-w-[280px] object-contain" />
-            </div>
+            {profile?.gymQrUrl ? (
+              <div className="flex justify-center rounded-[28px] bg-white p-4">
+                <img src={profile.gymQrUrl} alt="Gym membership QR code" loading="eager" decoding="async" className="h-full w-full max-w-[280px] object-contain" />
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="flex min-h-[220px] flex-col items-center justify-center rounded-[28px] border border-dashed border-white/10 bg-bg/40 px-6 text-center">
+                  <div className="flex h-16 w-16 items-center justify-center rounded-2xl border border-white/5 bg-[#37445d]">
+                    <svg className="h-8 w-8 text-[#9aa6bb]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.7}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M4.75 5.5A.75.75 0 015.5 4.75h4a.75.75 0 01.75.75v4a.75.75 0 01-.75.75h-4a.75.75 0 01-.75-.75v-4zM4.75 14.5a.75.75 0 01.75-.75h4a.75.75 0 01.75.75v4a.75.75 0 01-.75.75h-4a.75.75 0 01-.75-.75v-4zM13.75 5.5a.75.75 0 01.75-.75h4a.75.75 0 01.75.75v4a.75.75 0 01-.75.75h-4a.75.75 0 01-.75-.75v-4z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M7 7h1v1H7V7zM7 16h1v1H7v-1zM16 7h1v1h-1V7zM14 14h1v1h-1v-1zM14 18h1v1h-1v-1zM18 14h1v1h-1v-1zM18 18h1v1h-1v-1zM16 16h1v1h-1v-1z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M17 11.5v1M14.5 11.5h1M18.5 11.5h.5M11.5 14v.5M11.5 18v.5" />
+                    </svg>
+                  </div>
+                  <p className="mt-4 text-sm font-semibold text-text-primary">No gym QR uploaded yet</p>
+                  <p className="mt-1 text-xs text-text-secondary">Upload QR code photo from camera roll.</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => qrInputRef.current?.click()}
+                  disabled={uploadingQr}
+                  className="btn-primary w-full disabled:opacity-50"
+                >
+                  {uploadingQr ? 'Uploading...' : 'Upload QR Code'}
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}
