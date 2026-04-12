@@ -427,8 +427,8 @@ export default function Profile() {
               className="group flex items-center gap-2 rounded-full border border-white/10 bg-surface2/92 py-1 pl-1.5 pr-3 shadow-[0_8px_24px_rgba(15,23,42,0.18)] transition-all active:scale-95"
               aria-label="Open gym membership QR code"
             >
-              <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#37445d] border border-white/5">
-                <svg className="h-4.5 w-4.5 text-[#9aa6bb]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+              <div className="flex h-8 w-8 items-center justify-center rounded-xl border border-white/5 bg-[#37445d]">
+                <svg className="h-[18px] w-[18px] shrink-0 text-[#9aa6bb]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M4.75 5.5A.75.75 0 015.5 4.75h4a.75.75 0 01.75.75v4a.75.75 0 01-.75.75h-4a.75.75 0 01-.75-.75v-4zM4.75 14.5a.75.75 0 01.75-.75h4a.75.75 0 01.75.75v4a.75.75 0 01-.75.75h-4a.75.75 0 01-.75-.75v-4zM13.75 5.5a.75.75 0 01.75-.75h4a.75.75 0 01.75.75v4a.75.75 0 01-.75.75h-4a.75.75 0 01-.75-.75v-4z" />
                   <path strokeLinecap="round" strokeLinejoin="round" d="M7 7h1v1H7V7zM7 16h1v1H7v-1zM16 7h1v1h-1V7zM14 14h1v1h-1v-1zM14 18h1v1h-1v-1zM18 14h1v1h-1v-1zM18 18h1v1h-1v-1zM16 16h1v1h-1v-1z" />
                   <path strokeLinecap="round" strokeLinejoin="round" d="M17 11.5v1M14.5 11.5h1M18.5 11.5h.5M11.5 14v.5M11.5 18v.5" />
