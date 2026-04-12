@@ -46,11 +46,30 @@ const RECOVERY_SILHOUETTES = {
   male: '/man-silhouette.webp',
   female: '/woman-silhouette.webp',
 }
+const EXERCISE_NAME_ALIASES = {
+  'dumbbell front raises': 'dumbbell front raise',
+}
 
 function getRecoverySilhouetteSrc(sex) {
   return sex === 'female'
     ? RECOVERY_SILHOUETTES.female
     : RECOVERY_SILHOUETTES.male
+}
+
+function normalizeExerciseDisplayName(name = '') {
+  const normalized = name.trim().toLowerCase().replace(/\s+/g, ' ')
+  return EXERCISE_NAME_ALIASES[normalized] || normalized
+}
+
+function dedupeExerciseEntries(entries = []) {
+  const seen = new Set()
+
+  return entries.filter((entry) => {
+    const key = `${(entry.muscleGroup || '').toLowerCase()}::${normalizeExerciseDisplayName(entry.exerciseName || entry.name || '')}`
+    if (seen.has(key)) return false
+    seen.add(key)
+    return true
+  })
 }
 
 // Map muscleGroup / exerciseName → { groupId, muscleId }
@@ -732,7 +751,7 @@ export default function Muscles() {
     const extras = savedExercises
       .filter(e => e.muscleGroup?.toLowerCase() === groupId.toLowerCase() && !byExercise[e.id])
       .map(e => ({ exerciseId: e.id, exerciseName: e.name, sessions: [], type: e.type || 'weight' }))
-    const exercises = [...firestoreExercises, ...extras]
+    const exercises = dedupeExerciseEntries([...firestoreExercises, ...extras])
 
     return (
       <PageWrapper showHeader={false}>
