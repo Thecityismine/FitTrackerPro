@@ -57,17 +57,22 @@ export default function TrendPointDot({ cx, cy, payload }) {
   const tone = payload?.trendTone || 'normal'
   const isCurrent = Boolean(payload?.isCurrent)
   const meta = getTrendToneMeta(tone)
+  const currentEmphasis = payload?.currentEmphasis || 'default'
+  const strongCurrent = isCurrent && currentEmphasis === 'strong'
   const baseRadius = tone === 'normal' ? 3 : 4
+  const haloRadius = strongCurrent ? 13 : 11
+  const ringRadius = strongCurrent ? 8 : 7
+  const dotRadius = isCurrent ? baseRadius + (strongCurrent ? 2 : 1) : baseRadius
 
   return (
     <g>
       {isCurrent && (
         <>
-          <circle cx={cx} cy={cy} r={11} fill={meta.haloFill} opacity={meta.haloOpacity} />
-          <circle cx={cx} cy={cy} r={7} fill="none" stroke={meta.haloStroke} strokeOpacity={0.34} strokeWidth={1.5} />
+          <circle cx={cx} cy={cy} r={haloRadius} fill={meta.haloFill} opacity={strongCurrent ? meta.haloOpacity + 0.08 : meta.haloOpacity} />
+          <circle cx={cx} cy={cy} r={ringRadius} fill="none" stroke={meta.haloStroke} strokeOpacity={strongCurrent ? 0.48 : 0.34} strokeWidth={strongCurrent ? 1.8 : 1.5} />
         </>
       )}
-      <circle cx={cx} cy={cy} r={isCurrent ? baseRadius + 1 : baseRadius} fill={meta.fill} strokeWidth={0} />
+      <circle cx={cx} cy={cy} r={dotRadius} fill={meta.fill} strokeWidth={0} />
     </g>
   )
 }

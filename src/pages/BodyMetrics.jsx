@@ -245,8 +245,8 @@ function getWeightInsight(entries = []) {
   const change = parseFloat((latest.weight - baseline.weight).toFixed(1))
   if (Math.abs(change) < 0.3) {
     return {
-      headline: 'Stable this week',
-      subline: 'Your weight is holding steady over the last 7 days.',
+      headline: 'Weight stable this week',
+      subline: 'Holding steady over the last 7 days.',
       change,
     }
   }
@@ -303,7 +303,7 @@ function getStrengthGroupRecommendation(group) {
   if (group.score >= 60) {
     return {
       label: 'Build this up',
-      message: `${group.label} is trending well. Add one hard top set or a small load increase this week.`,
+      message: `${group.label} is trending well. Add a top set or increase load this week.`,
     }
   }
   return {
@@ -322,8 +322,8 @@ function getBodyFocus(latest, previous, strengthData) {
 
   if (latest?.bodyFat != null && latest.bodyFat >= 20) return 'Focus: Reduce Body Fat'
   if (muscleDelta != null && muscleDelta > 0 && (bodyFatDelta == null || bodyFatDelta <= 0)) return 'Focus: Build Muscle'
-  if (strengthData?.overallScore != null && strengthData.overallScore < 70) return 'Focus: Build Strength'
-  return 'Focus: Maintain Momentum'
+  if (strengthData?.overallScore != null && strengthData.overallScore < 70) return 'Focus: Build strength'
+  return 'Focus: Maintain momentum'
 }
 
 // Compress image base64 using canvas
@@ -348,22 +348,25 @@ function compressImage(file, maxPx = 900, quality = 0.65) {
 }
 
 // ── Trend Arrow ────────────────────────────────────────────
-function TrendArrow({ delta, lowerIsBetter = false }) {
+function TrendArrow({ delta, lowerIsBetter = false, label = '7d change' }) {
   if (delta == null || delta === 0) return null
   const up = delta > 0
   const good = lowerIsBetter ? !up : up
   return (
-    <span className={`text-xs font-bold flex items-center gap-0.5 ${good ? 'text-accent-green' : 'text-accent-red'}`}>
-      <svg className={`w-3 h-3 ${up ? '' : 'rotate-180'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" />
-      </svg>
-      {Math.abs(delta).toFixed(1)}
-    </span>
+    <div className="mt-1.5 flex items-center justify-between gap-2">
+      <span className={`text-xs font-bold flex items-center gap-0.5 ${good ? 'text-accent-green' : 'text-accent-red'}`}>
+        <svg className={`w-3 h-3 ${up ? '' : 'rotate-180'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" />
+        </svg>
+        {Math.abs(delta).toFixed(1)}
+      </span>
+      <span className="text-[10px] uppercase tracking-[0.16em] text-text-secondary/80">{label}</span>
+    </div>
   )
 }
 
 // ── Metric Card ────────────────────────────────────────────
-function MetricCard({ label, value, unit, delta, lowerIsBetter, note, valueColor }) {
+function MetricCard({ label, value, unit, delta, lowerIsBetter, note, valueColor, deltaLabel = '7d change' }) {
   const color = value != null ? (valueColor || 'text-white') : 'text-surface2'
   return (
     <div className="bg-surface2 rounded-2xl p-3">
@@ -373,8 +376,8 @@ function MetricCard({ label, value, unit, delta, lowerIsBetter, note, valueColor
           {value != null ? value : '—'}
         </span>
         {unit && value != null && <span className="text-text-secondary text-xs">{unit}</span>}
-        {delta != null && value != null && <TrendArrow delta={delta} lowerIsBetter={lowerIsBetter} />}
       </div>
+      {delta != null && value != null && <TrendArrow delta={delta} lowerIsBetter={lowerIsBetter} label={deltaLabel} />}
       {note && value != null && <p className="text-text-secondary text-xs mt-0.5">{note}</p>}
     </div>
   )
@@ -637,7 +640,7 @@ function ProgressPhotoCard({ entries }) {
         <div className="grid grid-cols-2 gap-2">
           {/* Last Month — LEFT */}
           <div>
-            <p className="text-text-secondary text-xs font-semibold mb-1 text-center">Last Month</p>
+            <p className="text-text-secondary/90 text-[13px] font-semibold mb-1.5 text-center">Last Month</p>
             {lastMonthPhoto ? (
               <button onClick={() => setExpanded({ src: lastMonthPhoto, label: 'Last Month' })}
                 className="w-full active:scale-95 transition-transform">
@@ -652,10 +655,10 @@ function ProgressPhotoCard({ entries }) {
           </div>
           {/* This Month — RIGHT */}
           <div>
-            <p className="text-text-secondary text-xs font-semibold mb-1 text-center">This Month</p>
+            <p className="text-text-primary text-[13px] font-semibold mb-1.5 text-center">This Month</p>
             {thisMonthPhoto ? (
               <button onClick={() => setExpanded({ src: thisMonthPhoto, label: 'This Month' })}
-                className="w-full active:scale-95 transition-transform">
+                className="w-full rounded-xl border border-accent/30 shadow-[0_0_0_1px_rgba(37,99,235,0.14),0_12px_26px_rgba(37,99,235,0.14)] active:scale-95 transition-transform">
                 <img src={thisMonthPhoto} alt="This month" loading="lazy" decoding="async" className="w-full h-40 object-cover rounded-xl" />
               </button>
             ) : (
@@ -666,7 +669,7 @@ function ProgressPhotoCard({ entries }) {
             )}
           </div>
         </div>
-        <p className="text-text-secondary text-xs text-center mt-2">Tap a photo to expand</p>
+        <p className="text-text-secondary/90 text-xs text-center mt-2">Tap a photo to expand</p>
       </div>
 
       {/* Lightbox */}
@@ -764,6 +767,7 @@ function StrengthScoreCard({ sessions, bodyWeight }) {
   const overallTier = getStrengthTier(strengthData.overallScore)
   const selectedGroup = strengthData.groupScores.find((group) => group.id === selectedGroupId) || strengthData.groupScores[0]
   const selectedRecommendation = getStrengthGroupRecommendation(selectedGroup)
+  const selectedRecommendationNeedsLift = selectedRecommendation?.label === 'Build this up'
 
   return (
     <div className="card">
@@ -786,7 +790,7 @@ function StrengthScoreCard({ sessions, bodyWeight }) {
           <div className="flex items-end justify-between gap-3">
             <div>
               <p className="text-text-secondary text-xs uppercase tracking-[0.22em]">Overall</p>
-              <p className="font-display text-4xl font-bold text-text-primary mt-1">
+              <p key={`strength-score-${strengthData.overallScore}`} className="card-enter font-display text-5xl font-bold text-text-primary mt-1 leading-none">
                 {strengthData.overallScore}
               </p>
               <p className="text-accent-green text-sm font-semibold mt-1">{overallTier.label}</p>
@@ -794,8 +798,8 @@ function StrengthScoreCard({ sessions, bodyWeight }) {
             </div>
             <div className="text-right">
               <p className="text-accent-green text-xs font-semibold">Fully Activated</p>
-              <p className="text-text-secondary text-xs mt-1">All muscle groups active</p>
-              <p className="text-text-secondary text-xs mt-1">Scaled to {Math.round(strengthData.scaleWeight)} lb bodyweight</p>
+              <p className="text-text-secondary/80 text-xs mt-1">All muscle groups active</p>
+              <p className="text-text-secondary/70 text-xs mt-1">Scaled to {Math.round(strengthData.scaleWeight)} lb bodyweight</p>
               {strengthTrend != null && (
                 <p className={`text-xs font-semibold mt-2 ${strengthTrend >= 0 ? 'text-accent-green' : 'text-accent-red'}`}>
                   {strengthTrend >= 0 ? '+' : ''}{strengthTrend} this month
@@ -827,25 +831,42 @@ function StrengthScoreCard({ sessions, bodyWeight }) {
 
       <div className="grid grid-cols-3 gap-2 mt-3">
         {strengthData.groupScores.map((group) => (
-          <button
-            type="button"
-            key={group.id}
-            onClick={() => setSelectedGroupId(group.id)}
-            className={`bg-surface2 rounded-2xl p-3 text-left transition-colors active:scale-[0.98] ${selectedGroupId === group.id ? 'ring-1 ring-accent/40 bg-accent/5' : ''}`}
-          >
-            <p className="text-text-secondary text-xs uppercase tracking-[0.18em]">{group.label}</p>
-            <p className={`font-display text-2xl font-bold mt-1 ${group.unlocked ? 'text-text-primary' : 'text-surface2'}`}>
-              {group.unlocked ? group.score : '—'}
-            </p>
-            <p className="text-text-secondary text-[11px] mt-1">
-              {getStrengthGroupRecommendation(group)?.label || 'Ready'}
-            </p>
-          </button>
+          (() => {
+            const recommendation = getStrengthGroupRecommendation(group)
+            const selected = selectedGroupId === group.id
+            const focusCard = selected && recommendation?.label === 'Build this up'
+            return (
+              <button
+                type="button"
+                key={group.id}
+                onClick={() => setSelectedGroupId(group.id)}
+                className={`rounded-2xl p-3 text-left transition-all active:scale-[0.98] ${
+                  focusCard
+                    ? 'border border-accent/30 bg-[linear-gradient(180deg,rgba(26,86,219,0.18),rgba(51,65,85,0.88))] ring-1 ring-accent/30 shadow-[0_14px_28px_rgba(37,99,235,0.14)]'
+                    : selected
+                      ? 'border border-accent/22 bg-accent/5 ring-1 ring-accent/22'
+                      : 'border border-white/6 bg-surface2'
+                }`}
+              >
+                <p className="text-text-secondary text-xs uppercase tracking-[0.18em]">{group.label}</p>
+                <p className={`font-display text-2xl font-bold mt-1 ${group.unlocked ? 'text-text-primary' : 'text-surface2'}`}>
+                  {group.unlocked ? group.score : '—'}
+                </p>
+                <p className={`text-[11px] mt-1 ${focusCard ? 'text-white/88' : 'text-text-secondary'}`}>
+                  {recommendation?.label || 'Ready'}
+                </p>
+              </button>
+            )
+          })()
         ))}
       </div>
       {selectedRecommendation && (
-        <div className="mt-3 rounded-2xl border border-surface2 bg-surface2/50 p-3">
-          <p className="text-text-primary text-sm font-semibold">{selectedGroup.label} {selectedRecommendation.label}</p>
+        <div className={`mt-3 rounded-2xl p-3 ${
+          selectedRecommendationNeedsLift
+            ? 'border border-accent/22 bg-accent/8 shadow-[0_10px_22px_rgba(37,99,235,0.1)]'
+            : 'border border-surface2 bg-surface2/50'
+        }`}>
+          <p className="text-text-primary text-sm font-semibold">{selectedGroup.label}: {selectedRecommendation.label}</p>
           <p className="text-text-secondary text-xs mt-1">{selectedRecommendation.message}</p>
         </div>
       )}
@@ -953,7 +974,7 @@ Format your response as:
 
       <div className="bg-accent-green/10 border border-accent-green/20 rounded-xl p-3 mb-3">
         <p className="text-accent-green text-sm font-semibold">{previewText}</p>
-        <p className="text-text-secondary text-xs mt-1">Turn your scans, workouts, and body metrics into one monthly review.</p>
+        <p className="text-text-secondary text-xs mt-1">Turn your data into a monthly performance review.</p>
       </div>
 
       {error && (
@@ -1093,8 +1114,8 @@ export default function BodyMetrics() {
     if (!entries.length) return 'Your first check-in creates the baseline everything builds from.'
     if (bodyFocus === 'Focus: Build Muscle') return 'Strength and muscle are moving in the right direction.'
     if (bodyFocus === 'Focus: Reduce Body Fat') return 'Consistent check-ins turn body composition into something you can actually steer.'
-    if (bodyFocus === 'Focus: Build Strength') return 'A few strong sessions can move your score faster than you think.'
-    return 'Your consistency is starting to turn data into momentum.'
+    if (bodyFocus === 'Focus: Build strength') return 'A few strong sessions can move your score faster than you think.'
+    return 'Your consistency is turning into momentum.'
   }, [bodyFocus, entries.length])
 
   function deltaValue(currentEntry, previousEntry, key) {
@@ -1103,7 +1124,7 @@ export default function BodyMetrics() {
   }
 
   const topMetricCards = [
-    { label: 'Weight', value: latest?.weight, unit: 'lb', delta: deltaValue(latest, previous, 'weight'), lowerIsBetter: false, valueColor: 'text-accent-green' },
+    { label: 'Weight', value: latest?.weight, unit: 'lb', delta: deltaValue(latest, previous, 'weight'), lowerIsBetter: false, valueColor: 'text-accent-green', primary: true },
     { label: 'Body Fat', value: latest?.bodyFat, unit: '%', delta: deltaValue(latest, previous, 'bodyFat'), lowerIsBetter: true },
     { label: 'Muscle Mass', value: latest?.muscleMassLbs, unit: 'lb', delta: deltaValue(latest, previous, 'muscleMassLbs'), lowerIsBetter: false },
   ]
@@ -1127,7 +1148,7 @@ export default function BodyMetrics() {
     .reverse()
     .slice(-12)
     .filter(e => e.weight != null)
-    .map(e => ({ date: e.date.slice(5), weight: e.weight })), 'weight')
+    .map(e => ({ date: e.date.slice(5), weight: e.weight, currentEmphasis: 'strong' })), 'weight')
 
   async function handleScanPhoto(e) {
     const file = e.target.files?.[0]
@@ -1221,7 +1242,7 @@ Notes: weight/boneMass/fatFreeBodyWeight/muscleMassLbs are in lbs; bodyFat/bodyW
         <div>
           <h1 className="font-display text-2xl font-bold text-text-primary">Body Metrics</h1>
           <p className="text-text-secondary text-sm mt-0.5">Improve your body composition</p>
-          <p className="text-accent text-xs font-semibold mt-2 uppercase tracking-[0.18em]">{bodyFocus}</p>
+          <p className="text-accent text-sm font-semibold mt-2">{bodyFocus}</p>
           <p className="text-accent-green text-sm font-medium mt-2">{bodyMotivation}</p>
         </div>
 
@@ -1245,7 +1266,7 @@ Notes: weight/boneMass/fatFreeBodyWeight/muscleMassLbs are in lbs; bodyFat/bodyW
             </div>
             {latest?.weight && (
               <p className="text-text-secondary text-sm text-right">
-                <span className="text-text-primary font-semibold">{latest.weight}</span> lb
+                <span key={`weight-headline-${latest.date}-${latest.weight}`} className="card-enter inline-block text-white text-base font-bold">{latest.weight}</span> <span className="text-text-secondary/90">lb</span>
               </p>
             )}
           </div>
@@ -1373,10 +1394,20 @@ Notes: weight/boneMass/fatFreeBodyWeight/muscleMassLbs are in lbs; bodyFat/bodyW
                 <p className="text-text-secondary text-xs uppercase tracking-[0.18em] mb-2">Key Metrics</p>
                 <div className="grid grid-cols-3 gap-2">
                   {topMetricCards.map((metric) => (
-                    <div key={metric.label} className="bg-surface2 rounded-2xl p-3">
+                    <div
+                      key={metric.label}
+                      className={`rounded-2xl p-3 ${
+                        metric.primary
+                          ? 'border border-accent/24 bg-[linear-gradient(180deg,rgba(26,86,219,0.12),rgba(51,65,85,0.92))] shadow-[0_10px_22px_rgba(37,99,235,0.12)]'
+                          : 'bg-surface2'
+                      }`}
+                    >
                       <p className="text-text-secondary text-xs leading-tight mb-1.5">{metric.label}</p>
                       <div className="flex items-baseline gap-1 flex-wrap">
-                        <span className={`font-display text-2xl font-bold ${metric.value != null ? (metric.valueColor || 'text-white') : 'text-surface2'}`}>
+                        <span
+                          key={`metric-${metric.label}-${metric.value ?? 'na'}`}
+                          className={`inline-block ${metric.primary ? 'card-enter' : ''} font-display ${metric.primary ? 'text-[2rem]' : 'text-2xl'} font-bold ${metric.value != null ? (metric.valueColor || 'text-white') : 'text-surface2'}`}
+                        >
                           {metric.value != null ? metric.value : '—'}
                         </span>
                         {metric.unit && metric.value != null && <span className="text-text-secondary text-xs">{metric.unit}</span>}
@@ -1431,9 +1462,12 @@ Notes: weight/boneMass/fatFreeBodyWeight/muscleMassLbs are in lbs; bodyFat/bodyW
 
               <button
                 onClick={() => setShowAll(s => !s)}
-                className="mt-3 text-accent text-xs font-semibold active:opacity-70 transition-opacity"
+                className="mt-3 inline-flex items-center gap-1 text-accent text-sm font-semibold active:opacity-70 transition-opacity"
               >
-                {showAll ? 'Show less' : 'Show more'}
+                <span>{showAll ? 'Show less' : 'Show more'}</span>
+                <svg className={`h-3.5 w-3.5 transition-transform ${showAll ? 'rotate-90' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                </svg>
               </button>
             </>
           )}
