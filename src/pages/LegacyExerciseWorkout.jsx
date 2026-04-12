@@ -7,6 +7,7 @@ import {
 import {
   AreaChart, Area, XAxis, Tooltip, ResponsiveContainer,
 } from 'recharts'
+import TrendPointDot, { annotateTrendPoints, getTrendToneMeta } from '../components/charts/TrendPointDot'
 import ConfirmDialog from '../components/ConfirmDialog'
 import { useAuth } from '../context/AuthContext'
 import { sessionsCol, sessionDoc } from '../firebase/collections'
@@ -75,6 +76,9 @@ function PastSetRow({ set, index, isCardio }) {
 
 function ChartTooltip({ active, payload, label, isCardio }) {
   if (!active || !payload?.length) return null
+  const tone = payload[0]?.payload?.trendTone || 'normal'
+  const toneLabel = tone === 'best' ? 'Peak session' : tone === 'low' ? 'Lowest session' : 'Session'
+  const toneMeta = getTrendToneMeta(tone)
 
   return (
     <div className="bg-surface border border-surface2 rounded-xl px-3 py-2 text-xs shadow-lg">
@@ -82,6 +86,10 @@ function ChartTooltip({ active, payload, label, isCardio }) {
       <p className="text-accent font-bold font-mono">
         {Number(payload[0].value).toLocaleString()} {isCardio ? 'min' : 'lbs'}
       </p>
+      <div className="mt-1.5 flex items-center gap-1.5 text-[11px] text-text-secondary">
+        <span className={`h-2.5 w-2.5 rounded-full ${toneMeta.dotClass}`} />
+        <span>{toneLabel}</span>
+      </div>
     </div>
   )
 }
@@ -312,10 +320,10 @@ export default function LegacyExerciseWorkout() {
 
   const totalVolume = sets.reduce((sum, set) => sum + (set.reps || 0) * (set.weight || 0), 0)
   const bestWeight = sets.reduce((maxWeight, set) => Math.max(maxWeight, set.weight || 0), 0)
-  const chartData = [
+  const chartData = annotateTrendPoints([
     ...history,
     ...(totalVolume > 0 ? [{ date: 'Today', volume: totalVolume }] : []),
-  ]
+  ], 'volume')
   const totalPages = 1 + pastSessionsData.length
 
   return (
@@ -408,8 +416,8 @@ export default function LegacyExerciseWorkout() {
                     stroke="#1A56DB"
                     strokeWidth={2}
                     fill="url(#vol-grad)"
-                    dot={{ fill: '#1A56DB', r: 3, strokeWidth: 0 }}
-                    activeDot={{ r: 4, fill: '#1A56DB' }}
+                    dot={(props) => <TrendPointDot {...props} />}
+                    activeDot={(props) => <TrendPointDot {...props} />}
                   />
                 </AreaChart>
               </ResponsiveContainer>

@@ -3,6 +3,7 @@ import { startTransition, useEffect, useMemo, useRef, useState } from 'react'
 import { format, subDays, subMonths, startOfMonth, endOfMonth } from 'date-fns'
 import { getDocs, serverTimestamp, setDoc } from 'firebase/firestore'
 import { AreaChart, Area, XAxis, Tooltip, ResponsiveContainer } from 'recharts'
+import TrendPointDot, { annotateTrendPoints, getTrendToneMeta } from '../components/charts/TrendPointDot'
 import PageWrapper from '../components/layout/PageWrapper'
 import { useAuth } from '../context/AuthContext'
 import { bodyMetricDoc, bodyMetricsCol, sessionsCol } from '../firebase/collections'
@@ -323,16 +324,6 @@ function getBodyFocus(latest, previous, strengthData) {
   if (muscleDelta != null && muscleDelta > 0 && (bodyFatDelta == null || bodyFatDelta <= 0)) return 'Focus: Build Muscle'
   if (strengthData?.overallScore != null && strengthData.overallScore < 70) return 'Focus: Build Strength'
   return 'Focus: Maintain Momentum'
-}
-
-function WeightHistoryDot({ cx, cy, isLatest }) {
-  if (!Number.isFinite(cx) || !Number.isFinite(cy)) return null
-  return (
-    <g>
-      {isLatest && <circle cx={cx} cy={cy} r={8} fill="#1A56DB" fillOpacity={0.16} />}
-      <circle cx={cx} cy={cy} r={isLatest ? 4.5 : 3} fill="#2563EB" stroke={isLatest ? '#93C5FD' : 'none'} strokeWidth={isLatest ? 1.5 : 0} />
-    </g>
-  )
 }
 
 // Compress image base64 using canvas
@@ -1008,10 +999,17 @@ Format your response as:
 // ── Chart Tooltip ──────────────────────────────────────────
 function WeightTooltip({ active, payload, label }) {
   if (!active || !payload?.length) return null
+  const tone = payload[0]?.payload?.trendTone || 'normal'
+  const toneLabel = tone === 'best' ? 'Peak check-in' : tone === 'low' ? 'Lowest check-in' : 'Check-in'
+  const toneMeta = getTrendToneMeta(tone)
   return (
     <div className="bg-surface border border-surface2 rounded-xl px-3 py-2 text-xs shadow-lg">
       <p className="text-text-secondary mb-0.5">{label}</p>
       <p className="text-accent font-bold font-mono">{payload[0].value} lb</p>
+      <div className="mt-1.5 flex items-center gap-1.5 text-[11px] text-text-secondary">
+        <span className={`h-2.5 w-2.5 rounded-full ${toneMeta.dotClass}`} />
+        <span>{toneLabel}</span>
+      </div>
     </div>
   )
 }
@@ -1125,11 +1123,11 @@ export default function BodyMetrics() {
   ]
 
   // Weight history chart (last 12 weigh-in days, oldest first)
-  const chartData = [...entries]
+  const chartData = annotateTrendPoints([...entries]
     .reverse()
     .slice(-12)
     .filter(e => e.weight != null)
-    .map(e => ({ date: e.date.slice(5), weight: e.weight }))
+    .map(e => ({ date: e.date.slice(5), weight: e.weight })), 'weight')
 
   async function handleScanPhoto(e) {
     const file = e.target.files?.[0]
@@ -1266,8 +1264,8 @@ Notes: weight/boneMass/fatFreeBodyWeight/muscleMassLbs are in lbs; bodyFat/bodyW
                 <Tooltip content={<WeightTooltip />} />
                 <Area type="monotone" dataKey="weight" stroke="#1A56DB" strokeWidth={2}
                   fill="url(#weightGrad)"
-                  dot={(props) => <WeightHistoryDot {...props} isLatest={props.index === chartData.length - 1} />}
-                  activeDot={{ r: 5, fill: '#2563EB', stroke: '#93C5FD', strokeWidth: 2 }} />
+                  dot={(props) => <TrendPointDot {...props} />}
+                  activeDot={(props) => <TrendPointDot {...props} />} />
               </AreaChart>
             </ResponsiveContainer>
           ) : (

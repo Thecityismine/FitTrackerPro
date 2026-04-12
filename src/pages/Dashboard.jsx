@@ -9,6 +9,7 @@ import {
   Tooltip,
   XAxis,
 } from 'recharts'
+import TrendPointDot, { annotateTrendPoints, getTrendToneMeta } from '../components/charts/TrendPointDot'
 import PageWrapper from '../components/layout/PageWrapper'
 import { useAuth } from '../context/AuthContext'
 import { useActiveWorkout } from '../context/ActiveWorkoutContext'
@@ -174,12 +175,12 @@ function formatChoiceList(parts, maxItems = 2) {
 function ChartTooltip({ active, payload, label, chartPeriod }) {
   if (!active || !payload?.length) return null
   const periodLabel = chartPeriod === 'weekly' ? 'week' : chartPeriod === 'monthly' ? 'month' : 'period'
-  const tone = payload[0]?.payload?.tone || 'normal'
+  const tone = payload[0]?.payload?.trendTone || 'normal'
   const toneMeta = tone === 'best'
-    ? { label: `Best ${periodLabel}`, dotClass: 'bg-accent-green' }
+    ? { label: `Best ${periodLabel}`, dotClass: getTrendToneMeta('best').dotClass }
     : tone === 'low'
-      ? { label: `Low ${periodLabel}`, dotClass: 'bg-[#F59E0B]' }
-      : { label: `Normal ${periodLabel}`, dotClass: 'bg-accent' }
+      ? { label: `Low ${periodLabel}`, dotClass: getTrendToneMeta('low').dotClass }
+      : { label: `Normal ${periodLabel}`, dotClass: getTrendToneMeta('normal').dotClass }
   return (
     <div className="bg-surface border border-surface2 rounded-xl px-3 py-2 text-xs shadow-lg">
       <p className="text-text-secondary mb-0.5">{label}</p>
@@ -455,10 +456,7 @@ export default function Dashboard() {
     : null
   const peakIndex = chartData.length ? chartData.findIndex((point) => point.vol === Math.max(...chartData.map((item) => item.vol))) : -1
   const dipIndex = chartData.length ? chartData.findIndex((point) => point.vol === Math.min(...chartData.map((item) => item.vol))) : -1
-  const chartDataWithTone = chartData.map((point, index) => ({
-    ...point,
-    tone: index === peakIndex ? 'best' : index === dipIndex ? 'low' : 'normal',
-  }))
+  const chartDataWithTone = annotateTrendPoints(chartData, 'vol')
   const chartInsight = chartTrendPct == null
     ? 'Log a few more sessions to unlock a trend.'
     : chartTrendPct >= 0
@@ -644,34 +642,6 @@ export default function Dashboard() {
     }
 
     navigate('/routines')
-  }
-
-  function renderVolumeDot(props) {
-    const { cx, cy, index, payload } = props
-    if (typeof cx !== 'number' || typeof cy !== 'number') return null
-
-    let fill = '#1A56DB'
-    let radius = 3
-    const isCurrent = index === chartData.length - 1
-    if (payload?.tone === 'best') {
-      fill = '#22C55E'
-      radius = 4
-    } else if (payload?.tone === 'low') {
-      fill = '#F59E0B'
-      radius = 4
-    }
-
-    return (
-      <>
-        {isCurrent && (
-          <>
-            <circle cx={cx} cy={cy} r={11} fill="#1A56DB" opacity={0.12} />
-            <circle cx={cx} cy={cy} r={7} fill="none" stroke="#60A5FA" strokeOpacity={0.28} strokeWidth={1.5} />
-          </>
-        )}
-        <circle cx={cx} cy={cy} r={isCurrent ? radius + 1 : radius} fill={fill} strokeWidth={0} />
-      </>
-    )
   }
 
   if (!loading && (sessions.length === 0 || loadError)) {
@@ -1019,8 +989,8 @@ export default function Dashboard() {
                     stroke="#1A56DB"
                     strokeWidth={2}
                     fill="url(#dashGrad)"
-                    dot={renderVolumeDot}
-                    activeDot={{ r: 4, fill: '#1A56DB' }}
+                    dot={(props) => <TrendPointDot {...props} />}
+                    activeDot={(props) => <TrendPointDot {...props} />}
                   />
                 </AreaChart>
               </ResponsiveContainer>
