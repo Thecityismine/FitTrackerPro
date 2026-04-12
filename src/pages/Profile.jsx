@@ -116,6 +116,7 @@ export default function Profile() {
   // File upload states
   const [uploadingPhoto, setUploadingPhoto] = useState(false)
   const [uploadingQr, setUploadingQr]       = useState(false)
+  const [showQrModal, setShowQrModal]       = useState(false)
   const [uploadError, setUploadError]       = useState(null)
   const [exportingData, setExportingData]   = useState(false)
   const [importingData, setImportingData]   = useState(false)
@@ -408,16 +409,33 @@ export default function Profile() {
     <div className="min-h-dvh bg-bg flex flex-col">
 
       {/* Header */}
-      <div className="flex items-center gap-3 px-4 pt-4 pb-2 flex-shrink-0">
+      <div className="flex items-center justify-between gap-3 px-4 pt-4 pb-2 flex-shrink-0">
         <button
           onClick={() => navigate(-1)}
-          className="w-9 h-9 rounded-xl bg-surface2 flex items-center justify-center active:scale-95 transition-transform"
+          className="w-9 h-9 rounded-xl bg-surface2 flex items-center justify-center active:scale-95 transition-transform flex-shrink-0"
         >
           <svg className="w-5 h-5 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
           </svg>
         </button>
-        <h1 className="font-display text-xl font-bold text-text-primary">Profile</h1>
+        <div className="flex min-w-0 flex-1 items-center justify-between gap-3">
+          <h1 className="font-display text-xl font-bold text-text-primary">Profile</h1>
+          {profile?.gymQrUrl ? (
+            <button
+              type="button"
+              onClick={() => setShowQrModal(true)}
+              className="flex items-center gap-2 rounded-2xl border border-white/10 bg-surface2/92 px-2.5 py-1.5 shadow-[0_8px_24px_rgba(15,23,42,0.18)] active:scale-95 transition-transform"
+              aria-label="Open gym membership QR code"
+            >
+              <div className="rounded-lg bg-white p-1 shadow-inner">
+                <img src={profile.gymQrUrl} alt="My Gym QR code" loading="lazy" decoding="async" className="h-8 w-8 rounded-[4px] object-contain" />
+              </div>
+              <span className="text-xs font-semibold uppercase tracking-[0.12em] text-text-primary whitespace-nowrap">
+                My Gym
+              </span>
+            </button>
+          ) : null}
+        </div>
       </div>
 
       <div className="flex-1 overflow-y-auto px-4 pb-8 space-y-5">
@@ -666,14 +684,19 @@ export default function Profile() {
           <p className="section-title">Gym QR Code</p>
           <div className="card space-y-3">
             <p className="text-text-secondary text-xs">
-              Upload your gym membership QR code. Tap the QR icon in the top bar to show it at the front desk.
+              Upload your gym membership QR code here so it is ready from your profile whenever you need it.
             </p>
 
             {profile?.gymQrUrl ? (
               <div className="flex flex-col items-center gap-3">
-                <div className="bg-white rounded-2xl p-3">
+                <button
+                  type="button"
+                  onClick={() => setShowQrModal(true)}
+                  className="rounded-2xl bg-white p-3 active:scale-[0.98] transition-transform"
+                  aria-label="Open gym membership QR code"
+                >
                   <img src={profile.gymQrUrl} alt="Gym QR" loading="lazy" decoding="async" className="w-48 h-48 object-contain" />
-                </div>
+                </button>
                 <button
                   onClick={() => qrInputRef.current?.click()}
                   disabled={uploadingQr}
@@ -781,6 +804,37 @@ export default function Profile() {
           onCancel={() => setPendingImport(null)}
           onConfirm={confirmImportData}
         />
+      )}
+      {showQrModal && profile?.gymQrUrl && (
+        <div
+          className="fixed inset-0 z-[90] flex items-center justify-center bg-black/80 px-4 animate-fade-in"
+          onClick={() => setShowQrModal(false)}
+        >
+          <div
+            className="w-full max-w-sm rounded-3xl border border-white/10 bg-surface p-4 shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <div>
+                <p className="text-sm font-semibold text-text-primary">My Gym</p>
+                <p className="text-xs text-text-secondary">Show this at the front desk.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowQrModal(false)}
+                className="flex h-9 w-9 items-center justify-center rounded-xl bg-surface2 text-text-secondary active:scale-95 transition-transform"
+                aria-label="Close QR code popup"
+              >
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="flex justify-center rounded-[28px] bg-white p-4">
+              <img src={profile.gymQrUrl} alt="Gym membership QR code" loading="eager" decoding="async" className="h-full w-full max-w-[280px] object-contain" />
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )
