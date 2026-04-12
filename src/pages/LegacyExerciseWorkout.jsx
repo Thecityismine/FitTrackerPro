@@ -106,6 +106,9 @@ export default function LegacyExerciseWorkout() {
   const [history, setHistory] = useState([])
   const [pastSessionsData, setPastSessionsData] = useState([])
   const [lastHistoricalWeight, setLastHistoricalWeight] = useState(0)
+  const [lastTemplate, setLastTemplate] = useState({ reps: 8, weight: 0 })
+  const [sessionCount, setSessionCount] = useState(0)
+  const [lastSessionDate, setLastSessionDate] = useState(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [activePage, setActivePage] = useState(0)
@@ -139,10 +142,13 @@ export default function LegacyExerciseWorkout() {
     if (!user || !exerciseId) return
 
     setSets([])
-    setHistory([])
-    setPastSessionsData([])
-    setSessionId(null)
-    setLoading(true)
+        setHistory([])
+        setPastSessionsData([])
+        setSessionId(null)
+        setLastTemplate({ reps: 8, weight: 0 })
+        setSessionCount(0)
+        setLastSessionDate(null)
+        setLoading(true)
 
     user.getIdToken()
       .then(() => getDocs(query(sessionsCol(user.uid), where('exerciseId', '==', exerciseId))))
@@ -158,6 +164,10 @@ export default function LegacyExerciseWorkout() {
         }
 
         const pastSessions = allSessions.filter((session) => session.date !== TODAY)
+        const recentPastSession = pastSessions.at(-1) || null
+        const lastTemplateSet = [...(recentPastSession?.sets || [])]
+          .reverse()
+          .find((set) => (set.reps || 0) > 0 || (set.weight || 0) > 0)
 
         setHistory(
           pastSessions.slice(-8).map((session) => ({
@@ -166,9 +176,14 @@ export default function LegacyExerciseWorkout() {
           }))
         )
         setPastSessionsData([...pastSessions].reverse().slice(0, 3))
+        setSessionCount(allSessions.length)
+        setLastSessionDate(recentPastSession?.date || null)
+        setLastTemplate({
+          reps: lastTemplateSet?.reps || 8,
+          weight: lastTemplateSet?.weight || 0,
+        })
 
-        const lastPastSession = pastSessions.at(-1)
-        const lastWeight = (lastPastSession?.sets || []).reduce(
+        const lastWeight = (recentPastSession?.sets || []).reduce(
           (maxWeight, set) => Math.max(maxWeight, set.weight || 0),
           0
         )
@@ -237,8 +252,8 @@ export default function LegacyExerciseWorkout() {
 
   function addSet() {
     const lastSet = sets[sets.length - 1]
-    const defaultWeight = lastSet?.weight || lastHistoricalWeight || 0
-    const defaultReps = lastSet?.reps || 8
+    const defaultWeight = lastSet?.weight || lastTemplate.weight || lastHistoricalWeight || 0
+    const defaultReps = lastSet?.reps || lastTemplate.reps || 8
     const nextSets = [
       ...sets,
       { id: Date.now().toString(), reps: defaultReps, weight: defaultWeight },
@@ -351,6 +366,18 @@ export default function LegacyExerciseWorkout() {
               </span>
             )}
             {routine?.name && <span className="text-text-secondary text-xs">{routine.name}</span>}
+          </div>
+          <div className="flex flex-wrap items-center gap-2 mt-2">
+            {sessionCount > 0 && (
+              <span className="text-[11px] text-text-secondary">
+                {sessionCount} session{sessionCount !== 1 ? 's' : ''}
+              </span>
+            )}
+            {lastSessionDate && (
+              <span className="text-[11px] text-text-secondary">
+                Last {format(parseISO(lastSessionDate), 'MMM d')}
+              </span>
+            )}
           </div>
         </div>
 
@@ -478,7 +505,9 @@ export default function LegacyExerciseWorkout() {
                 ) : sets.length === 0 ? (
                   <div className="py-8 text-center">
                     <p className="text-text-secondary text-sm">No sets yet</p>
-                    <p className="text-text-secondary text-xs mt-1">Tap Add Set to start tracking</p>
+                    <p className="text-text-secondary text-xs mt-1">
+                      Use Add Set below to start with {lastTemplate.reps} reps x {lastTemplate.weight} {isCardio ? 'min' : 'lbs'}
+                    </p>
                   </div>
                 ) : (
                   [...sets].reverse().map((set, index) => (
