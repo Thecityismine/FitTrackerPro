@@ -101,8 +101,114 @@ function splitHeightFields(value) {
   }
 }
 
+function SkeletonBlock({ className = '' }) {
+  return <div className={`skeleton-block ${className}`.trim()} />
+}
+
+function ProfileLoadingState({ onBack }) {
+  return (
+    <div className="min-h-dvh bg-bg flex flex-col">
+      <div className="flex items-center justify-between gap-3 px-4 pt-4 pb-2 flex-shrink-0">
+        <button
+          onClick={onBack}
+          className="w-9 h-9 rounded-xl bg-surface2 flex items-center justify-center active:scale-95 transition-transform flex-shrink-0"
+        >
+          <svg className="w-5 h-5 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
+          </svg>
+        </button>
+        <div className="flex min-w-0 flex-1 items-center justify-between gap-3">
+          <SkeletonBlock className="h-7 w-24 rounded-2xl" />
+          <SkeletonBlock className="h-10 w-28 rounded-full" />
+        </div>
+      </div>
+
+      <div className="flex-1 overflow-y-auto px-4 pb-10 space-y-8">
+        <div className="flex flex-col items-center pt-4 pb-2">
+          <SkeletonBlock className="h-24 w-24 rounded-[28px]" />
+          <SkeletonBlock className="mt-3 h-3 w-24" />
+          <SkeletonBlock className="mt-3 h-5 w-36 rounded-xl" />
+          <SkeletonBlock className="mt-2 h-4 w-44" />
+        </div>
+
+        <div className="space-y-4">
+          <SkeletonBlock className="h-3 w-32" />
+          <div className="card skeleton-card space-y-7">
+            <div className="space-y-2">
+              <SkeletonBlock className="h-3 w-20" />
+              <SkeletonBlock className="h-14 w-full rounded-2xl" />
+              <SkeletonBlock className="h-3 w-36" />
+            </div>
+            <div className="space-y-2">
+              <SkeletonBlock className="h-3 w-14" />
+              <div className="grid grid-cols-2 gap-3">
+                <SkeletonBlock className="h-14 w-full rounded-2xl" />
+                <SkeletonBlock className="h-14 w-full rounded-2xl" />
+              </div>
+              <SkeletonBlock className="h-3 w-40" />
+            </div>
+            <div className="space-y-2">
+              <SkeletonBlock className="h-3 w-20" />
+              <SkeletonBlock className="h-14 w-full rounded-2xl" />
+              <SkeletonBlock className="h-3 w-44" />
+            </div>
+            <div className="space-y-2">
+              <SkeletonBlock className="h-3 w-12" />
+              <div className="grid grid-cols-2 gap-2">
+                <SkeletonBlock className="h-11 w-full rounded-xl" />
+                <SkeletonBlock className="h-11 w-full rounded-xl" />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <SkeletonBlock className="h-3 w-24" />
+              <div className="space-y-2">
+                {Array.from({ length: 3 }).map((_, index) => (
+                  <SkeletonBlock key={index} className="h-12 w-full rounded-xl" />
+                ))}
+              </div>
+            </div>
+            <div className="space-y-2">
+              <SkeletonBlock className="h-3 w-20" />
+              <div className="grid grid-cols-2 gap-2">
+                <SkeletonBlock className="h-11 w-full rounded-xl" />
+                <SkeletonBlock className="h-11 w-full rounded-xl" />
+              </div>
+            </div>
+            <SkeletonBlock className="h-14 w-full rounded-2xl" />
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          <SkeletonBlock className="h-3 w-28" />
+          <div className="card skeleton-card space-y-5">
+            <SkeletonBlock className="h-3 w-full rounded-xl" />
+            {Array.from({ length: 5 }).map((_, index) => (
+              <div key={index} className="space-y-2.5">
+                <SkeletonBlock className="h-3 w-40" />
+                <div className="flex items-center gap-3">
+                  <SkeletonBlock className="h-10 w-10 rounded-2xl" />
+                  <SkeletonBlock className="h-12 flex-1 rounded-2xl" />
+                  <SkeletonBlock className="h-10 w-10 rounded-2xl" />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          <SkeletonBlock className="h-3 w-24" />
+          <div className="card skeleton-card space-y-3">
+            <SkeletonBlock className="h-3 w-full rounded-xl" />
+            <SkeletonBlock className="h-48 w-full rounded-[28px]" />
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function Profile() {
-  const { user, profile, logout, updateUserProfile } = useAuth()
+  const { user, profile, loading: authLoading, profileLoading, logout, updateUserProfile } = useAuth()
   const navigate = useNavigate()
 
   const displayName = profile?.displayName || user?.displayName || 'Athlete'
@@ -427,6 +533,10 @@ export default function Profile() {
   }
 
   const todayIso = new Date(Date.now() - (new Date().getTimezoneOffset() * 60000)).toISOString().slice(0, 10)
+
+  if (authLoading || (user && profileLoading)) {
+    return <ProfileLoadingState onBack={() => navigate(-1)} />
+  }
 
   return (
     <div className="min-h-dvh bg-bg flex flex-col">

@@ -121,6 +121,31 @@
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
   }
 
+  .skeleton-block {
+    position: relative;
+    overflow: hidden;
+    border-radius: 999px;
+    background: linear-gradient(180deg, rgba(51, 65, 85, 0.7), rgba(30, 41, 59, 0.76));
+  }
+
+  .skeleton-block::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    transform: translateX(-100%);
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.12), transparent);
+    animation: skeletonShimmer 1.5s ease-in-out infinite;
+  }
+
+  .skeleton-card {
+    border-color: rgba(71, 85, 105, 0.48);
+    background:
+      linear-gradient(180deg, rgba(30, 41, 59, 0.86), rgba(15, 23, 42, 0.82));
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.025),
+      0 16px 30px rgba(15, 23, 42, 0.1);
+  }
+
   .btn-primary {
     @apply bg-accent text-white font-semibold px-4 py-2.5 rounded-xl
            active:scale-95 transition-transform duration-100
@@ -396,6 +421,12 @@
   }
 }
 
+@keyframes skeletonShimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .btn-primary,
   .btn-secondary,
@@ -407,7 +438,8 @@
   .card-enter,
   .progress-reveal,
   .hero-cta-glow,
-  .selection-pop {
+  .selection-pop,
+  .skeleton-block::after {
     animation: none;
   }
 }

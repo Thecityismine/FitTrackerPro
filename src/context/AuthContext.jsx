@@ -18,6 +18,7 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
   const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [profileLoading, setProfileLoading] = useState(true)
 
   // Track the UID that was active when the listener was last evaluated
   const activeUidRef = useRef(undefined)
@@ -40,9 +41,13 @@ export function AuthProvider({ children }) {
       setUser(firebaseUser)
       setLoading(false)           // unblock UI immediately — don't wait for Firestore
       if (firebaseUser) {
-        loadProfile(firebaseUser.uid).catch(() => {})
+        setProfileLoading(true)
+        loadProfile(firebaseUser.uid)
+          .catch(() => {})
+          .finally(() => setProfileLoading(false))
       } else {
         setProfile(null)
+        setProfileLoading(false)
       }
     })
     return unsub
@@ -53,6 +58,8 @@ export function AuthProvider({ children }) {
     const snap = await getDoc(ref)
     if (snap.exists()) {
       setProfile(snap.data())
+    } else {
+      setProfile(null)
     }
   }
 
@@ -76,6 +83,7 @@ export function AuthProvider({ children }) {
     }
     await setDoc(ref, profileData, { merge: true })
     setProfile(profileData)
+    setProfileLoading(false)
     return profileData
   }
 
@@ -93,6 +101,7 @@ export function AuthProvider({ children }) {
       })
     } else {
       setProfile(snap.data())
+      setProfileLoading(false)
     }
     return user
   }
@@ -133,6 +142,7 @@ export function AuthProvider({ children }) {
       user,
       profile,
       loading,
+      profileLoading,
       signInWithGoogle,
       signInWithEmail,
       signUpWithEmail,

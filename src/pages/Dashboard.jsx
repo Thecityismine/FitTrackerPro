@@ -247,6 +247,157 @@ function SegmentedTargetRing({ groups, size = 80, strokeWidth = 8, gapDegrees = 
   )
 }
 
+function SkeletonBlock({ className = '' }) {
+  return <div className={`skeleton-block ${className}`.trim()} />
+}
+
+function DashboardLoadingState({ onProfileOpen }) {
+  return (
+    <PageWrapper
+      showSettings
+      headerAction={{ label: 'My Plan', onClick: onProfileOpen }}
+    >
+      <div className="px-4 pt-3 space-y-[18px]">
+        <div className="space-y-2">
+          <SkeletonBlock className="h-4 w-20" />
+          <SkeletonBlock className="h-8 w-40 rounded-2xl" />
+          <SkeletonBlock className="h-4 w-48" />
+        </div>
+
+        <div className="card skeleton-card space-y-4 border border-accent/20">
+          <div className="flex items-start justify-between gap-3">
+            <div className="space-y-2">
+              <SkeletonBlock className="h-3 w-24" />
+              <SkeletonBlock className="h-4 w-32" />
+            </div>
+            <SkeletonBlock className="h-7 w-24 rounded-full" />
+          </div>
+          <div className="space-y-3">
+            <SkeletonBlock className="h-3 w-28" />
+            <SkeletonBlock className="h-11 w-52 rounded-2xl" />
+            <SkeletonBlock className="h-4 w-44" />
+          </div>
+          <div className="space-y-3">
+            <SkeletonBlock className="h-2 w-full rounded-full" />
+            <div className="flex items-center gap-1.5">
+              {Array.from({ length: 7 }).map((_, index) => (
+                <SkeletonBlock key={index} className={`${index < 2 ? 'w-4' : 'w-2'} h-2 rounded-full`} />
+              ))}
+            </div>
+            <SkeletonBlock className="ml-auto h-12 w-44 rounded-full" />
+          </div>
+        </div>
+
+        <div className="card skeleton-card space-y-4">
+          <div className="space-y-2">
+            <SkeletonBlock className="h-3 w-28" />
+            <SkeletonBlock className="h-4 w-44" />
+          </div>
+          <div className="panel-inset rounded-2xl px-3.5 py-3.5">
+            <SkeletonBlock className="h-4 w-full rounded-xl" />
+          </div>
+          <div className="grid grid-cols-4 gap-2">
+            {Array.from({ length: 8 }).map((_, index) => (
+              <div key={index} className="rounded-xl border border-white/8 bg-surface/45 p-2">
+                <SkeletonBlock className="mb-2 ml-auto h-2.5 w-2.5 rounded-full" />
+                <SkeletonBlock className="mx-auto h-12 w-12 rounded-2xl" />
+                <SkeletonBlock className="mx-auto mt-2 h-3 w-10" />
+              </div>
+            ))}
+          </div>
+          <div className="panel-inset rounded-xl px-3 py-3 space-y-2">
+            <SkeletonBlock className="h-4 w-32" />
+            <SkeletonBlock className="h-3 w-full rounded-xl" />
+          </div>
+        </div>
+
+        <div className="card skeleton-card">
+          <div className="flex items-center gap-4">
+            <SkeletonBlock className="h-20 w-20 rounded-full" />
+            <div className="flex-1 space-y-3">
+              <div className="flex items-center justify-between gap-3">
+                <SkeletonBlock className="h-4 w-28" />
+                <SkeletonBlock className="h-4 w-4 rounded-full" />
+              </div>
+              <SkeletonBlock className="h-4 w-44" />
+              <div className="space-y-2">
+                {Array.from({ length: 3 }).map((_, index) => (
+                  <div key={index} className="flex items-center gap-2">
+                    <SkeletonBlock className="h-2 w-2 rounded-sm" />
+                    <SkeletonBlock className="h-3 w-10" />
+                    <SkeletonBlock className="h-2 flex-1 rounded-full" />
+                    <SkeletonBlock className="h-3 w-8" />
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="card skeleton-card space-y-4">
+          <div className="flex items-center justify-between gap-3">
+            <div className="space-y-2">
+              <SkeletonBlock className="h-4 w-28" />
+              <SkeletonBlock className="h-3 w-36" />
+            </div>
+            <SkeletonBlock className="h-3 w-10" />
+          </div>
+          <div className="flex gap-2">
+            <SkeletonBlock className="h-8 w-20 rounded-full" />
+            <SkeletonBlock className="h-8 w-24 rounded-full" />
+          </div>
+          <div className="panel-inset rounded-xl px-3.5 py-3.5 space-y-3">
+            <SkeletonBlock className="h-3 w-24" />
+            <SkeletonBlock className="h-5 w-full rounded-xl" />
+            <SkeletonBlock className="h-3 w-32" />
+            <div className="flex items-center justify-between gap-3 pt-2">
+              <SkeletonBlock className="h-3 w-12" />
+              <SkeletonBlock className="h-8 w-28 rounded-full" />
+            </div>
+          </div>
+        </div>
+
+        <div className="card card-analytics skeleton-card space-y-4 pb-4">
+          <div className="flex items-center justify-between gap-3">
+            <SkeletonBlock className="h-4 w-24" />
+            <div className="flex gap-1 rounded-lg bg-surface2 p-0.5">
+              {Array.from({ length: 3 }).map((_, index) => (
+                <SkeletonBlock key={index} className="h-7 w-16 rounded-md" />
+              ))}
+            </div>
+          </div>
+          <div className="panel-inset rounded-2xl px-3.5 py-3.5 space-y-2">
+            <SkeletonBlock className="h-3 w-20" />
+            <SkeletonBlock className="h-6 w-48 rounded-2xl" />
+            <SkeletonBlock className="h-3 w-full rounded-xl" />
+          </div>
+          <div className="grid grid-cols-3 gap-2">
+            {Array.from({ length: 3 }).map((_, index) => (
+              <div key={index} className="panel-inset rounded-xl p-3 space-y-2">
+                <SkeletonBlock className="h-3 w-16" />
+                <SkeletonBlock className="h-6 w-12 rounded-xl" />
+              </div>
+            ))}
+          </div>
+          <SkeletonBlock className="h-3 w-40" />
+          <div className="rounded-xl border border-white/6 bg-surface2/40 px-3 py-3">
+            <SkeletonBlock className="h-36 w-full rounded-[18px]" />
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            {Array.from({ length: 2 }).map((_, index) => (
+              <div key={index} className="panel-inset rounded-xl p-3 space-y-2">
+                <SkeletonBlock className="h-3 w-16" />
+                <SkeletonBlock className="h-7 w-14 rounded-xl" />
+                <SkeletonBlock className="h-3 w-12" />
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </PageWrapper>
+  )
+}
+
 export default function Dashboard() {
   const { profile, user } = useAuth()
   const { activeWorkout } = useActiveWorkout()
@@ -581,6 +732,10 @@ export default function Dashboard() {
       Math.round((weekPct * 45) + (trainedToday ? 30 : 0) + (routineInProgress ? 15 : 0) + (Math.min(streak, 5) * 2))
     )
   )
+
+  if (loading) {
+    return <DashboardLoadingState onProfileOpen={() => navigate('/profile')} />
+  }
 
   const planHeadline = routineInProgress
     ? 'Resume workout'
