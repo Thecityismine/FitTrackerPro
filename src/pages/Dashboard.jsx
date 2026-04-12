@@ -423,7 +423,7 @@ export default function Dashboard() {
   const routineCurrentExercise = routineInProgress?.exercises.find((exercise) => exercise.id === routineInProgress.currentExerciseId)
 
   const weeklyInsight = weakestGroup?.remaining > 0
-    ? `Train ${weakestGroup.remaining} more ${weakestGroupSetLabel} sets this week.`
+    ? `${weakestGroup.remaining} more ${weakestGroupSetLabel} sets to stay on track.`
     : 'Targets on pace.'
   const dashboardHook = routineInProgress
     ? "You're on track. Finish strong."
@@ -444,8 +444,10 @@ export default function Dashboard() {
   const recentSessionSub = lastSessions.length > 0
     ? `${lastSessionExerciseRows.length} exercises on ${lastDate?.slice(5).replace('-', '/')}`
     : 'No recent session'
-  const recentExerciseNames = lastSessionExerciseRows.length > 0
-    ? `${lastSessionExerciseRows.slice(0, 2).map((row) => row.exerciseName).join(' | ')}${lastSessionExerciseRows.length > 2 ? ` | +${lastSessionExerciseRows.length - 2} more` : ''}`
+  const latestWorkoutPrimaryNames = lastSessionExerciseRows.slice(0, 2).map((row) => row.exerciseName)
+  const latestWorkoutMoreCount = Math.max(lastSessionExerciseRows.length - latestWorkoutPrimaryNames.length, 0)
+  const recentExerciseNames = latestWorkoutPrimaryNames.length > 0
+    ? latestWorkoutPrimaryNames.join(' | ')
     : 'No exercises logged yet'
   const lastWorkoutPillLabel = daysSince === 0 ? 'Today ✓' : `Latest workout: ${lastWorkoutValue}`
 
@@ -520,7 +522,7 @@ export default function Dashboard() {
         status: 'Recovery',
         dotClass: 'bg-[#FACC15]',
         textClass: 'text-[#FACC15]',
-        shellClass: 'border border-[#FACC15]/15 bg-[linear-gradient(180deg,rgba(15,23,42,0.92),rgba(38,31,12,0.88))]',
+        shellClass: 'border border-[#FACC15]/18 bg-[linear-gradient(180deg,rgba(15,23,42,0.92),rgba(38,31,12,0.88))] shadow-[inset_0_1px_0_rgba(255,255,255,0.03),0_0_0_1px_rgba(250,204,21,0.05),0_0_24px_rgba(250,204,21,0.08)]',
         detail: `${bodyPart} was trained ${daysAgo} day${daysAgo === 1 ? '' : 's'} ago. Moderate work is okay.`,
       }
     }
@@ -600,11 +602,11 @@ export default function Dashboard() {
       ? `Focus: ${weakestGroup.label}`
         : 'Focus: Training'
   const missionLine = routineInProgress
-    ? "Finish today's workout. Stay on pace."
+    ? "Stay on pace. Finish today's workout."
     : trainedToday
       ? 'Recovery day. Let your body rebuild.'
       : weakestGroup?.remaining > 0
-        ? `Train ${weakestGroup.remaining} more ${weakestGroupSetLabel} sets this week.`
+        ? `${weakestGroup.remaining} more ${weakestGroupSetLabel} sets to stay on track.`
         : 'You are on pace this week.'
   const heroProgressRatio = routineInProgress
     ? routineCompletedCount / Math.max(routineInProgress.exercises.length, 1)
@@ -612,7 +614,7 @@ export default function Dashboard() {
       ? 1
       : 0
   const heroProgressText = routineInProgress
-    ? `${routineCompletedCount}/${routineInProgress.exercises.length} exercises complete`
+    ? `${routineCompletedCount} of ${routineInProgress.exercises.length} exercises`
     : trainedToday
       ? 'Daily progress complete.'
       : 'No workout started yet.'
@@ -642,6 +644,16 @@ export default function Dashboard() {
     }
 
     navigate('/routines')
+  }
+
+  function handleLatestWorkoutOpen() {
+    if (!lastDate) return
+    navigate('/calendar', {
+      state: {
+        selectedDate: lastDate,
+        scrollToDetails: true,
+      },
+    })
   }
 
   if (!loading && (sessions.length === 0 || loadError)) {
@@ -728,12 +740,32 @@ export default function Dashboard() {
 
             <div className="space-y-2.5">
               <div className="min-w-0">
-                <div className="h-1.5 w-full rounded-full bg-white/15 overflow-hidden">
+                <div className="h-2 w-full rounded-full bg-white/15 overflow-hidden">
                   <div
                     className="h-full rounded-full bg-white/80 transition-all duration-500 progress-reveal"
                     style={{ width: `${Math.max(heroProgressRatio * 100, 0)}%` }}
                   />
                 </div>
+                {routineInProgress && routineInProgress.exercises.length > 0 && (
+                  <div className="mt-2 flex items-center gap-1.5">
+                    {routineInProgress.exercises.map((exercise, index) => {
+                      const isCompleted = exercise.status === 'completed'
+                      const isCurrent = exercise.id === routineInProgress.currentExerciseId
+                      return (
+                        <span
+                          key={exercise.id || `${exercise.name}-${index}`}
+                          className={`h-2 rounded-full transition-all duration-300 ${
+                            isCompleted
+                              ? 'w-4 bg-white/95'
+                              : isCurrent
+                                ? 'w-3 bg-white/80 ring-1 ring-white/45'
+                                : 'w-2 bg-white/24'
+                          }`}
+                        />
+                      )
+                    })}
+                  </div>
+                )}
                 <p className="mt-1.5 text-[11px] text-white/72 leading-tight">{heroProgressText}</p>
               </div>
 
@@ -768,13 +800,13 @@ export default function Dashboard() {
 	                  <button
 	                    key={bp.key}
 	                    onClick={() => setSelectedRecoveryPart(bp.key)}
-		                    className={`relative rounded-xl p-2 flex flex-col items-center gap-1.5 text-center tap-glow transition-all duration-300 ${meta.shellClass} ${
-		                      selected
-		                        ? 'selection-pop -translate-y-0.5 ring-2 ring-white/45 scale-[1.04] shadow-[0_0_0_1px_rgba(255,255,255,0.08),0_12px_28px_rgba(15,23,42,0.24)]'
-		                        : 'opacity-95'
-		                    }`}
-	                  >
-	                    <div className={`absolute top-1.5 right-1.5 rounded-full ${meta.dotClass} ${selected ? 'w-3 h-3 ring-2 ring-white/25' : 'w-2.5 h-2.5'}`} />
+			                    className={`relative rounded-xl p-2 flex flex-col items-center gap-1.5 text-center tap-glow transition-all duration-300 ${meta.shellClass} ${
+			                      selected
+			                        ? 'selection-pop -translate-y-0.5 ring-1 ring-white/40 scale-[1.03] shadow-[0_0_0_1px_rgba(255,255,255,0.06),0_10px_24px_rgba(15,23,42,0.22)]'
+			                        : 'opacity-95'
+			                    }`}
+		                  >
+		                    <div className={`absolute top-1.5 right-1.5 rounded-full ${meta.dotClass} ${selected ? 'w-3 h-3 ring-1 ring-white/25' : 'w-2.5 h-2.5'}`} />
 	                    <img
 	                      src={bp.icon}
 	                      alt={bp.key}
@@ -895,8 +927,22 @@ export default function Dashboard() {
           <div className="panel-inset mt-4 rounded-xl px-3.5 py-3.5">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
-                <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-text-secondary">Latest Workout</p>
-                <p className="mt-2 text-text-primary text-sm font-semibold">{recentExerciseNames}</p>
+                <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-white/58">Latest Workout</p>
+                <div className="mt-2 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-sm font-semibold text-text-primary">
+                  <span>{recentExerciseNames}</span>
+                  {latestWorkoutMoreCount > 0 && (
+                    <button
+                      type="button"
+                      onClick={handleLatestWorkoutOpen}
+                      className="inline-flex items-center gap-1 text-accent underline decoration-accent/50 underline-offset-2 transition-opacity hover:opacity-90"
+                    >
+                      <span>+{latestWorkoutMoreCount} more</span>
+                      <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                      </svg>
+                    </button>
+                  )}
+                </div>
                 <p className="mt-1.5 text-xs text-text-secondary">{recentSessionSub}</p>
               </div>
               {lastSessionPrCount > 0 && (
