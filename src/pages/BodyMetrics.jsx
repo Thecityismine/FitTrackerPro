@@ -1283,17 +1283,22 @@ Notes: weight/boneMass/fatFreeBodyWeight/muscleMassLbs are in lbs; bodyFat/bodyW
         <div className="flex gap-2">
           <button
             onClick={() => { setPrefillData(null); setShowLog(true) }}
-            className="btn-secondary flex-1 min-h-[88px]"
+            className="flex-1 min-h-[88px] rounded-2xl border border-white/8 bg-[linear-gradient(180deg,rgba(51,65,85,0.62),rgba(30,41,59,0.52))] px-4 py-3 text-left text-text-primary shadow-[inset_0_1px_0_rgba(255,255,255,0.02)] active:scale-[0.98] transition-transform"
           >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-            </svg>
-            Log Manually
+            <div className="w-full">
+              <p className="text-[11px] uppercase tracking-[0.18em] text-text-secondary/80 mb-1">Manual Entry</p>
+              <div className="flex items-center gap-2">
+                <svg className="w-4 h-4 flex-shrink-0 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                </svg>
+                <span className="text-lg font-semibold">Log Manually</span>
+              </div>
+            </div>
           </button>
           <button
             onClick={() => scanInputRef.current?.click()}
             disabled={scanning}
-            className="flex-1 min-h-[88px] rounded-2xl px-4 py-3 text-left text-white bg-gradient-to-br from-accent to-[#1D4ED8] shadow-[0_12px_30px_rgba(37,99,235,0.24)] disabled:opacity-50 active:scale-[0.98] transition-transform tap-glow"
+            className="flex-1 min-h-[88px] rounded-2xl border border-accent/40 bg-gradient-to-br from-[#2F6BFF] via-accent to-[#1D4ED8] px-4 py-3 text-left text-white shadow-[0_16px_34px_rgba(37,99,235,0.28)] disabled:opacity-50 active:scale-[0.98] transition-transform tap-glow"
           >
             {scanning ? (
               <>
