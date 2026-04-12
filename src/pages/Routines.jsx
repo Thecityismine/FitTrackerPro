@@ -1374,7 +1374,7 @@ export default function Routines() {
               className={`card w-full text-left ${lastSessionSummary.routineId ? 'active:scale-[0.99] transition-transform' : ''}`}
             >
               <div className="flex items-start justify-between gap-3">
-                <p className="section-title mb-0">Last Session</p>
+                <p className="section-title mb-0">Latest Workout</p>
                 <p className="text-text-secondary text-xs flex-shrink-0">
                   {format(parseISO(lastSessionSummary.lastDate), 'MM/dd')}
                 </p>

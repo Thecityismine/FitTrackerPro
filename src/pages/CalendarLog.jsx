@@ -438,7 +438,7 @@ export default function CalendarLog() {
 
     return {
       label: `${streakDays} day${streakDays === 1 ? '' : 's'}`,
-      detail: isActive ? 'Active streak' : `Last workout ${format(parseISO(latestDate), 'MMM d')}`,
+      detail: isActive ? 'Active streak' : `Latest workout ${format(parseISO(latestDate), 'MMM d')}`,
       tone: isActive ? 'text-accent-green' : 'text-accent',
     }
   }, [workoutDates])
@@ -632,7 +632,7 @@ export default function CalendarLog() {
             <h1 className="font-display text-2xl font-bold text-text-primary">
               {format(currentMonth, 'MMMM yyyy')}
             </h1>
-            <p className="text-text-secondary text-sm mt-0.5">Your training progress and history</p>
+            <p className="text-text-secondary text-sm mt-0.5">Training history</p>
             <p className="text-accent-green text-sm font-medium mt-2">{progressHook}</p>
           </div>
           {/* Month prev / next */}

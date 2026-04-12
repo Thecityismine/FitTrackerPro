@@ -423,8 +423,8 @@ export default function Dashboard() {
   const routineCurrentExercise = routineInProgress?.exercises.find((exercise) => exercise.id === routineInProgress.currentExerciseId)
 
   const weeklyInsight = weakestGroup?.remaining > 0
-    ? `Finish ${weakestGroup.remaining} more ${weakestGroupSetLabel} sets to stay on track.`
-    : 'Your weekly targets are on track.'
+    ? `Train ${weakestGroup.remaining} more ${weakestGroupSetLabel} sets this week.`
+    : 'Targets on pace.'
   const dashboardHook = routineInProgress
     ? "You're on track. Finish strong."
     : trainedToday
@@ -447,7 +447,7 @@ export default function Dashboard() {
   const recentExerciseNames = lastSessionExerciseRows.length > 0
     ? `${lastSessionExerciseRows.slice(0, 2).map((row) => row.exerciseName).join(' | ')}${lastSessionExerciseRows.length > 2 ? ` | +${lastSessionExerciseRows.length - 2} more` : ''}`
     : 'No exercises logged yet'
-  const lastWorkoutPillLabel = daysSince === 0 ? 'Today ✓' : `Last workout: ${lastWorkoutValue}`
+  const lastWorkoutPillLabel = daysSince === 0 ? 'Today ✓' : `Latest workout: ${lastWorkoutValue}`
 
   const chartCurrentPoint = chartData[chartData.length - 1] || null
   const chartPreviousPoint = chartData[chartData.length - 2] || null
@@ -600,12 +600,12 @@ export default function Dashboard() {
       ? `Focus: ${weakestGroup.label}`
         : 'Focus: Training'
   const missionLine = routineInProgress
-    ? "Finish today's workout to stay on pace this week."
+    ? "Finish today's workout. Stay on pace."
     : trainedToday
       ? 'Recovery day. Let your body rebuild.'
       : weakestGroup?.remaining > 0
-        ? `You need ${weakestGroup.remaining} ${weakestGroupSetLabel} sets to stay on track this week.`
-        : 'You are on pace for this week.'
+        ? `Train ${weakestGroup.remaining} more ${weakestGroupSetLabel} sets this week.`
+        : 'You are on pace this week.'
   const heroProgressRatio = routineInProgress
     ? routineCompletedCount / Math.max(routineInProgress.exercises.length, 1)
     : trainedToday
@@ -878,7 +878,7 @@ export default function Dashboard() {
           <div className="flex items-center justify-between gap-3 mb-4">
             <div>
               <p className="section-title mb-1">Latest Workout</p>
-              <p className="text-text-secondary text-xs">A quick read on your latest session.</p>
+              <p className="text-text-secondary text-xs">Quick read on your latest workout.</p>
             </div>
             {lastDate && <p className="text-text-secondary text-xs">{lastDate.slice(5).replace('-', '/')}</p>}
           </div>
@@ -895,7 +895,7 @@ export default function Dashboard() {
           <div className="panel-inset mt-4 rounded-xl px-3.5 py-3.5">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
-                <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-text-secondary">Last Session</p>
+                <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-text-secondary">Latest Workout</p>
                 <p className="mt-2 text-text-primary text-sm font-semibold">{recentExerciseNames}</p>
                 <p className="mt-1.5 text-xs text-text-secondary">{recentSessionSub}</p>
               </div>
