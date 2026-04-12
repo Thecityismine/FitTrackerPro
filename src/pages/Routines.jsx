@@ -552,7 +552,7 @@ Keep it under 220 words and be concrete.`
         </div>
       ) : (
         <button onClick={handleGenerateReport} disabled={loading} className="btn-primary w-full disabled:opacity-50">
-          {loading ? 'Loading Weekly Insights...' : 'Weekly Insights'}
+          {loading ? 'Loading Weekly Report...' : 'View Full Breakdown'}
         </button>
       )}
     </div>
