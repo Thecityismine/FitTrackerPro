@@ -446,18 +446,27 @@ function GuidedWorkoutPage() {
     setReloadKey((current) => current + 1)
   }
 
-  function openExercise(exerciseId) {
-    setCurrentExercise(exerciseId)
-    requestAnimationFrame(() => {
-      cardRefs.current[exerciseId]?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  function syncWorkoutRoute(nextExerciseId) {
+    navigate(`/workout/${nextExerciseId}`, {
+      replace: true,
+      state: {
+        ...(location.state || {}),
+        workoutMode: true,
+        routine,
+      },
     })
   }
 
+  function openExercise(exerciseId) {
+    if (!exerciseId || guidedWorkout?.currentExerciseId === exerciseId) return
+    setCurrentExercise(exerciseId)
+    syncWorkoutRoute(exerciseId)
+  }
+
   function continueExercise(exerciseId) {
+    if (!exerciseId) return
     reopenExercise(exerciseId)
-    requestAnimationFrame(() => {
-      cardRefs.current[exerciseId]?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-    })
+    syncWorkoutRoute(exerciseId)
   }
 
   function getStatus(exercise) {
