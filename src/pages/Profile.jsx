@@ -7,7 +7,7 @@ import { getDoc, getDocs, writeBatch } from 'firebase/firestore'
 import { auth, db, storage } from '../firebase/config'
 import ConfirmDialog from '../components/ConfirmDialog'
 import { useAuth } from '../context/AuthContext'
-import { sanitizeProfileSettingsInput } from '../utils/profileSanitizers'
+import { sanitizeBoundedInt, sanitizeProfileSettingsInput } from '../utils/profileSanitizers'
 import {
   bodyMetricDoc,
   bodyMetricsCol,
@@ -89,6 +89,18 @@ async function commitBatchWrites(writes) {
   }
 }
 
+function splitHeightFields(value) {
+  const totalInches = Number(value)
+  if (!Number.isFinite(totalInches) || totalInches <= 0) {
+    return { feet: '', inches: '' }
+  }
+
+  return {
+    feet: String(Math.floor(totalInches / 12)),
+    inches: String(totalInches % 12),
+  }
+}
+
 export default function Profile() {
   const { user, profile, logout, updateUserProfile } = useAuth()
   const navigate = useNavigate()
@@ -97,10 +109,12 @@ export default function Profile() {
   const email = user?.email || ''
   const initials = displayName.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2)
   const photoURL = profile?.photoURL || user?.photoURL
+  const initialHeight = splitHeightFields(profile?.heightIn)
 
   // Editable fields
   const [name, setName]           = useState(displayName)
-  const [height, setHeight]       = useState(profile?.heightIn || '')
+  const [heightFt, setHeightFt]   = useState(initialHeight.feet)
+  const [heightIn, setHeightIn]   = useState(initialHeight.inches)
   const [weightUnit, setWeightUnit] = useState(profile?.weightUnit || 'lbs')
   const [sex, setSex]             = useState(profile?.sex || '')
   const [fitnessGoal, setFitnessGoal] = useState(profile?.fitnessGoal || '')
@@ -131,8 +145,10 @@ export default function Profile() {
   useEffect(() => () => clearTimeout(savedTimerRef.current), [])
 
   useEffect(() => {
+    const nextHeight = splitHeightFields(profile?.heightIn)
     setName(profile?.displayName || user?.displayName || 'Athlete')
-    setHeight(profile?.heightIn ?? '')
+    setHeightFt(nextHeight.feet)
+    setHeightIn(nextHeight.inches)
     setWeightUnit(profile?.weightUnit || 'lbs')
     setSex(profile?.sex || '')
     setFitnessGoal(profile?.fitnessGoal || '')
@@ -184,9 +200,12 @@ export default function Profile() {
   async function handleSave() {
     setSaving(true)
     try {
+      const heightFeet = sanitizeBoundedInt(heightFt, { min: 0, max: 8, fallback: 0 })
+      const heightInches = sanitizeBoundedInt(heightIn, { min: 0, max: 11, fallback: 0 })
+      const heightTotalIn = heightFeet > 0 ? String((heightFeet * 12) + heightInches) : ''
       const sanitizedProfile = sanitizeProfileSettingsInput({
         displayName: name,
-        heightIn: height,
+        heightIn: heightTotalIn,
         weightUnit,
         sex,
         fitnessGoal,
@@ -200,6 +219,7 @@ export default function Profile() {
         weeklyVolumeGoal: volumeGoal,
       })
       const trimmedName = sanitizedProfile.displayName || displayName
+      const nextHeight = splitHeightFields(sanitizedProfile.heightIn)
       await updateUserProfile({
         displayName: trimmedName,
         heightIn: sanitizedProfile.heightIn,
@@ -215,7 +235,8 @@ export default function Profile() {
         await updateProfile(auth.currentUser, { displayName: trimmedName })
       }
       setName(trimmedName)
-      setHeight(sanitizedProfile.heightIn)
+      setHeightFt(nextHeight.feet)
+      setHeightIn(nextHeight.inches)
       setWeightUnit(sanitizedProfile.weightUnit)
       setSex(sanitizedProfile.sex || '')
       setFitnessGoal(sanitizedProfile.fitnessGoal || '')
@@ -239,8 +260,10 @@ export default function Profile() {
 
   function applyImportedProfile(profileData) {
     const sanitizedProfile = sanitizeProfileSettingsInput(profileData)
+    const nextHeight = splitHeightFields(sanitizedProfile.heightIn)
     setName(sanitizedProfile.displayName || displayName)
-    setHeight(sanitizedProfile.heightIn ?? '')
+    setHeightFt(nextHeight.feet)
+    setHeightIn(nextHeight.inches)
     setWeightUnit(sanitizedProfile.weightUnit || 'lbs')
     setSex(sanitizedProfile.sex || '')
     setFitnessGoal(sanitizedProfile.fitnessGoal || '')
@@ -490,13 +513,13 @@ export default function Profile() {
         {/* ── Profile + Preferences ──────────────────────────── */}
         <div>
           <p className="section-title">Profile & Preferences</p>
-          <div className="card space-y-4">
+          <div className="card space-y-6">
             {/* Display name */}
             <div>
               <label className="label">Display Name</label>
               <input
                 type="text"
-                className="input"
+                className="profile-input"
                 placeholder="Your name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
@@ -507,20 +530,44 @@ export default function Profile() {
             {/* Height */}
             <div>
               <label className="label">Height</label>
-              <input
-                type="text"
-                className="input"
-                placeholder='e.g. 70 (inches) or 177 (cm)'
-                value={height}
-                onChange={(e) => setHeight(e.target.value)}
-              />
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="label mb-2">Feet</label>
+                  <input
+                    type="number"
+                    inputMode="numeric"
+                    min="3"
+                    max="8"
+                    placeholder="5"
+                    className="profile-input text-lg"
+                    value={heightFt}
+                    onChange={(e) => setHeightFt(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <label className="label mb-2">Inches</label>
+                  <input
+                    type="number"
+                    inputMode="numeric"
+                    min="0"
+                    max="11"
+                    placeholder="5"
+                    className="profile-input text-lg"
+                    value={heightIn}
+                    onChange={(e) => setHeightIn(e.target.value)}
+                  />
+                </div>
+              </div>
+              <p className="text-text-secondary text-xs mt-2">
+                {heightFt ? `${heightFt}'${heightIn || 0}"` : 'Enter your height in feet and inches'}
+              </p>
             </div>
 
             <div>
               <label className="label">Birthday</label>
               <input
                 type="date"
-                className="input"
+                className="profile-input"
                 value={birthday}
                 max={todayIso}
                 onChange={(e) => setBirthday(e.target.value)}

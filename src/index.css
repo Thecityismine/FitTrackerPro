@@ -168,6 +168,24 @@
            transition-colors w-full;
   }
 
+  .profile-input {
+    @apply w-full rounded-2xl px-4 py-3.5 text-text-primary placeholder-text-secondary
+           focus:outline-none focus:ring-1 focus:ring-accent transition-colors;
+    border: 1px solid rgba(148, 163, 184, 0.12);
+    background:
+      linear-gradient(180deg, rgba(30, 41, 59, 0.74), rgba(15, 23, 42, 0.68));
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.02),
+      0 10px 22px rgba(15, 23, 42, 0.08);
+  }
+
+  .profile-input:focus {
+    border-color: rgba(37, 99, 235, 0.72);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.02),
+      0 0 0 1px rgba(37, 99, 235, 0.24);
+  }
+
   .label {
     @apply text-text-secondary text-xs font-medium uppercase tracking-wider mb-1;
   }
@@ -259,6 +277,14 @@
     transform-origin: left center;
     animation: progressReveal 760ms cubic-bezier(0.22, 1, 0.36, 1) both;
   }
+
+  .hero-cta-glow {
+    animation: heroCtaGlow 2.6s ease-in-out infinite;
+  }
+
+  .selection-pop {
+    animation: selectionPop 280ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
 }
 
 @keyframes cardEnter {
@@ -285,6 +311,29 @@
   }
 }
 
+@keyframes heroCtaGlow {
+  0%,
+  100% {
+    box-shadow: 0 14px 34px rgba(255, 255, 255, 0.16), 0 14px 32px rgba(15, 23, 42, 0.18);
+    transform: translateY(0);
+  }
+
+  50% {
+    box-shadow: 0 18px 42px rgba(255, 255, 255, 0.24), 0 18px 38px rgba(37, 99, 235, 0.2);
+    transform: translateY(-1px);
+  }
+}
+
+@keyframes selectionPop {
+  0% {
+    transform: scale(0.97);
+  }
+
+  100% {
+    transform: scale(1);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .btn-primary,
   .btn-secondary,
@@ -294,7 +343,9 @@
   }
 
   .card-enter,
-  .progress-reveal {
+  .progress-reveal,
+  .hero-cta-glow,
+  .selection-pop {
     animation: none;
   }
 }
