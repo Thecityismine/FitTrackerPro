@@ -182,10 +182,10 @@ function lastDoneLabel(days) {
 }
 function lastTrainedDetail(dateStr) {
   const days = daysAgo(dateStr)
-  if (days === null) return 'Last trained: Not yet'
-  if (days === 0) return 'Last trained: Today'
-  if (days === 1) return 'Last trained: Yesterday'
-  return `Last trained: ${days} days ago`
+  if (days === null) return 'Last: Not yet'
+  if (days === 0) return 'Last: Today'
+  if (days === 1) return 'Last: Yesterday'
+  return `Last: ${days}d ago`
 }
 function toSlug(name) {
   return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
@@ -362,7 +362,7 @@ function GroupRow({ group, sets, expanded, onToggle, isLowest, lastTrainedLabel 
   const toGo = Math.max(group.targetTotal - totalActual, 0)
 
   return (
-    <div className={`card card-enter overflow-hidden transition-shadow ${isLowest ? 'ring-1 ring-[#22C55E]/30 shadow-[0_0_0_1px_rgba(34,197,94,0.12)]' : ''}`}>
+    <div className={`card card-enter overflow-hidden transition-shadow ${isLowest ? 'ring-1 ring-[#22C55E]/45 bg-[linear-gradient(180deg,rgba(34,197,94,0.08),rgba(15,23,42,0))] shadow-[0_0_0_1px_rgba(34,197,94,0.18),0_18px_38px_rgba(34,197,94,0.10)]' : ''}`}>
       <button onClick={onToggle} className="flex items-center gap-3 w-full text-left tap-glow">
         {/* Circle icon */}
         <div className="flex-shrink-0">
@@ -384,9 +384,9 @@ function GroupRow({ group, sets, expanded, onToggle, isLowest, lastTrainedLabel 
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
           {toGo > 0 && (
-            <div className="text-right">
+            <div className="text-right" style={{ opacity: 0.88 }}>
               <p className="text-text-primary font-bold text-sm">{toGo}</p>
-              <p className="text-text-secondary text-xs">sets to hit goal</p>
+              <p className="text-text-secondary text-xs">sets left</p>
             </div>
           )}
           {toGo === 0 && (
@@ -414,14 +414,14 @@ function GroupRow({ group, sets, expanded, onToggle, isLowest, lastTrainedLabel 
                   <p className="text-text-secondary text-xs">{actual} / {muscle.target} Sets</p>
                 </div>
                 <div className="text-right flex-shrink-0">
-                  <p className="text-text-primary font-bold text-sm">{Math.max(muscle.target - actual, 0)}</p>
-                  <p className="text-text-secondary text-xs">sets to hit goal</p>
+                  <p className="text-text-primary font-bold text-sm" style={{ opacity: 0.88 }}>{Math.max(muscle.target - actual, 0)}</p>
+                  <p className="text-text-secondary text-xs" style={{ opacity: 0.72 }}>sets left</p>
                 </div>
               </div>
             )
           })}
           <p className="text-text-secondary text-xs pt-1 border-t border-surface2 mt-2">
-            Primary = 1 set, Secondary = 0.5
+            1 set • +0.5 assist
           </p>
         </div>
       )}
@@ -939,14 +939,12 @@ export default function Muscles() {
       : 'Slightly Behind'
   const paceTone = overallPct >= expectedPct - 0.08 ? 'text-[#62E38D]' : 'text-[#F2C14E]'
   const lowestWorkoutCount = lowestGroup?.toGo > 0 ? Math.max(Math.ceil(lowestGroup.toGo / 7), 1) : 0
+  const focusGroupLabel = lowestGroup?.id === 'legs'
+    ? 'leg'
+    : lowestGroup?.label?.toLowerCase() || 'training'
   const focusInsight = lowestWorkoutCount > 0
-    ? `${lowestWorkoutCount} more ${lowestGroup?.id === 'legs' ? 'leg' : lowestGroup?.id} session${lowestWorkoutCount === 1 ? '' : 's'} to hit your weekly goal`
-    : 'All weekly muscle targets are on pace'
-  const motivationLine = overallPct >= expectedPct + 0.08
-    ? 'Strong week. Keep it going.'
-    : overallPct >= expectedPct - 0.08
-      ? 'Stay steady. You are right on pace.'
-      : `A focused ${lowestGroup?.label?.toLowerCase() || 'training'} session gets you back in rhythm.`
+    ? `${daysLeft} day${daysLeft === 1 ? '' : 's'} left • ${lowestWorkoutCount} ${focusGroupLabel} session${lowestWorkoutCount === 1 ? '' : 's'} to hit goal`
+    : `${daysLeft} day${daysLeft === 1 ? '' : 's'} left • Weekly targets on pace`
   const routineInProgress = activeWorkout?.kind === 'routine' && !activeWorkout.summaryReady ? activeWorkout : null
   const routineSessionStats = {}
   sessions.forEach((session) => {
@@ -998,9 +996,9 @@ export default function Muscles() {
       ? 'Repeat Workout'
       : 'Start Workout'
   const recommendationLine = routineInProgress?.routine?.name
-    ? `Recommended next: Resume ${formatRoutineName(routineInProgress.routine.name)}`
+    ? `Next: ${formatRoutineName(routineInProgress.routine.name)}`
     : recommendedRoutine?.name
-      ? `Recommended next: ${formatRoutineName(recommendedRoutine.name)}`
+      ? `Next: ${formatRoutineName(recommendedRoutine.name)}`
       : null
 
   function launchRecommendedWorkout() {
@@ -1039,15 +1037,9 @@ export default function Muscles() {
         {/* Header */}
         <div>
           <h1 className="font-display text-2xl font-bold text-text-primary">Weekly Set Targets</h1>
-          <div className="mt-0.5 flex items-center gap-2 flex-wrap text-sm">
-            <p className="text-text-secondary">{weekLabel}</p>
-            <span className="text-text-secondary/50">•</span>
-            <p className="text-[#62E38D] font-semibold">{daysLeft} day{daysLeft === 1 ? '' : 's'} left</p>
-          </div>
-          <p className="mt-2 text-sm font-medium text-[#62E38D]">{focusInsight}</p>
-          <p className="mt-1 text-sm text-text-secondary">{motivationLine}</p>
+          <p className={`mt-2 text-sm font-medium ${paceTone}`}>{focusInsight}</p>
           {recommendationLine && (
-            <p className="mt-1 text-sm font-medium text-accent">{recommendationLine}</p>
+            <p className="mt-1 text-sm font-medium text-text-secondary">{recommendationLine}</p>
           )}
           {(routineInProgress || recommendedRoutine) && (
             <button
