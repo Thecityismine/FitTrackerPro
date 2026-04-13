@@ -187,17 +187,19 @@ export default function CalendarLog() {
     const label = groupsForDate.length === 1
       ? formatWorkoutLabel(groupsForDate[0].routineName)
       : routineGroups.length === 1
-        ? `${formatWorkoutLabel(routineGroups[0].routineName)} + ${groupsForDate.length - 1} more`
+        ? `${formatWorkoutLabel(routineGroups[0].routineName)} and ${groupsForDate.length - 1} more`
         : `${groupsForDate.length} workouts`
     const totalVolume = daySessions.reduce((sum, session) => sum + (session.totalVolume || 0), 0)
     const exerciseCount = new Set(daySessions.map((session) => session.exerciseId || session.exerciseName).filter(Boolean)).size
     const durationMinutes = getWorkoutDurationMinutes(daySessions)
+    const extraWorkoutCount = Math.max(groupsForDate.length - 1, 0)
 
     return {
       label,
       totalVolume,
       exerciseCount,
       workoutCount: groupsForDate.length,
+      extraWorkoutCount,
       durationLabel: formatDurationMinutes(durationMinutes),
       isAllCardio: daySessions.length > 0 && daySessions.every((session) => session.muscleGroup?.toLowerCase() === 'cardio'),
       primaryGroup: groupsForDate
@@ -277,6 +279,12 @@ export default function CalendarLog() {
     setPendingDetailsScroll(false)
     return () => cancelAnimationFrame(frame)
   }, [pendingDetailsScroll, selectedPrimaryKey])
+
+  function handleSelectedDateViewWorkout() {
+    if (!selectedPrimaryKey) return
+    setExpandedKey(selectedPrimaryKey)
+    sessionsListRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
 
   useEffect(() => {
     const requestedDate = location.state?.selectedDate
@@ -751,80 +759,59 @@ export default function CalendarLog() {
         </div>
 
         {/* ── Sessions list ────────────────────────────────── */}
-        <div ref={sessionsListRef}>
-          {selectedDateSummary && (
-            <div className="card border-accent/20 shadow-[0_0_0_1px_rgba(37,99,235,0.08)] bg-[linear-gradient(180deg,rgba(37,99,235,0.06),rgba(15,23,42,0))] mb-3">
-              <div className="flex items-start justify-between gap-4">
-                <div className="min-w-0 flex-1">
-                  <p className="text-text-secondary text-xs font-semibold uppercase tracking-[0.18em]">
-                    {format(parseISO(selectedDate), 'MMMM d')}
-                  </p>
-	                  <h2 className="mt-1 font-display text-[22px] font-bold text-text-primary truncate">
-	                    {selectedDateSummary.label}
-	                  </h2>
-                  <p className="hidden">
-                    {selectedDateSummary.workoutCount === 1
-                      ? `${selectedDateSummary.exerciseCount} exercise${selectedDateSummary.exerciseCount === 1 ? '' : 's'}`
-                      : `${selectedDateSummary.workoutCount} workouts • ${selectedDateSummary.exerciseCount} exercises`}
-                    {selectedDateSummary.durationLabel ? ` • ${selectedDateSummary.durationLabel}` : ''}
-                  </p>
-                    {selectedDateInsight && (
-                      <div className="mt-3 rounded-2xl border border-surface2 bg-surface2/60 px-3 py-3">
-                        <p className="text-text-secondary text-[11px] font-semibold uppercase tracking-[0.18em]">Insight</p>
-                        <p className={`mt-1 text-sm font-medium ${selectedDateInsight.tone}`}>
-                          {selectedDateInsight.text}
-                        </p>
-                      </div>
-                    )}
+	        <div ref={sessionsListRef}>
+	          {selectedDateSummary && (
+	            <div className="card border-accent/20 shadow-[0_0_0_1px_rgba(37,99,235,0.08)] bg-[linear-gradient(180deg,rgba(37,99,235,0.06),rgba(15,23,42,0))] mb-3">
+	              <div className="flex items-start justify-between gap-4">
+	                <div className="min-w-0 flex-1">
+	                  <p className="text-text-secondary text-xs font-semibold uppercase tracking-[0.18em]">
+	                    {format(parseISO(selectedDate), 'MMMM d')}
+	                  </p>
+		                  <h2 className="mt-1 font-display text-[22px] font-bold text-text-primary leading-tight">
+		                    {selectedDateSummary.label}
+		                  </h2>
+	                  <p className="mt-2 text-sm text-text-secondary">
+	                    {selectedDateSummary.exerciseCount} exercise{selectedDateSummary.exerciseCount === 1 ? '' : 's'}
+	                    {selectedDateSummary.durationLabel ? ` • ${selectedDateSummary.durationLabel}` : ''}
+	                  </p>
 	                </div>
-	                <div className="text-right flex-shrink-0 rounded-2xl border border-white/5 bg-surface2/65 px-4 py-3 min-w-[110px]">
-	                  <p className={`font-display text-2xl font-bold leading-none ${selectedDateSummary.isAllCardio ? 'text-accent' : 'text-accent-green'}`}>
-	                    {selectedDateSummary.isAllCardio ? selectedDateSummary.durationLabel || '--' : formatCompactVolume(selectedDateSummary.totalVolume)}
-                  </p>
-                  <p className="mt-1 text-text-secondary text-[11px] uppercase tracking-[0.14em]">
-                    {selectedDateSummary.isAllCardio ? 'Workout Time' : 'Total Volume'}
-                  </p>
-                </div>
-              </div>
-              <div className="mt-4 grid grid-cols-3 gap-2">
-                <div className="rounded-2xl border border-surface2 bg-surface2/45 px-3 py-2.5">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-text-secondary">Workouts</p>
-                  <p className="mt-1 text-base font-semibold text-text-primary">{selectedDateSummary.workoutCount}</p>
-                </div>
-                <div className="rounded-2xl border border-surface2 bg-surface2/45 px-3 py-2.5">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-text-secondary">Exercises</p>
-                  <p className="mt-1 text-base font-semibold text-text-primary">{selectedDateSummary.exerciseCount}</p>
-                </div>
-                <div className="rounded-2xl border border-surface2 bg-surface2/45 px-3 py-2.5">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-text-secondary">Duration</p>
-                  <p className="mt-1 text-base font-semibold text-text-primary">{selectedDateSummary.durationLabel || '--'}</p>
-                </div>
-              </div>
-		              <div className="mt-4 flex gap-2">
-                  {selectedDateCta && (
-                    <button
-                      onClick={selectedDateCta.run}
-                      className="btn-primary flex-1"
-                    >
-                      <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.3}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M5.25 5.653c0-1.427 1.529-2.33 2.779-1.643l9.42 5.173c1.295.711 1.295 2.575 0 3.286l-9.42 5.173c-1.25.687-2.779-.216-2.779-1.643V5.653z" />
-                      </svg>
-                      <span>{selectedDateCta.label}</span>
-                    </button>
-                  )}
-                  <button
-                    onClick={() => {
-                      if (!selectedPrimaryKey) return
-                      setExpandedKey(selectedPrimaryKey)
-                      sessionsListRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-                    }}
-                    className="btn-secondary flex-1"
-                  >
-                    View Details
-                  </button>
-                </div>
-            </div>
-          )}
+	                <div className="text-right flex-shrink-0 pl-2">
+		                  <p className={`font-display text-xl font-bold leading-none ${selectedDateSummary.isAllCardio ? 'text-accent' : 'text-accent-green'}`}>
+		                    {selectedDateSummary.isAllCardio ? selectedDateSummary.durationLabel || '--' : formatCompactVolume(selectedDateSummary.totalVolume)}
+	                  </p>
+	                  <p className="mt-1 text-text-secondary text-xs">
+	                    {selectedDateSummary.isAllCardio ? 'total time' : 'lbs total volume'}
+	                  </p>
+	                </div>
+	              </div>
+	              {selectedDateInsight && (
+	                <p className={`mt-4 text-sm font-semibold ${selectedDateInsight.tone}`}>
+	                  {selectedDateInsight.text}
+	                </p>
+	              )}
+	              {selectedDateSummary.extraWorkoutCount > 0 && (
+	                <p className="mt-2 text-xs text-text-secondary">
+	                  {selectedDateSummary.extraWorkoutCount} more workout{selectedDateSummary.extraWorkoutCount === 1 ? '' : 's'} also completed.
+	                </p>
+	              )}
+	              <div className="mt-4 space-y-2.5">
+	                <button
+	                  onClick={handleSelectedDateViewWorkout}
+	                  className="btn-primary w-full"
+	                >
+	                  View Workout
+	                </button>
+	                {selectedDateCta && (
+	                  <button
+	                    onClick={selectedDateCta.run}
+	                    className="text-accent text-sm font-semibold active:opacity-70 transition-opacity"
+	                  >
+	                    {selectedDateCta.label}
+	                  </button>
+	                )}
+	              </div>
+	            </div>
+	          )}
 
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
