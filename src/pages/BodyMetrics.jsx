@@ -387,7 +387,7 @@ function MetricCard({
       <div className="space-y-3 w-full min-w-0">
         <p className="text-text-secondary/92 text-xs leading-tight">{label}</p>
         <div className="flex min-w-0 items-baseline gap-1 flex-wrap">
-          <span className={`min-w-0 max-w-full truncate font-display ${primary ? 'text-[2.15rem]' : 'text-[1.9rem]'} leading-none font-bold ${color}`}>
+          <span className={`min-w-0 max-w-full truncate font-display text-2xl leading-none font-bold ${color}`}>
             {value != null ? value : '—'}
           </span>
           {unit && value != null && <span className="shrink-0 text-text-secondary/90 text-[11px] font-medium">{unit}</span>}
