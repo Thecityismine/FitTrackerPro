@@ -348,38 +348,71 @@ function compressImage(file, maxPx = 900, quality = 0.65) {
 }
 
 // ── Trend Arrow ────────────────────────────────────────────
-function TrendArrow({ delta, lowerIsBetter = false, label = '7d change' }) {
+function TrendArrow({ delta, lowerIsBetter = false, label = '7D' }) {
   if (delta == null || delta === 0) return null
   const up = delta > 0
   const good = lowerIsBetter ? !up : up
   return (
-    <div className="mt-1.5 flex items-center justify-between gap-2">
-      <span className={`text-xs font-bold flex items-center gap-0.5 ${good ? 'text-accent-green' : 'text-accent-red'}`}>
-        <svg className={`w-3 h-3 ${up ? '' : 'rotate-180'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+    <div className="flex items-center gap-1.5">
+      <span className={`text-sm font-bold flex items-center gap-0.5 ${good ? 'text-accent-green' : 'text-accent-red'}`}>
+        <svg className={`w-3.5 h-3.5 ${up ? '' : 'rotate-180'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" />
         </svg>
         {Math.abs(delta).toFixed(1)}
       </span>
-      <span className="text-[10px] uppercase tracking-[0.16em] text-text-secondary/80">{label}</span>
+      <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-text-secondary/78">({label})</span>
     </div>
   )
 }
 
 // ── Metric Card ────────────────────────────────────────────
-function MetricCard({ label, value, unit, delta, lowerIsBetter, note, valueColor, deltaLabel = '7d change' }) {
+function MetricCard({
+  label,
+  value,
+  unit,
+  delta,
+  lowerIsBetter,
+  note,
+  valueColor,
+  deltaLabel = '7D',
+  primary = false,
+}) {
   const color = value != null ? (valueColor || 'text-white') : 'text-surface2'
+  const cardTone = primary
+    ? 'border border-accent/24 bg-[linear-gradient(180deg,rgba(26,86,219,0.14),rgba(51,65,85,0.92))] shadow-[0_12px_24px_rgba(37,99,235,0.12)]'
+    : 'border border-white/6 bg-surface2/96'
+
   return (
-    <div className="bg-surface2 rounded-2xl p-3">
-      <p className="text-text-secondary text-xs leading-tight mb-1.5">{label}</p>
-      <div className="flex items-baseline gap-1 flex-wrap">
-        <span className={`font-display text-xl font-bold ${color}`}>
-          {value != null ? value : '—'}
-        </span>
-        {unit && value != null && <span className="text-text-secondary text-xs">{unit}</span>}
+    <div className={`rounded-2xl p-4 flex min-h-[148px] flex-col items-start justify-between text-left ${cardTone}`}>
+      <div className="space-y-4">
+        <p className="text-text-secondary/92 text-xs leading-tight">{label}</p>
+        <div className="flex items-baseline gap-1.5 whitespace-nowrap">
+          <span className={`font-display ${primary ? 'text-[3rem]' : 'text-[2.6rem]'} leading-none font-bold ${color}`}>
+            {value != null ? value : '—'}
+          </span>
+          {unit && value != null && <span className="text-text-secondary/90 text-[12px] font-medium">{unit}</span>}
+        </div>
       </div>
-      {delta != null && value != null && <TrendArrow delta={delta} lowerIsBetter={lowerIsBetter} label={deltaLabel} />}
-      {note && value != null && <p className="text-text-secondary text-xs mt-0.5">{note}</p>}
+      <div className="mt-5 space-y-1.5">
+        {delta != null && value != null && <TrendArrow delta={delta} lowerIsBetter={lowerIsBetter} label={deltaLabel} />}
+        {note && value != null && <p className="text-text-secondary/88 text-xs">{note}</p>}
+      </div>
     </div>
+  )
+}
+
+function TopMetricCard(metric) {
+  return (
+    <MetricCard
+      label={metric.label}
+      value={metric.value}
+      unit={metric.unit}
+      delta={metric.delta}
+      lowerIsBetter={metric.lowerIsBetter}
+      valueColor={metric.valueColor}
+      deltaLabel="7D"
+      primary={metric.primary}
+    />
   )
 }
 
@@ -1394,30 +1427,7 @@ Notes: weight/boneMass/fatFreeBodyWeight/muscleMassLbs are in lbs; bodyFat/bodyW
                 <p className="text-text-secondary text-xs uppercase tracking-[0.18em] mb-2">Key Metrics</p>
                 <div className="grid grid-cols-3 gap-2">
                   {topMetricCards.map((metric) => (
-                    <div
-                      key={metric.label}
-                      className={`rounded-2xl p-3 ${
-                        metric.primary
-                          ? 'border border-accent/24 bg-[linear-gradient(180deg,rgba(26,86,219,0.12),rgba(51,65,85,0.92))] shadow-[0_10px_22px_rgba(37,99,235,0.12)]'
-                          : 'bg-surface2'
-                      }`}
-                    >
-                      <p className="text-text-secondary text-xs leading-tight mb-1.5">{metric.label}</p>
-                      <div className="flex items-baseline gap-1 flex-wrap">
-                        <span
-                          key={`metric-${metric.label}-${metric.value ?? 'na'}`}
-                          className={`inline-block ${metric.primary ? 'card-enter' : ''} font-display ${metric.primary ? 'text-[2rem]' : 'text-2xl'} font-bold ${metric.value != null ? (metric.valueColor || 'text-white') : 'text-surface2'}`}
-                        >
-                          {metric.value != null ? metric.value : '—'}
-                        </span>
-                        {metric.unit && metric.value != null && <span className="text-text-secondary text-xs">{metric.unit}</span>}
-                      </div>
-                      {metric.delta != null && metric.value != null && (
-                        <div className="mt-1">
-                          <TrendArrow delta={metric.delta} lowerIsBetter={metric.lowerIsBetter} />
-                        </div>
-                      )}
-                    </div>
+                    <TopMetricCard key={metric.label} {...metric} />
                   ))}
                 </div>
               </div>
