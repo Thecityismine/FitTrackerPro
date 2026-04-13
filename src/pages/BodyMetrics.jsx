@@ -383,17 +383,17 @@ function MetricCard({
     : 'border border-white/6 bg-surface2/96'
 
   return (
-    <div className={`rounded-2xl p-4 flex min-h-[148px] flex-col items-start justify-between text-left ${cardTone}`}>
-      <div className="space-y-4">
+    <div className={`rounded-2xl p-3.5 flex min-h-[126px] flex-col items-start justify-between text-left overflow-hidden ${cardTone}`}>
+      <div className="space-y-3 w-full min-w-0">
         <p className="text-text-secondary/92 text-xs leading-tight">{label}</p>
-        <div className="flex items-baseline gap-1.5 whitespace-nowrap">
-          <span className={`font-display ${primary ? 'text-[3rem]' : 'text-[2.6rem]'} leading-none font-bold ${color}`}>
+        <div className="flex min-w-0 items-baseline gap-1 flex-wrap">
+          <span className={`min-w-0 max-w-full truncate font-display ${primary ? 'text-[2.15rem]' : 'text-[1.9rem]'} leading-none font-bold ${color}`}>
             {value != null ? value : '—'}
           </span>
-          {unit && value != null && <span className="text-text-secondary/90 text-[12px] font-medium">{unit}</span>}
+          {unit && value != null && <span className="shrink-0 text-text-secondary/90 text-[11px] font-medium">{unit}</span>}
         </div>
       </div>
-      <div className="mt-5 space-y-1.5">
+      <div className="mt-4 space-y-1.5 w-full min-w-0">
         {delta != null && value != null && <TrendArrow delta={delta} lowerIsBetter={lowerIsBetter} label={deltaLabel} />}
         {note && value != null && <p className="text-text-secondary/88 text-xs">{note}</p>}
       </div>
