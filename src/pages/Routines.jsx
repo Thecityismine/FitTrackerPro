@@ -582,6 +582,7 @@ function RoutineDetail({
 
   const exercises = routine.exercises || []
   const existingIds = exercises.map((ex) => ex.id)
+  const bottomNavOffsetStyle = { bottom: 'calc(4rem + env(safe-area-inset-bottom))' }
 
   // Per-exercise stats derived from sessions
   const exerciseStats = useMemo(() => {
@@ -671,7 +672,7 @@ function RoutineDetail({
 
   return (
     <>
-      <div className="fixed inset-x-0 top-0 bottom-16 z-[55] flex flex-col bg-bg animate-fade-in">
+      <div className="fixed inset-x-0 top-0 z-[55] flex flex-col bg-bg animate-fade-in" style={bottomNavOffsetStyle}>
 
         {/* Header */}
         <div className="flex items-center gap-3 px-4 pt-4 pb-2 flex-shrink-0 border-b border-surface2">
