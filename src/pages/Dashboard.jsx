@@ -569,7 +569,7 @@ export default function Dashboard() {
   const trainedToday = lastDate === TODAY
   const routineInProgress = activeWorkout?.kind === 'routine' && !activeWorkout.summaryReady ? activeWorkout : null
   const routineCompletedCount = routineInProgress
-    ? routineInProgress.exercises.filter((exercise) => exercise.status === 'completed').length
+    ? routineInProgress.completed.length
     : 0
   const routineCurrentExercise = routineInProgress?.exercises.find((exercise) => exercise.id === routineInProgress.currentExerciseId)
 
