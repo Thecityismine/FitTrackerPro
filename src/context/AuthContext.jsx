@@ -3,6 +3,8 @@ import { createContext, useContext, useEffect, useRef, useState } from 'react'
 import {
   onAuthStateChanged,
   signInWithPopup,
+  signInWithCredential,
+  GoogleAuthProvider,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   signOut,
@@ -10,6 +12,8 @@ import {
 } from 'firebase/auth'
 import { doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore'
 import { auth, db, googleProvider } from '../firebase/config'
+import { Capacitor } from '@capacitor/core'
+import { FirebaseAuthentication } from '@capacitor-firebase/authentication'
 import { sanitizeDisplayName, sanitizeEmail } from '../utils/profileSanitizers'
 
 const AuthContext = createContext(null)
@@ -88,9 +92,23 @@ export function AuthProvider({ children }) {
   }
 
   async function signInWithGoogle() {
-    const result = await signInWithPopup(auth, googleProvider)
-    const { user } = result
-    // Create profile doc if first time
+    let user
+
+    if (Capacitor.isNativePlatform()) {
+      // Native (iOS / Android): use the Capacitor Firebase plugin which
+      // invokes the platform's native Google Sign In sheet — signInWithPopup
+      // does not work inside a WebView.
+      const { credential: nativeCredential } = await FirebaseAuthentication.signInWithGoogle()
+      const googleCredential = GoogleAuthProvider.credential(nativeCredential?.idToken)
+      const result = await signInWithCredential(auth, googleCredential)
+      user = result.user
+    } else {
+      // Web: existing popup flow
+      const result = await signInWithPopup(auth, googleProvider)
+      user = result.user
+    }
+
+    // Create profile doc if this is the first sign-in
     const ref = doc(db, 'users', user.uid)
     const snap = await getDoc(ref)
     if (!snap.exists()) {

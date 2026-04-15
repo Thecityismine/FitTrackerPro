@@ -6,11 +6,17 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "build:native": "vite build --mode native && npx cap sync",
     "preview": "vite preview",
     "lint": "eslint . --ext js,jsx --report-unused-disable-directives --max-warnings 0",
-    "compress:images": "node scripts/compress-images.mjs"
+    "compress:images": "node scripts/compress-images.mjs",
+    "cap:ios": "npx cap open ios",
+    "cap:android": "npx cap open android",
+    "cap:sync": "npx cap sync"
   },
   "dependencies": {
+    "@capacitor-firebase/authentication": "^6.0.0",
+    "@capacitor/core": "^6.0.0",
     "date-fns": "^3.2.0",
     "firebase": "^10.7.0",
     "react": "^18.2.0",
@@ -19,6 +25,9 @@
     "recharts": "^2.10.0"
   },
   "devDependencies": {
+    "@capacitor/android": "^6.0.0",
+    "@capacitor/cli": "^6.0.0",
+    "@capacitor/ios": "^6.0.0",
     "@types/react": "^18.2.43",
     "@types/react-dom": "^18.2.17",
     "@vitejs/plugin-react": "^4.2.1",
