@@ -64,7 +64,13 @@ const exercises = [
   { name: 'Calf Raise',                       muscleGroup: 'Legs',      category: 'strength' },
   { name: 'Calf Extension',                   muscleGroup: 'Legs',      category: 'strength' },
   // Glutes
+  { name: 'Cable Hip Extension',             muscleGroup: 'Glutes',    category: 'strength' },
   { name: 'Glute Machine',                    muscleGroup: 'Glutes',    category: 'strength' },
+  { name: 'Glute Cable Kickbacks',           muscleGroup: 'Glutes',    category: 'strength' },
+  { name: 'Glute Kickback Machine',          muscleGroup: 'Glutes',    category: 'strength' },
+  { name: 'Glute trainer machine',           muscleGroup: 'Glutes',    category: 'strength' },
+  { name: 'Hack Squat',                      muscleGroup: 'Glutes',    category: 'strength' },
+  { name: 'Romanian Deadlifts',              muscleGroup: 'Glutes',    category: 'strength' },
   { name: 'Sumo Squat',                       muscleGroup: 'Glutes',    category: 'strength' },
   { name: 'Walking Lunges',                   muscleGroup: 'Glutes',    category: 'strength' },
   { name: 'Deadlift',                         muscleGroup: 'Glutes',    category: 'strength' },

@@ -60,7 +60,7 @@ export default function Login() {
           <img src="/Logo.png" alt="FitTrack Pro" className="w-full h-full object-contain" />
         </div>
         <h1 className="font-display text-3xl font-bold text-text-primary tracking-tight">FitTrack Pro</h1>
-        <p className="text-text-secondary text-sm mt-1">Your personal fitness journal</p>
+        <p className="text-text-secondary text-sm mt-1">Your personal performance tracking system</p>
       </div>
 
       {/* Card */}

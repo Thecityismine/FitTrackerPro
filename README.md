@@ -86,3 +86,14 @@ scripts/
 
 ## Multi-User
 Each family member creates their own account. Data stays isolated under `users/{uid}/...`.
+
+## Exercise Library Maintenance
+Shared exercises come from the Firestore `globalExercises` collection. If the main account has exercises that other users do not see, use the admin sync script from `functions/`:
+
+```bash
+cd functions
+node scripts/sync-exercise-library.mjs --source-uid <main-account-uid>
+node scripts/sync-exercise-library.mjs --source-uid <main-account-uid> --apply --backfill-users
+```
+
+This script requires Firebase Admin credentials in your environment and will report missing exercises before it writes anything.
