@@ -80,7 +80,19 @@ function buildExerciseState(exercises, sessions) {
 }
 
 function WorkoutSetRow({ set, index, isCardio, onUpdate, onDelete }) {
+  const [weightStr, setWeightStr] = useState(set.weight > 0 ? String(set.weight) : '')
   const volume = (set.reps || 0) * (set.weight || 0)
+
+  function handleWeightChange(event) {
+    const raw = event.target.value
+    setWeightStr(raw)
+    if (raw === '') {
+      onUpdate({ ...set, weight: 0 })
+    } else {
+      const n = parseFloat(raw)
+      if (Number.isFinite(n)) onUpdate({ ...set, weight: n })
+    }
+  }
 
   return (
     <div className="grid grid-cols-[30px_1fr_1fr_56px_28px] gap-2 items-center py-2 border-b border-surface2 last:border-0">
@@ -94,11 +106,11 @@ function WorkoutSetRow({ set, index, isCardio, onUpdate, onDelete }) {
         className="bg-bg/70 rounded-xl px-3 py-2.5 text-text-primary text-sm text-center w-full focus:outline-none focus:ring-1 focus:ring-accent"
       />
       <input
-        type="number"
+        type="text"
         inputMode="decimal"
-        value={set.weight || ''}
+        value={weightStr}
         placeholder={isCardio ? 'min' : '0'}
-        onChange={(event) => onUpdate({ ...set, weight: Number(event.target.value) })}
+        onChange={handleWeightChange}
         className="bg-bg/70 rounded-xl px-3 py-2.5 text-text-primary text-sm text-center w-full focus:outline-none focus:ring-1 focus:ring-accent"
       />
       <span className="text-text-secondary text-xs text-right font-mono">
@@ -343,7 +355,7 @@ function GuidedWorkoutPage() {
     const fallback = state.lastTemplate || { reps: 8, weight: 0 }
     return {
       reps: lastSet?.reps || fallback.reps || 8,
-      weight: lastSet?.weight || fallback.weight || 0,
+      weight: lastSet != null ? lastSet.weight : (fallback.weight ?? 0),
     }
   }
 

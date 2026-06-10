@@ -19,7 +19,19 @@ const TODAY_DISPLAY = format(new Date(), 'EEEE, MMM d')
 const CARDIO_RE = /\b(cardio|walking|walk|run|running|jog|jogging|bike|cycling|cycle|elliptical|swim|swimming|rowing|treadmill|stair|hiit)\b/i
 
 function SetRow({ set, index, onUpdate, onDelete, isCardio }) {
+  const [weightStr, setWeightStr] = useState(set.weight > 0 ? String(set.weight) : '')
   const volume = (set.reps || 0) * (set.weight || 0)
+
+  function handleWeightChange(e) {
+    const raw = e.target.value
+    setWeightStr(raw)
+    if (raw === '') {
+      onUpdate({ ...set, weight: 0 })
+    } else {
+      const n = parseFloat(raw)
+      if (Number.isFinite(n)) onUpdate({ ...set, weight: n })
+    }
+  }
 
   return (
     <div className="grid grid-cols-[28px_1fr_1fr_1fr_28px] gap-2 items-center py-2.5 border-b border-surface2 last:border-0">
@@ -33,11 +45,11 @@ function SetRow({ set, index, onUpdate, onDelete, isCardio }) {
         className="bg-surface2 rounded-lg px-2 py-2.5 text-text-primary text-base text-center w-full focus:outline-none focus:ring-1 focus:ring-accent"
       />
       <input
-        type="number"
+        type="text"
         inputMode="decimal"
-        value={set.weight || ''}
+        value={weightStr}
         placeholder={isCardio ? 'min' : '0'}
-        onChange={(e) => onUpdate({ ...set, weight: Number(e.target.value) })}
+        onChange={handleWeightChange}
         className="bg-surface2 rounded-lg px-2 py-2.5 text-white font-semibold text-base text-center w-full focus:outline-none focus:ring-1 focus:ring-accent"
       />
       <span className="text-text-secondary text-sm text-right font-mono">
@@ -260,11 +272,11 @@ export default function LegacyExerciseWorkout() {
 
   function addSet() {
     const lastSet = sets[sets.length - 1]
-    const defaultWeight = lastSet?.weight || lastTemplate.weight || lastHistoricalWeight || 0
+    const defaultWeight = lastSet != null ? lastSet.weight : (lastTemplate.weight || lastHistoricalWeight || 0)
     const defaultReps = lastSet?.reps || lastTemplate.reps || 8
     const nextSets = [
       ...sets,
-      { id: Date.now().toString(), reps: defaultReps, weight: defaultWeight },
+      { id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, reps: defaultReps, weight: defaultWeight },
     ]
     setSets(nextSets)
     scheduleSave(nextSets)

@@ -463,14 +463,14 @@ export default function Dashboard() {
 
   const weeklyMap = {}
   activeSessions.forEach((session) => {
-    if (!session.date) return
+    if (!session.date || isCardioSession(session)) return
     const weekKey = format(startOfWeek(parseISO(session.date), { weekStartsOn: 0 }), 'yyyy-MM-dd')
     weeklyMap[weekKey] = (weeklyMap[weekKey] || 0) + getSessionVolume(session)
   })
 
   const monthlyMap = {}
   activeSessions.forEach((session) => {
-    if (!session.date) return
+    if (!session.date || isCardioSession(session)) return
     const monthKey = session.date.slice(0, 7)
     monthlyMap[monthKey] = (monthlyMap[monthKey] || 0) + getSessionVolume(session)
   })
