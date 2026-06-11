@@ -159,6 +159,11 @@ export default function LegacyExerciseWorkout() {
   }, [])
 
   useEffect(() => {
+    window.scrollTo(0, 0)
+    document.querySelector('main')?.scrollTo(0, 0)
+  }, [exerciseId])
+
+  useEffect(() => {
     if (!user || !exerciseId) return
 
     setSets([])
