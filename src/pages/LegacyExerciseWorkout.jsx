@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useLayoutEffect, useRef } from 'react'
 import { useNavigate, useParams, useLocation } from 'react-router-dom'
 import { format, parseISO } from 'date-fns'
 import {
@@ -158,7 +158,7 @@ export default function LegacyExerciseWorkout() {
     return () => viewport.removeEventListener('resize', updateHeight)
   }, [])
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     window.scrollTo(0, 0)
     document.querySelector('main')?.scrollTo(0, 0)
   }, [exerciseId])
