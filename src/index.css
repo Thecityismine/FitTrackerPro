@@ -427,6 +427,11 @@
   }
 }
 
+/* iOS auto-zoom fix: font-size must be >= 16px on focused inputs */
+input, select, textarea {
+  font-size: 16px;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .btn-primary,
   .btn-secondary,
