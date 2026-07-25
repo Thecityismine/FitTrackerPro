@@ -126,6 +126,7 @@ export default function LegacyExerciseWorkout() {
   const [history, setHistory] = useState([])
   const [pastSessionsData, setPastSessionsData] = useState([])
   const [lastHistoricalWeight, setLastHistoricalWeight] = useState(0)
+  const [historicalBestWeight, setHistoricalBestWeight] = useState(0)
   const [lastTemplate, setLastTemplate] = useState({ reps: 8, weight: 0 })
   const [sessionCount, setSessionCount] = useState(0)
   const [lastSessionDate, setLastSessionDate] = useState(null)
@@ -169,6 +170,7 @@ export default function LegacyExerciseWorkout() {
         setLastTemplate({ reps: 8, weight: 0 })
         setSessionCount(0)
         setLastSessionDate(null)
+        setHistoricalBestWeight(0)
         setLoading(true)
 
     user.getIdToken()
@@ -209,6 +211,12 @@ export default function LegacyExerciseWorkout() {
           0
         )
         setLastHistoricalWeight(lastWeight)
+
+        const bestWeight = pastSessions.reduce(
+          (maxWeight, session) => Math.max(maxWeight, ...(session.sets || []).map((set) => set.weight || 0)),
+          0
+        )
+        setHistoricalBestWeight(bestWeight)
         setLoading(false)
       })
       .catch((error) => {
@@ -332,7 +340,8 @@ export default function LegacyExerciseWorkout() {
   }
 
   const totalVolume = sets.reduce((sum, set) => sum + (set.reps || 0) * (set.weight || 0), 0)
-  const bestWeight = sets.reduce((maxWeight, set) => Math.max(maxWeight, set.weight || 0), 0)
+  const todayBestWeight = sets.reduce((maxWeight, set) => Math.max(maxWeight, set.weight || 0), 0)
+  const bestWeight = Math.max(todayBestWeight, historicalBestWeight)
   const chartData = annotateTrendPoints([
     ...history,
     ...(totalVolume > 0 ? [{ date: 'Today', volume: totalVolume }] : []),
