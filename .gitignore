@@ -45,3 +45,6 @@ Firebase API.txt
 FitTrack_Pro_Blueprint.docx
 "Notion workout Log.csv"
 Notion\ workout\ Log.csv
+
+# Temp PDF page renders from the metrics export
+.tmp-metrics-pdf/

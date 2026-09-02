@@ -7,11 +7,13 @@ import {
   GoogleAuthProvider,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
+  sendPasswordResetEmail,
   signOut,
   updateProfile,
 } from 'firebase/auth'
 import { doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore'
-import { auth, db, googleProvider } from '../firebase/config'
+import { httpsCallable } from 'firebase/functions'
+import { auth, appleProvider, db, functions, googleProvider } from '../firebase/config'
 import { Capacitor } from '@capacitor/core'
 import { FirebaseAuthentication } from '@capacitor-firebase/authentication'
 import { sanitizeDisplayName, sanitizeEmail } from '../utils/profileSanitizers'
@@ -91,6 +93,24 @@ export function AuthProvider({ children }) {
     return profileData
   }
 
+  // Shared by federated sign-in flows (Google, Apple): create the profile doc
+  // if this is the user's first sign-in, otherwise load the existing one.
+  async function loadOrCreateFederatedProfile(user) {
+    const ref = doc(db, 'users', user.uid)
+    const snap = await getDoc(ref)
+    if (!snap.exists()) {
+      await createUserProfile(user.uid, {
+        displayName: user.displayName,
+        email: user.email,
+        photoURL: user.photoURL,
+      })
+    } else {
+      setProfile(snap.data())
+      setProfileLoading(false)
+    }
+    return user
+  }
+
   async function signInWithGoogle() {
     let user
 
@@ -108,20 +128,31 @@ export function AuthProvider({ children }) {
       user = result.user
     }
 
-    // Create profile doc if this is the first sign-in
-    const ref = doc(db, 'users', user.uid)
-    const snap = await getDoc(ref)
-    if (!snap.exists()) {
-      await createUserProfile(user.uid, {
-        displayName: user.displayName,
-        email: user.email,
-        photoURL: user.photoURL,
+    return loadOrCreateFederatedProfile(user)
+  }
+
+  async function signInWithApple() {
+    let user
+
+    if (Capacitor.isNativePlatform()) {
+      // Native (iOS): invokes the platform's native Sign in with Apple sheet.
+      // Requires the "Sign in with Apple" capability enabled in Xcode and an
+      // Apple Services ID configured as an OAuth provider in Firebase Console.
+      const { credential: nativeCredential } = await FirebaseAuthentication.signInWithApple()
+      const appleCredential = appleProvider.credential({
+        idToken: nativeCredential?.idToken,
+        rawNonce: nativeCredential?.nonce,
       })
+      const result = await signInWithCredential(auth, appleCredential)
+      user = result.user
     } else {
-      setProfile(snap.data())
-      setProfileLoading(false)
+      // Web: OAuth popup flow — requires Apple enabled as a sign-in provider
+      // in Firebase Console (Authentication > Sign-in method > Apple).
+      const result = await signInWithPopup(auth, appleProvider)
+      user = result.user
     }
-    return user
+
+    return loadOrCreateFederatedProfile(user)
   }
 
   async function signInWithEmail(email, password) {
@@ -141,10 +172,23 @@ export function AuthProvider({ children }) {
     return result.user
   }
 
+  async function resetPassword(email) {
+    await sendPasswordResetEmail(auth, sanitizeEmail(email))
+  }
+
   async function logout() {
     await signOut(auth)
     // Full page reload clears Firebase SDK memory cache, React state, and any
     // module-level data — ensures the next login starts from a clean slate.
+    window.location.replace('/login')
+  }
+
+  async function deleteAccount() {
+    const deleteAccountFn = httpsCallable(functions, 'deleteAccount')
+    await deleteAccountFn()
+    // The Auth user no longer exists server-side; sign out locally and reload
+    // to clear all cached Firebase/React state, same as logout().
+    await signOut(auth).catch(() => {})
     window.location.replace('/login')
   }
 
@@ -162,9 +206,12 @@ export function AuthProvider({ children }) {
       loading,
       profileLoading,
       signInWithGoogle,
+      signInWithApple,
       signInWithEmail,
       signUpWithEmail,
+      resetPassword,
       logout,
+      deleteAccount,
       updateUserProfile,
     }}>
       {children}

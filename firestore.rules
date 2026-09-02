@@ -4,8 +4,23 @@ service cloud.firestore {
 
     match /users/{userId} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
+
+      // Entitlement records must only ever be written by the trusted backend
+      // (Admin SDK, after server-side purchase validation) — never by the client,
+      // or any signed-in user could grant themselves Pro by writing their own doc.
+      match /subscription/{docId} {
+        allow read: if request.auth != null && request.auth.uid == userId;
+        allow write: if false;
+      }
+
+      // Firestore rules are a permissive union: a matching `allow` in ANY block
+      // grants access, and `allow write: if false` above does not override it.
+      // The subscription path must be excluded here or this wildcard hands back
+      // exactly the write access that block is trying to withhold.
       match /{subcollection}/{docId} {
-        allow read, write: if request.auth != null && request.auth.uid == userId;
+        allow read, write: if request.auth != null
+          && request.auth.uid == userId
+          && subcollection != 'subscription';
       }
     }
 

@@ -25,6 +25,7 @@ import {
   userDoc,
 } from '../firebase/collections'
 
+const MAX_UPLOAD_BYTES = 5 * 1024 * 1024
 const DATA_BACKUP_VERSION = 1
 const SEX_OPTIONS = [
   { value: 'male', label: 'Male' },
@@ -222,7 +223,7 @@ function ProfileLoadingState({ onBack }) {
 }
 
 export default function Profile() {
-  const { user, profile, loading: authLoading, profileLoading, logout, updateUserProfile } = useAuth()
+  const { user, profile, loading: authLoading, profileLoading, logout, deleteAccount, updateUserProfile } = useAuth()
   const navigate = useNavigate()
 
   const displayName = profile?.displayName || user?.displayName || 'Athlete'
@@ -246,6 +247,7 @@ export default function Profile() {
   const [volumeGoal, setVolumeGoal]   = useState(profile?.weeklyVolumeGoal ?? 100000)
   const [saving, setSaving]       = useState(false)
   const [saved, setSaved]         = useState(false)
+  const [saveError, setSaveError] = useState(null)
 
   // File upload states
   const [uploadingPhoto, setUploadingPhoto] = useState(false)
@@ -261,6 +263,9 @@ export default function Profile() {
   const [duplicatePlans, setDuplicatePlans]         = useState(null)
   const [duplicateStatus, setDuplicateStatus]       = useState(null)
   const [confirmMerge, setConfirmMerge]             = useState(false)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [deletingAccount, setDeletingAccount]     = useState(false)
+  const [deleteError, setDeleteError]             = useState(null)
   const photoInputRef  = useRef(null)
   const qrInputRef     = useRef(null)
   const importInputRef = useRef(null)
@@ -285,6 +290,16 @@ export default function Profile() {
     setVolumeGoal(profile?.weeklyVolumeGoal ?? 100000)
   }, [profile, user?.displayName])
 
+  function validateImageFile(file) {
+    if (!file.type.startsWith('image/')) {
+      return 'Please choose an image file.'
+    }
+    if (file.size > MAX_UPLOAD_BYTES) {
+      return 'That image is too large. Please choose one under 5MB.'
+    }
+    return null
+  }
+
   async function uploadFile(file, path) {
     const sRef = storageRef(storage, path)
     await uploadBytes(sRef, file)
@@ -294,8 +309,14 @@ export default function Profile() {
   async function handlePhotoUpload(e) {
     const file = e.target.files[0]
     if (!file || !user?.uid) return
-    setUploadingPhoto(true)
     setUploadError(null)
+    const validationError = validateImageFile(file)
+    if (validationError) {
+      setUploadError(validationError)
+      e.target.value = ''
+      return
+    }
+    setUploadingPhoto(true)
     try {
       const url = await uploadFile(file, `users/${user.uid}/profile`)
       await updateProfile(auth.currentUser, { photoURL: url })
@@ -310,8 +331,14 @@ export default function Profile() {
   async function handleQrUpload(e) {
     const file = e.target.files[0]
     if (!file || !user?.uid) return
-    setUploadingQr(true)
     setUploadError(null)
+    const validationError = validateImageFile(file)
+    if (validationError) {
+      setUploadError(validationError)
+      e.target.value = ''
+      return
+    }
+    setUploadingQr(true)
     try {
       const url = await uploadFile(file, `users/${user.uid}/gymQr`)
       await updateUserProfile({ gymQrUrl: url })
@@ -324,6 +351,7 @@ export default function Profile() {
 
   async function handleSave() {
     setSaving(true)
+    setSaveError(null)
     try {
       const heightFeet = sanitizeBoundedInt(heightFt, { min: 0, max: 8, fallback: 0 })
       const heightInches = sanitizeBoundedInt(heightIn, { min: 0, max: 11, fallback: 0 })
@@ -373,6 +401,9 @@ export default function Profile() {
       setVolumeGoal(sanitizedProfile.weeklyVolumeGoal)
       setSaved(true)
       savedTimerRef.current = setTimeout(() => setSaved(false), 2500)
+    } catch (error) {
+      console.error('Profile save error:', error)
+      setSaveError('We could not save your changes. Check your connection and try again.')
     } finally {
       setSaving(false)
     }
@@ -381,6 +412,19 @@ export default function Profile() {
   async function handleLogout() {
     await logout()
     navigate('/')
+  }
+
+  async function handleDeleteAccount() {
+    setDeletingAccount(true)
+    setDeleteError(null)
+    try {
+      await deleteAccount()
+    } catch (error) {
+      console.error('Account deletion error:', error)
+      setDeletingAccount(false)
+      setShowDeleteConfirm(false)
+      setDeleteError('We could not delete your account. Check your connection and try again.')
+    }
   }
 
   function applyImportedProfile(profileData) {
@@ -818,6 +862,12 @@ export default function Profile() {
               </div>
             </div>
 
+            {saveError && (
+              <div className="rounded-2xl border border-red-500/30 bg-red-500/10 px-3 py-2.5 text-xs text-accent-red">
+                {saveError}
+              </div>
+            )}
+
             <button
               onClick={handleSave}
               disabled={saving}
@@ -1088,7 +1138,32 @@ export default function Profile() {
           Sign Out
         </button>
 
+        {/* Delete Account */}
+        <div className="space-y-2">
+          {deleteError && (
+            <div className="rounded-2xl border border-red-500/30 bg-red-500/10 px-3 py-2.5 text-xs text-accent-red">
+              {deleteError}
+            </div>
+          )}
+          <button
+            onClick={() => setShowDeleteConfirm(true)}
+            className="w-full py-3 rounded-xl text-text-secondary font-medium text-sm active:scale-95 transition-transform"
+          >
+            Delete Account
+          </button>
+        </div>
+
       </div>
+      {showDeleteConfirm && (
+        <ConfirmDialog
+          title="Delete your account?"
+          message="This permanently deletes your profile, routines, exercises, sessions, body metrics, and photos. This cannot be undone."
+          confirmLabel={deletingAccount ? 'Deleting...' : 'Delete Account'}
+          tone="danger"
+          onCancel={() => setShowDeleteConfirm(false)}
+          onConfirm={deletingAccount ? undefined : handleDeleteAccount}
+        />
+      )}
       {pendingImport && (
         <ConfirmDialog
           title="Import backup?"

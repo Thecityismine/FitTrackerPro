@@ -1,5 +1,7 @@
 import { initializeApp } from 'firebase-admin/app'
+import { getAuth } from 'firebase-admin/auth'
 import { getFirestore } from 'firebase-admin/firestore'
+import { getStorage } from 'firebase-admin/storage'
 import { defineSecret } from 'firebase-functions/params'
 import { setGlobalOptions } from 'firebase-functions/v2'
 import { HttpsError, onCall } from 'firebase-functions/v2/https'
@@ -245,5 +247,51 @@ export const aiProxy = onCall(
       })
       throw new HttpsError('internal', friendlyMessage)
     }
+  }
+)
+
+export const deleteAccount = onCall(
+  {
+    cors: true,
+    timeoutSeconds: 120,
+    memory: '256MiB',
+    invoker: 'public',
+  },
+  async (request) => {
+    const uid = request.auth?.uid
+    if (!uid) {
+      throw new HttpsError('unauthenticated', 'Sign in to delete your account.')
+    }
+
+    // Delete Firestore + Storage data before the Auth user, so a mid-failure
+    // never leaves an unreachable account with its data still intact.
+    try {
+      await db.recursiveDelete(db.doc(`users/${uid}`))
+      await db.doc(`aiRateLimits/${uid}`).delete()
+
+      const bucket = getStorage().bucket()
+      await bucket.deleteFiles({ prefix: `users/${uid}/` })
+    } catch (error) {
+      logger.error('Account deletion data cleanup failed', {
+        uid,
+        error: error?.message || String(error),
+      })
+      throw new HttpsError('internal', 'Could not delete your data. Please try again.')
+    }
+
+    try {
+      await getAuth().deleteUser(uid)
+    } catch (error) {
+      logger.error('Account deletion auth cleanup failed', {
+        uid,
+        error: error?.message || String(error),
+      })
+      throw new HttpsError(
+        'internal',
+        'Your data was deleted but we could not remove your sign-in account. Contact support.'
+      )
+    }
+
+    return { success: true }
   }
 )

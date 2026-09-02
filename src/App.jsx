@@ -6,13 +6,26 @@ import { ActiveWorkoutProvider } from './context/ActiveWorkoutContext'
 import { TimerProvider } from './context/TimerContext'
 
 // If a lazy chunk fails to load (stale URL after a new deploy), reload the page
-// so the SW serves fresh assets instead of showing a blank screen.
+// so the SW serves fresh assets instead of showing a blank screen. Guarded by a
+// sessionStorage flag so a chunk that keeps failing (e.g. fully offline) doesn't
+// reload forever.
+const CHUNK_RELOAD_KEY = 'fittrack-chunk-reload'
 function lazyWithReload(factory) {
   return lazy(() =>
-    factory().catch(() => {
-      window.location.reload()
-      return new Promise(() => {})
-    })
+    factory()
+      .then((mod) => {
+        sessionStorage.removeItem(CHUNK_RELOAD_KEY)
+        return mod
+      })
+      .catch((error) => {
+        const alreadyReloaded = sessionStorage.getItem(CHUNK_RELOAD_KEY)
+        if (!alreadyReloaded) {
+          sessionStorage.setItem(CHUNK_RELOAD_KEY, '1')
+          window.location.reload()
+          return new Promise(() => {})
+        }
+        throw error
+      })
   )
 }
 
