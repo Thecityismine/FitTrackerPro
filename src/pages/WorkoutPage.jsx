@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { format, parseISO } from 'date-fns'
+import { format } from 'date-fns'
 import { addDoc, getDocs, serverTimestamp, updateDoc } from 'firebase/firestore'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import ConfirmDialog from '../components/ConfirmDialog'
@@ -7,7 +7,9 @@ import PageWrapper from '../components/layout/PageWrapper'
 import { useActiveWorkout } from '../context/ActiveWorkoutContext'
 import { useAuth } from '../context/AuthContext'
 import { useTimer } from '../context/TimerContext'
+import useNumericField from '../hooks/useNumericField'
 import { sessionDoc, sessionsCol } from '../firebase/collections'
+import { deriveExerciseHistory, formatWeight, lastTrainedLabel } from '../utils/sessionHistory'
 import LegacyExerciseWorkout from './LegacyExerciseWorkout'
 
 const TODAY = format(new Date(), 'yyyy-MM-dd')
@@ -15,11 +17,6 @@ const CARDIO_RE = /\b(cardio|walking|walk|run|running|jog|jogging|bike|cycling|c
 
 function isCardioExercise(exercise) {
   return exercise?.type === 'time' || CARDIO_RE.test(exercise?.muscleGroup || '') || CARDIO_RE.test(exercise?.name || '')
-}
-
-function formatWeight(value) {
-  if (!Number.isFinite(value) || value <= 0) return '0'
-  return Number.isInteger(value) ? `${value}` : value.toFixed(1)
 }
 
 function formatVolume(value) {
@@ -50,29 +47,19 @@ function normalizeSet(set, fallback = {}) {
 
 function buildExerciseState(exercises, sessions) {
   return exercises.reduce((result, exercise) => {
-    const exerciseSessions = sessions
-      .filter((session) => session.exerciseId === exercise.id)
-      .sort((a, b) => a.date.localeCompare(b.date))
-    const todaySession = exerciseSessions.find((session) => session.date === TODAY)
-    const pastSessions = exerciseSessions.filter((session) => session.date !== TODAY)
-    const recentPast = pastSessions.at(-1) || null
-    const lastTemplateSet = [...(recentPast?.sets || [])]
-      .reverse()
-      .find((set) => (set.reps || 0) > 0 || (set.weight || 0) > 0)
+    const history = deriveExerciseHistory(
+      sessions.filter((session) => session.exerciseId === exercise.id),
+      TODAY
+    )
 
     result[exercise.id] = {
-      sessionId: todaySession?.id || null,
-      sets: todaySession?.sets || [],
-      lastTemplate: {
-        reps: lastTemplateSet?.reps || 8,
-        weight: lastTemplateSet?.weight || 0,
-      },
-      bestWeight: exerciseSessions.reduce(
-        (maxWeight, session) => Math.max(maxWeight, ...(session.sets || []).map((set) => set.weight || 0)),
-        0
-      ),
-      lastSessionDate: recentPast?.date || null,
-      sessionCount: exerciseSessions.length,
+      sessionId: history.todaySession?.id || null,
+      sets: history.todaySets,
+      lastTemplate: history.lastTemplate,
+      bestWeight: history.bestWeight,
+      lastSessionDate: history.lastSessionDate,
+      lastTrainedDate: history.lastTrainedDate,
+      sessionCount: history.sessionCount,
     }
 
     return result
@@ -80,37 +67,27 @@ function buildExerciseState(exercises, sessions) {
 }
 
 function WorkoutSetRow({ set, index, isCardio, onUpdate, onDelete }) {
-  const [weightStr, setWeightStr] = useState(set.weight > 0 ? String(set.weight) : '')
+  const reps = useNumericField(set.reps, (value) => onUpdate(set.id, { reps: value }))
+  const weight = useNumericField(set.weight, (value) => onUpdate(set.id, { weight: value }))
   const volume = (set.reps || 0) * (set.weight || 0)
-
-  function handleWeightChange(event) {
-    const raw = event.target.value
-    setWeightStr(raw)
-    if (raw === '') {
-      onUpdate({ ...set, weight: 0 })
-    } else {
-      const n = parseFloat(raw)
-      if (Number.isFinite(n)) onUpdate({ ...set, weight: n })
-    }
-  }
 
   return (
     <div className="grid grid-cols-[30px_1fr_1fr_56px_28px] gap-2 items-center py-2 border-b border-surface2 last:border-0">
       <span className="text-text-secondary text-xs text-center font-mono font-semibold">{index + 1}</span>
       <input
-        type="number"
+        type="text"
         inputMode="numeric"
-        value={set.reps || ''}
+        value={reps.value}
         placeholder="0"
-        onChange={(event) => onUpdate({ ...set, reps: Number(event.target.value) })}
+        onChange={reps.onChange}
         className="bg-bg/70 rounded-xl px-3 py-2.5 text-text-primary text-sm text-center w-full focus:outline-none focus:ring-1 focus:ring-accent"
       />
       <input
         type="text"
         inputMode="decimal"
-        value={weightStr}
+        value={weight.value}
         placeholder={isCardio ? 'min' : '0'}
-        onChange={handleWeightChange}
+        onChange={weight.onChange}
         className="bg-bg/70 rounded-xl px-3 py-2.5 text-text-primary text-sm text-center w-full focus:outline-none focus:ring-1 focus:ring-accent"
       />
       <span className="text-text-secondary text-xs text-right font-mono">
@@ -161,13 +138,31 @@ function GuidedWorkoutPage() {
   const [containerHeight, setContainerHeight] = useState(() => window.visualViewport?.height ?? window.innerHeight)
 
   const saveTimeoutsRef = useRef({})
-  const timerRestartTimeoutRef = useRef(null)
+  // The debounced payload that has not been written yet, per exercise, so it can
+  // be flushed instead of dropped when the screen goes away.
+  const pendingSavesRef = useRef({})
+  // Always points at the current flush closure so the unmount cleanup does not
+  // run against the first render's stale `user` / `routine`.
+  const flushAllPendingRef = useRef(() => {})
   const exerciseStateRef = useRef(exerciseState)
+  // Session ids are tracked outside React state as well: a queued save has to
+  // see the id created by the save before it, which has not re-rendered yet.
+  const sessionIdsRef = useRef({})
+  // One save chain per exercise, so two saves can never both take the
+  // "no session yet -> addDoc" branch and create duplicate documents for the day.
+  const saveChainsRef = useRef({})
   const cardRefs = useRef({})
   const lastScrolledExerciseRef = useRef(null)
   const handledRouteSelectionRef = useRef(null)
 
-  exerciseStateRef.current = exerciseState
+  // exerciseStateRef is written synchronously by commitExerciseState so that
+  // edits landing in the same tick build on each other instead of overwriting.
+  function commitExerciseState(updater) {
+    const next = typeof updater === 'function' ? updater(exerciseStateRef.current) : updater
+    exerciseStateRef.current = next
+    setExerciseState(next)
+    return next
+  }
 
   useEffect(() => {
     const viewport = window.visualViewport
@@ -216,7 +211,10 @@ function GuidedWorkoutPage() {
         const completedTodayIds = Object.entries(nextExerciseState)
           .filter(([, state]) => (state.sets || []).some((set) => (set.reps || 0) > 0 || (set.weight || 0) > 0))
           .map(([id]) => id)
-        setExerciseState(nextExerciseState)
+        sessionIdsRef.current = Object.fromEntries(
+          Object.entries(nextExerciseState).map(([id, state]) => [id, state.sessionId])
+        )
+        commitExerciseState(nextExerciseState)
         hydrateCompletedExercises(completedTodayIds)
         setLoading(false)
       })
@@ -232,8 +230,9 @@ function GuidedWorkoutPage() {
   }, [exerciseIdsKey, guidedWorkout?.routine.id, reloadKey, user?.uid])
 
   useEffect(() => () => {
-    Object.values(saveTimeoutsRef.current).forEach((timeoutId) => clearTimeout(timeoutId))
-    clearTimeout(timerRestartTimeoutRef.current)
+    // Leaving the screen (back arrow, route change) must not throw away an edit
+    // that is still inside the debounce window.
+    flushAllPendingRef.current()
   }, [])
 
   useEffect(() => {
@@ -297,8 +296,10 @@ function GuidedWorkoutPage() {
 
   async function persistExerciseSets(exercise, currentSets) {
     if (!user?.uid || !exercise?.id) return
-    const existingState = exerciseStateRef.current[exercise.id] || {}
-    if (currentSets.length === 0 && !existingState.sessionId) return
+    // Read the session id now rather than from the closure: an earlier queued
+    // save may have created the document since this one was scheduled.
+    const sessionId = sessionIdsRef.current[exercise.id] || null
+    if (currentSets.length === 0 && !sessionId) return
     setSavingExerciseId(exercise.id)
 
     try {
@@ -315,16 +316,18 @@ function GuidedWorkoutPage() {
         updatedAt: serverTimestamp(),
       }
 
-      if (existingState.sessionId) {
-        await updateDoc(sessionDoc(user.uid, existingState.sessionId), payload)
+      if (sessionId) {
+        await updateDoc(sessionDoc(user.uid, sessionId), payload)
       } else {
         const ref = await addDoc(sessionsCol(user.uid), { ...payload, createdAt: serverTimestamp() })
-        setExerciseState((current) => ({
+        sessionIdsRef.current[exercise.id] = ref.id
+        // Record the id only. Writing `sets: currentSets` back here used to
+        // undo every keystroke made while the request was in flight.
+        commitExerciseState((current) => ({
           ...current,
           [exercise.id]: {
             ...(current[exercise.id] || {}),
             sessionId: ref.id,
-            sets: currentSets,
           },
         }))
       }
@@ -333,25 +336,55 @@ function GuidedWorkoutPage() {
     }
   }
 
+  // Saves for one exercise run strictly one after another.
+  function queueSave(exercise, nextSets) {
+    const chain = (saveChainsRef.current[exercise.id] || Promise.resolve())
+      .catch(() => {})
+      .then(() => persistExerciseSets(exercise, nextSets))
+    saveChainsRef.current[exercise.id] = chain
+    return chain
+  }
+
   function scheduleSave(exercise, nextSets) {
     clearTimeout(saveTimeoutsRef.current[exercise.id])
-    saveTimeoutsRef.current[exercise.id] = setTimeout(() => persistExerciseSets(exercise, nextSets), 700)
+    pendingSavesRef.current[exercise.id] = { exercise, sets: nextSets }
+    saveTimeoutsRef.current[exercise.id] = setTimeout(() => {
+      flushPendingSave(exercise.id).catch((error) => {
+        console.error('scheduleSave error:', error)
+      })
+    }, 700)
   }
 
-  function updateSets(exercise, nextSets) {
-    setExerciseState((current) => ({
-      ...current,
-      [exercise.id]: {
-        ...(current[exercise.id] || {}),
-        sets: nextSets,
-      },
-    }))
+  function flushPendingSave(exerciseId) {
+    clearTimeout(saveTimeoutsRef.current[exerciseId])
+    const pending = pendingSavesRef.current[exerciseId]
+    delete pendingSavesRef.current[exerciseId]
+    if (!pending) return Promise.resolve()
+    return queueSave(pending.exercise, pending.sets)
+  }
+
+  flushAllPendingRef.current = () => {
+    Object.keys(pendingSavesRef.current).forEach((id) => {
+      flushPendingSave(id).catch((error) => {
+        console.error('pending save flush error:', error)
+      })
+    })
+  }
+
+  function updateSets(exercise, computeNextSets) {
+    let nextSets = []
+    commitExerciseState((current) => {
+      const state = current[exercise.id] || {}
+      nextSets = computeNextSets(state.sets || [])
+      return { ...current, [exercise.id]: { ...state, sets: nextSets } }
+    })
     scheduleSave(exercise, nextSets)
+    return nextSets
   }
 
-  function getTemplate(exercise) {
-    const state = exerciseState[exercise.id] || {}
-    const lastSet = state.sets?.at(-1)
+  function getTemplate(exercise, currentSets) {
+    const state = exerciseStateRef.current[exercise.id] || {}
+    const lastSet = currentSets.at(-1)
     const fallback = state.lastTemplate || { reps: 8, weight: 0 }
     return {
       reps: lastSet?.reps || fallback.reps || 8,
@@ -360,35 +393,31 @@ function GuidedWorkoutPage() {
   }
 
   function appendSet(exercise, transform) {
-    const template = getTemplate(exercise)
-    const nextSet = normalizeSet(transform(template), template)
-    const nextSets = [...(exerciseState[exercise.id]?.sets || []), nextSet]
-    updateSets(exercise, nextSets)
+    updateSets(exercise, (currentSets) => {
+      const template = getTemplate(exercise, currentSets)
+      return [...currentSets, normalizeSet(transform(template), template)]
+    })
   }
 
   function addSet(exercise) {
     appendSet(exercise, (template) => template)
-    clearTimeout(timerRestartTimeoutRef.current)
     restart()
   }
 
-  function updateSet(exercise, updatedSet) {
-    const currentSets = exerciseState[exercise.id]?.sets || []
-    const previousSet = currentSets.find((set) => set.id === updatedSet.id)
-    const nextSets = currentSets.map((set) => (set.id === updatedSet.id ? updatedSet : set))
-    updateSets(exercise, nextSets)
-
-    const changed = previousSet && (
-      previousSet.reps !== updatedSet.reps ||
-      previousSet.weight !== updatedSet.weight
-    )
-
-    if (changed && activeExercise?.id === exercise.id) {
-      clearTimeout(timerRestartTimeoutRef.current)
-      timerRestartTimeoutRef.current = setTimeout(() => {
-        restart()
-      }, 500)
-    }
+  // `patch` carries only the field that was edited; it is merged into whatever
+  // the set holds right now, so a stale copy of the row cannot revive an old
+  // weight when reps change (or the other way round).
+  //
+  // Correcting a value deliberately does NOT touch the rest timer - only Add Set
+  // starts a rest.
+  function updateSet(exercise, setId, patch) {
+    updateSets(exercise, (currentSets) => {
+      const previousSet = currentSets.find((set) => set.id === setId)
+      if (!previousSet) return currentSets
+      const changed = Object.entries(patch).some(([key, value]) => previousSet[key] !== value)
+      if (!changed) return currentSets
+      return currentSets.map((set) => (set.id === setId ? { ...set, ...patch } : set))
+    })
   }
 
   function deleteSet(exercise, setId) {
@@ -406,19 +435,18 @@ function GuidedWorkoutPage() {
   }
 
   function deletePendingSet(exercise, setId) {
-    const nextSets = (exerciseState[exercise.id]?.sets || []).filter((set) => set.id !== setId)
-    updateSets(exercise, nextSets)
+    updateSets(exercise, (currentSets) => currentSets.filter((set) => set.id !== setId))
   }
 
   function finishExercise() {
     if (!activeExercise) return
-    clearTimeout(saveTimeoutsRef.current[activeExercise.id])
-    clearTimeout(timerRestartTimeoutRef.current)
     const currentSets = exerciseStateRef.current[activeExercise.id]?.sets || []
     pause()
     completeExercise(activeExercise.id)
+    delete pendingSavesRef.current[activeExercise.id]
+    clearTimeout(saveTimeoutsRef.current[activeExercise.id])
     if (currentSets.length > 0) {
-      persistExerciseSets(activeExercise, currentSets).catch((error) => {
+      queueSave(activeExercise, currentSets).catch((error) => {
         console.error('finishExercise persist error:', error)
       })
     }
@@ -426,18 +454,21 @@ function GuidedWorkoutPage() {
 
   function handleSkipExercise() {
     if (!activeExercise) return
-    clearTimeout(saveTimeoutsRef.current[activeExercise.id])
-    clearTimeout(timerRestartTimeoutRef.current)
     pause()
     skipExercise(activeExercise.id)
+    // A skipped exercise still keeps whatever was already typed into it.
+    flushPendingSave(activeExercise.id).catch((error) => {
+      console.error('handleSkipExercise persist error:', error)
+    })
   }
 
   function flushPendingSaves() {
     Object.entries(exerciseStateRef.current).forEach(([id, state]) => {
       const exercise = exerciseById.get(id)
       clearTimeout(saveTimeoutsRef.current[id])
+      delete pendingSavesRef.current[id]
       if (!exercise || !state.sets?.length) return
-      persistExerciseSets(exercise, state.sets).catch((error) => {
+      queueSave(exercise, state.sets).catch((error) => {
         console.error('flushPendingSaves error:', error)
       })
     })
@@ -675,9 +706,9 @@ function GuidedWorkoutPage() {
                                 {state.sessionCount} session{state.sessionCount !== 1 ? 's' : ''}
                               </span>
                             )}
-                            {state.lastSessionDate && (
+                            {state.lastTrainedDate && (
                               <span className="text-[11px] text-text-secondary">
-                                Last {format(parseISO(state.lastSessionDate), 'MMM d')}
+                                {lastTrainedLabel(state.lastTrainedDate)}
                               </span>
                             )}
                           </div>
@@ -710,7 +741,7 @@ function GuidedWorkoutPage() {
                                   set={set}
                                   index={index}
                                   isCardio={cardio}
-                                  onUpdate={(updatedSet) => updateSet(exercise, updatedSet)}
+                                  onUpdate={(setId, patch) => updateSet(exercise, setId, patch)}
                                   onDelete={(setId) => deleteSet(exercise, setId)}
                                 />
                               ))

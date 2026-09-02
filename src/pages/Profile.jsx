@@ -3,11 +3,12 @@ import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { updateProfile } from 'firebase/auth'
 import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage'
-import { getDoc, getDocs, writeBatch } from 'firebase/firestore'
+import { getDoc, getDocs, serverTimestamp, writeBatch } from 'firebase/firestore'
 import { auth, db, storage } from '../firebase/config'
 import ConfirmDialog from '../components/ConfirmDialog'
 import { useAuth } from '../context/AuthContext'
 import { sanitizeBoundedInt, sanitizeProfileSettingsInput } from '../utils/profileSanitizers'
+import { findDuplicateSessionGroups } from '../utils/sessionHistory'
 import {
   bodyMetricDoc,
   bodyMetricsCol,
@@ -76,6 +77,19 @@ function deserializeBackupValue(value) {
     )
   }
   return value
+}
+
+// Mixed update/delete batch, used by the duplicate-session repair.
+async function commitBatchOps(ops) {
+  const chunkSize = 400
+  for (let index = 0; index < ops.length; index += chunkSize) {
+    const batch = writeBatch(db)
+    ops.slice(index, index + chunkSize).forEach((op) => {
+      if (op.type === 'delete') batch.delete(op.ref)
+      else batch.set(op.ref, op.data, { merge: true })
+    })
+    await batch.commit()
+  }
 }
 
 async function commitBatchWrites(writes) {
@@ -242,6 +256,11 @@ export default function Profile() {
   const [importingData, setImportingData]   = useState(false)
   const [transferStatus, setTransferStatus] = useState(null)
   const [pendingImport, setPendingImport]   = useState(null)
+  const [scanningDuplicates, setScanningDuplicates] = useState(false)
+  const [mergingDuplicates, setMergingDuplicates]   = useState(false)
+  const [duplicatePlans, setDuplicatePlans]         = useState(null)
+  const [duplicateStatus, setDuplicateStatus]       = useState(null)
+  const [confirmMerge, setConfirmMerge]             = useState(false)
   const photoInputRef  = useRef(null)
   const qrInputRef     = useRef(null)
   const importInputRef = useRef(null)
@@ -529,6 +548,59 @@ export default function Profile() {
     } finally {
       setImportingData(false)
       setPendingImport(null)
+    }
+  }
+
+  async function handleScanDuplicates() {
+    if (!user?.uid) return
+    setDuplicateStatus(null)
+    setScanningDuplicates(true)
+    try {
+      const snapshot = await getDocs(sessionsCol(user.uid))
+      const sessions = snapshot.docs.map((docSnapshot) => ({ id: docSnapshot.id, ...docSnapshot.data() }))
+      setDuplicatePlans(findDuplicateSessionGroups(sessions))
+    } catch (error) {
+      console.error('Duplicate scan error:', error)
+      setDuplicatePlans(null)
+      setDuplicateStatus({ type: 'error', message: 'The scan did not finish. Try again in a moment.' })
+    } finally {
+      setScanningDuplicates(false)
+    }
+  }
+
+  async function handleMergeDuplicates() {
+    if (!user?.uid || !duplicatePlans?.length) return
+    setConfirmMerge(false)
+    setDuplicateStatus(null)
+    setMergingDuplicates(true)
+
+    try {
+      const ops = []
+      duplicatePlans.forEach((plan) => {
+        ops.push({
+          type: 'set',
+          ref: sessionDoc(user.uid, plan.keepId),
+          data: { sets: plan.sets, totalVolume: plan.totalVolume, updatedAt: serverTimestamp() },
+        })
+        plan.removeIds.forEach((id) => {
+          ops.push({ type: 'delete', ref: sessionDoc(user.uid, id) })
+        })
+      })
+
+      const mergedDays = duplicatePlans.length
+      const removedRows = duplicatePlans.reduce((sum, plan) => sum + plan.removeIds.length, 0)
+      await commitBatchOps(ops)
+
+      setDuplicatePlans([])
+      setDuplicateStatus({
+        type: 'success',
+        message: `Merged ${mergedDays} duplicated ${mergedDays === 1 ? 'day' : 'days'} and removed ${removedRows} extra ${removedRows === 1 ? 'row' : 'rows'}.`,
+      })
+    } catch (error) {
+      console.error('Duplicate merge error:', error)
+      setDuplicateStatus({ type: 'error', message: 'The merge did not finish. Nothing was lost - scan again and retry.' })
+    } finally {
+      setMergingDuplicates(false)
     }
   }
 
@@ -932,6 +1004,69 @@ export default function Profile() {
           </div>
         </div>
         <div>
+          <p className="section-title">Data Maintenance</p>
+          <div className="card space-y-4">
+            <p className="text-text-secondary text-xs leading-relaxed">
+              Scans for exercises logged twice on the same day. Merging folds the sets back into a single entry and deletes the extra rows, which is what makes a routine card and an exercise page disagree. Export a backup first if you want one.
+            </p>
+
+            {duplicatePlans?.length > 0 && (
+              <div className="rounded-2xl border border-surface2 bg-bg/40 px-3 py-3 space-y-2">
+                <p className="text-text-primary text-xs font-semibold">
+                  {duplicatePlans.length} duplicated {duplicatePlans.length === 1 ? 'day' : 'days'} found
+                </p>
+                <div className="space-y-1.5 max-h-48 overflow-y-auto">
+                  {duplicatePlans.map((plan) => (
+                    <div key={plan.key} className="flex items-baseline justify-between gap-3 text-[11px]">
+                      <span className="text-text-secondary truncate">
+                        {plan.exerciseName} <span className="opacity-60">- {plan.date}</span>
+                      </span>
+                      <span className="text-text-secondary font-mono flex-shrink-0">
+                        {plan.docCount} rows to 1 &middot; {plan.sets.length} sets
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {duplicatePlans?.length === 0 && !duplicateStatus && (
+              <div className="rounded-2xl border border-accent-green/30 bg-accent-green/10 px-3 py-2.5 text-xs text-accent-green">
+                No duplicated days found. Nothing to repair.
+              </div>
+            )}
+
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                onClick={handleScanDuplicates}
+                disabled={scanningDuplicates || mergingDuplicates}
+                className="btn-secondary w-full disabled:opacity-50"
+              >
+                {scanningDuplicates ? 'Scanning...' : (duplicatePlans ? 'Scan Again' : 'Scan Sessions')}
+              </button>
+              <button
+                onClick={() => setConfirmMerge(true)}
+                disabled={mergingDuplicates || scanningDuplicates || !duplicatePlans?.length}
+                className="btn-primary w-full disabled:opacity-50"
+              >
+                {mergingDuplicates
+                  ? 'Merging...'
+                  : `Merge${duplicatePlans?.length ? ` ${duplicatePlans.length}` : ''}`}
+              </button>
+            </div>
+
+            {duplicateStatus && (
+              <div className={`rounded-2xl border px-3 py-2.5 text-xs ${
+                duplicateStatus.type === 'error'
+                  ? 'border-red-500/30 bg-red-500/10 text-accent-red'
+                  : 'border-accent-green/30 bg-accent-green/10 text-accent-green'
+              }`}>
+                {duplicateStatus.message}
+              </div>
+            )}
+          </div>
+        </div>
+        <div>
           <div className="flex items-center justify-between gap-3 mb-2">
             <p className="section-title mb-0">AI Features</p>
             <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-accent-green bg-accent-green/10 border border-accent-green/20 px-2.5 py-1 rounded-full">
@@ -962,6 +1097,15 @@ export default function Profile() {
           tone="primary"
           onCancel={() => setPendingImport(null)}
           onConfirm={confirmImportData}
+        />
+      )}
+      {confirmMerge && duplicatePlans?.length > 0 && (
+        <ConfirmDialog
+          title="Merge duplicated days?"
+          message={`${duplicatePlans.length} ${duplicatePlans.length === 1 ? 'day has' : 'days have'} more than one entry for the same exercise. Their sets will be combined into one entry and ${duplicatePlans.reduce((sum, plan) => sum + plan.removeIds.length, 0)} extra row(s) deleted. This cannot be undone.`}
+          confirmLabel="Merge"
+          onCancel={() => setConfirmMerge(false)}
+          onConfirm={handleMergeDuplicates}
         />
       )}
       {showQrModal && (

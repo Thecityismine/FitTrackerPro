@@ -33,6 +33,7 @@ import ConfirmDialog from '../components/ConfirmDialog'
 import { useAuth } from '../context/AuthContext'
 import { useActiveWorkout } from '../context/ActiveWorkoutContext'
 import { routinesCol, routineDoc, sessionsCol, exercisesCol, globalExercisesCol, exerciseDoc } from '../firebase/collections'
+import { countSessionDays, daysSince, relativeDayLabel } from '../utils/sessionHistory'
 import { db } from '../firebase/config'
 import PageWrapper from '../components/layout/PageWrapper'
 import { getExerciseIcon } from '../utils/exerciseIcons'
@@ -178,15 +179,7 @@ function calcSessionVolume(sessionList = []) {
   }, 0)
 }
 
-function getRelativeDayLabel(dateValue) {
-  if (!dateValue) return null
-  const todayMs = new Date().setHours(0, 0, 0, 0)
-  const targetMs = parseISO(dateValue).setHours(0, 0, 0, 0)
-  const diff = Math.round((todayMs - targetMs) / 86400000)
-  if (diff === 0) return 'today'
-  if (diff === 1) return 'yesterday'
-  return `${diff}d ago`
-}
+const getRelativeDayLabel = relativeDayLabel
 
 function mergeRoutineExerciseTypes(routine, exerciseTypeMap = {}) {
   return {
@@ -589,7 +582,9 @@ function RoutineDetail({
     const result = {}
     for (const ex of exercises) {
       const exSessions = sessions.filter((s) => s.exerciseId === ex.id)
-      const count = exSessions.length
+      // Count training days, not documents, so a duplicated same-day row does
+      // not make this card disagree with the exercise page.
+      const count = countSessionDays(exSessions)
       let lastDate = null
       let pr = null
       const isTimeBased = ex.type === 'time'
@@ -602,15 +597,11 @@ function RoutineDetail({
           }
         }
       }
-      let daysAgoStr = null
-      let dotColor = 'bg-text-secondary/20'
-      if (lastDate) {
-        const todayMs = new Date().setHours(0, 0, 0, 0)
-        const lastMs = parseISO(lastDate).setHours(0, 0, 0, 0)
-        const diff = Math.round((todayMs - lastMs) / 86400000)
-        daysAgoStr = diff === 0 ? 'today' : diff === 1 ? 'yesterday' : `${diff}d ago`
-        dotColor = diff === 0 ? 'bg-red-500' : diff === 1 ? 'bg-orange-400' : 'bg-accent-green'
-      }
+      const diff = daysSince(lastDate)
+      const daysAgoStr = relativeDayLabel(lastDate)
+      const dotColor = diff == null
+        ? 'bg-text-secondary/20'
+        : diff === 0 ? 'bg-red-500' : diff === 1 ? 'bg-orange-400' : 'bg-accent-green'
       result[ex.id] = { count, daysAgoStr, pr, dotColor, prLabel: isTimeBased ? 'min best' : 'lbs PR' }
     }
     return result

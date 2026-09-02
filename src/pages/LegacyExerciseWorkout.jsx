@@ -12,6 +12,8 @@ import ConfirmDialog from '../components/ConfirmDialog'
 import { useAuth } from '../context/AuthContext'
 import { sessionsCol, sessionDoc } from '../firebase/collections'
 import { useTimer } from '../context/TimerContext'
+import useNumericField from '../hooks/useNumericField'
+import { deriveExerciseHistory, ensureSetIds, formatWeight, lastTrainedLabel } from '../utils/sessionHistory'
 import PageWrapper from '../components/layout/PageWrapper'
 
 const TODAY = format(new Date(), 'yyyy-MM-dd')
@@ -19,37 +21,27 @@ const TODAY_DISPLAY = format(new Date(), 'EEEE, MMM d')
 const CARDIO_RE = /\b(cardio|walking|walk|run|running|jog|jogging|bike|cycling|cycle|elliptical|swim|swimming|rowing|treadmill|stair|hiit)\b/i
 
 function SetRow({ set, index, onUpdate, onDelete, isCardio }) {
-  const [weightStr, setWeightStr] = useState(set.weight > 0 ? String(set.weight) : '')
+  const reps = useNumericField(set.reps, (value) => onUpdate(set.id, { reps: value }))
+  const weight = useNumericField(set.weight, (value) => onUpdate(set.id, { weight: value }))
   const volume = (set.reps || 0) * (set.weight || 0)
-
-  function handleWeightChange(e) {
-    const raw = e.target.value
-    setWeightStr(raw)
-    if (raw === '') {
-      onUpdate({ ...set, weight: 0 })
-    } else {
-      const n = parseFloat(raw)
-      if (Number.isFinite(n)) onUpdate({ ...set, weight: n })
-    }
-  }
 
   return (
     <div className="grid grid-cols-[28px_1fr_1fr_1fr_28px] gap-2 items-center py-2.5 border-b border-surface2 last:border-0">
       <span className="text-text-secondary text-sm text-center font-mono font-semibold">{index + 1}</span>
       <input
-        type="number"
+        type="text"
         inputMode="numeric"
-        value={set.reps || ''}
+        value={reps.value}
         placeholder="0"
-        onChange={(e) => onUpdate({ ...set, reps: Number(e.target.value) })}
+        onChange={reps.onChange}
         className="bg-surface2 rounded-lg px-2 py-2.5 text-text-primary text-base text-center w-full focus:outline-none focus:ring-1 focus:ring-accent"
       />
       <input
         type="text"
         inputMode="decimal"
-        value={weightStr}
+        value={weight.value}
         placeholder={isCardio ? 'min' : '0'}
-        onChange={handleWeightChange}
+        onChange={weight.onChange}
         className="bg-surface2 rounded-lg px-2 py-2.5 text-white font-semibold text-base text-center w-full focus:outline-none focus:ring-1 focus:ring-accent"
       />
       <span className="text-text-secondary text-sm text-right font-mono">
@@ -122,14 +114,13 @@ export default function LegacyExerciseWorkout() {
   const isCardio = exercise.type === 'time' || CARDIO_RE.test(exercise.muscleGroup || '') || CARDIO_RE.test(exercise.name || '')
 
   const [sets, setSets] = useState([])
-  const [sessionId, setSessionId] = useState(null)
   const [history, setHistory] = useState([])
   const [pastSessionsData, setPastSessionsData] = useState([])
   const [lastHistoricalWeight, setLastHistoricalWeight] = useState(0)
   const [historicalBestWeight, setHistoricalBestWeight] = useState(0)
   const [lastTemplate, setLastTemplate] = useState({ reps: 8, weight: 0 })
   const [sessionCount, setSessionCount] = useState(0)
-  const [lastSessionDate, setLastSessionDate] = useState(null)
+  const [lastTrainedDate, setLastTrainedDate] = useState(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [activePage, setActivePage] = useState(0)
@@ -141,8 +132,23 @@ export default function LegacyExerciseWorkout() {
 
   const carouselRef = useRef(null)
   const saveTimeoutRef = useRef(null)
-  const sessionIdRef = useRef(null)
-  sessionIdRef.current = sessionId
+  // sessionIdsRef and setsRef are written synchronously (not during render) so a
+  // queued save always sees the newest id and the newest sets.
+  // Keyed by exercise: the routine chip row swaps exerciseId without unmounting,
+  // so a single ref would let a queued save write one exercise's sets against
+  // the next exercise's id.
+  const sessionIdsRef = useRef({})
+  const setsRef = useRef(sets)
+  const saveChainRef = useRef(Promise.resolve())
+  const pendingSaveRef = useRef(null)
+  const flushPendingRef = useRef(() => Promise.resolve())
+
+  function commitSets(computeNextSets) {
+    const nextSets = computeNextSets(setsRef.current)
+    setsRef.current = nextSets
+    setSets(nextSets)
+    return nextSets
+  }
 
   useEffect(() => {
     const viewport = window.visualViewport
@@ -163,57 +169,61 @@ export default function LegacyExerciseWorkout() {
   useEffect(() => {
     if (!user || !exerciseId) return
 
+    setsRef.current = []
     setSets([])
         setHistory([])
         setPastSessionsData([])
-        setSessionId(null)
+        sessionIdsRef.current[exerciseId] = null
         setLastTemplate({ reps: 8, weight: 0 })
         setSessionCount(0)
-        setLastSessionDate(null)
+        setLastTrainedDate(null)
         setHistoricalBestWeight(0)
         setLoading(true)
 
     user.getIdToken()
       .then(() => getDocs(query(sessionsCol(user.uid), where('exerciseId', '==', exerciseId))))
       .then((snapshot) => {
-        const allSessions = snapshot.docs
-          .map((docSnapshot) => ({ id: docSnapshot.id, ...docSnapshot.data() }))
-          .sort((a, b) => (a.date < b.date ? -1 : 1))
+        // Same derivation the routine cards use, so the two screens cannot
+        // disagree about the last session's reps and weight.
+        const history = deriveExerciseHistory(
+          snapshot.docs.map((docSnapshot) => ({ id: docSnapshot.id, ...docSnapshot.data() })),
+          TODAY
+        )
+        const { pastSessions, recentPast, todaySession } = history
 
-        const todaySession = allSessions.find((session) => session.date === TODAY)
         if (todaySession) {
-          setSessionId(todaySession.id)
-          setSets(todaySession.sets || [])
+          sessionIdsRef.current[exerciseId] = todaySession.id
+          setsRef.current = history.todaySets
+          setSets(history.todaySets)
         }
-
-        const pastSessions = allSessions.filter((session) => session.date !== TODAY)
-        const recentPastSession = pastSessions.at(-1) || null
-        const lastTemplateSet = [...(recentPastSession?.sets || [])]
-          .reverse()
-          .find((set) => (set.reps || 0) > 0 || (set.weight || 0) > 0)
 
         setHistory(
           pastSessions.slice(-8).map((session) => ({
-            date: session.date.slice(5),
+            date: (session.date || '').slice(5),
             volume: session.totalVolume || 0,
           }))
         )
-        setPastSessionsData([...pastSessions].reverse().slice(0, 3))
-        setSessionCount(allSessions.length)
-        setLastSessionDate(recentPastSession?.date || null)
-        setLastTemplate({
-          reps: lastTemplateSet?.reps || 8,
-          weight: lastTemplateSet?.weight || 0,
-        })
+        setPastSessionsData(
+          [...pastSessions].reverse().slice(0, 3).map((session) => ({
+            ...session,
+            sets: ensureSetIds(session.sets),
+          }))
+        )
+        setSessionCount(history.sessionCount)
+        setLastTrainedDate(history.lastTrainedDate)
+        setLastTemplate(history.lastTemplate)
 
-        const lastWeight = (recentPastSession?.sets || []).reduce(
-          (maxWeight, set) => Math.max(maxWeight, set.weight || 0),
+        const lastWeight = (recentPast?.sets || []).reduce(
+          (maxWeight, set) => Math.max(maxWeight, Number(set?.weight) || 0),
           0
         )
         setLastHistoricalWeight(lastWeight)
 
         const bestWeight = pastSessions.reduce(
-          (maxWeight, session) => Math.max(maxWeight, ...(session.sets || []).map((set) => set.weight || 0)),
+          (maxWeight, session) => (session.sets || []).reduce(
+            (sessionMax, set) => Math.max(sessionMax, Number(set?.weight) || 0),
+            maxWeight
+          ),
           0
         )
         setHistoricalBestWeight(bestWeight)
@@ -225,7 +235,11 @@ export default function LegacyExerciseWorkout() {
       })
   }, [user, exerciseId])
 
-  useEffect(() => () => clearTimeout(saveTimeoutRef.current), [])
+  // Flush rather than discard: the previous cleanup dropped anything still
+  // inside the 900ms debounce when you navigated away without pressing Finish.
+  useEffect(() => () => {
+    flushPendingRef.current().catch((error) => console.error('pending save flush error:', error))
+  }, [])
 
   useEffect(() => {
     if (loading) return
@@ -244,57 +258,94 @@ export default function LegacyExerciseWorkout() {
     setActivePage(page)
   }
 
-  async function persistSets(currentSets) {
-    if (!user || !exerciseId) return
-    if (currentSets.length === 0 && !sessionIdRef.current) return
+  // Snapshot of what a save writes against, taken when the edit happens rather
+  // than when the request fires.
+  function currentSaveTarget() {
+    return {
+      exerciseId,
+      exerciseName: exercise.name,
+      muscleGroup: exercise.muscleGroup || '',
+      routineId: routine?.id || '',
+      routineName: routine?.name || '',
+    }
+  }
+
+  async function persistSets(target, currentSets) {
+    if (!user || !target?.exerciseId) return
+    const sessionId = sessionIdsRef.current[target.exerciseId] || null
+    if (currentSets.length === 0 && !sessionId) return
 
     setSaving(true)
     try {
       const totalVolume = currentSets.reduce((sum, set) => sum + (set.reps || 0) * (set.weight || 0), 0)
       const payload = {
-        exerciseId,
-        exerciseName: exercise.name,
-        muscleGroup: exercise.muscleGroup || '',
-        routineId: routine?.id || '',
-        routineName: routine?.name || '',
+        ...target,
         date: TODAY,
         sets: currentSets,
         totalVolume,
         updatedAt: serverTimestamp(),
       }
 
-      if (sessionIdRef.current) {
-        await updateDoc(sessionDoc(user.uid, sessionIdRef.current), payload)
+      if (sessionId) {
+        await updateDoc(sessionDoc(user.uid, sessionId), payload)
       } else {
         const ref = await addDoc(sessionsCol(user.uid), { ...payload, createdAt: serverTimestamp() })
-        setSessionId(ref.id)
+        // Record the id before yielding so a following save updates this
+        // document instead of creating a second one for the same day.
+        sessionIdsRef.current[target.exerciseId] = ref.id
       }
     } finally {
       setSaving(false)
     }
   }
 
+  // Saves run one at a time; an in-flight addDoc must finish before the next
+  // save decides whether a document already exists.
+  function queueSave(target, nextSets) {
+    saveChainRef.current = saveChainRef.current
+      .catch(() => {})
+      .then(() => persistSets(target, nextSets))
+    return saveChainRef.current
+  }
+
+  function flushPendingSave() {
+    clearTimeout(saveTimeoutRef.current)
+    const pending = pendingSaveRef.current
+    pendingSaveRef.current = null
+    if (!pending) return Promise.resolve()
+    return queueSave(pending.target, pending.sets)
+  }
+
+  flushPendingRef.current = flushPendingSave
+
   function scheduleSave(updatedSets) {
     clearTimeout(saveTimeoutRef.current)
-    saveTimeoutRef.current = setTimeout(() => persistSets(updatedSets), 900)
+    pendingSaveRef.current = { target: currentSaveTarget(), sets: updatedSets }
+    saveTimeoutRef.current = setTimeout(() => {
+      flushPendingSave().catch((error) => console.error('scheduleSave error:', error))
+    }, 900)
   }
 
   function addSet() {
-    const lastSet = sets[sets.length - 1]
-    const defaultWeight = lastSet != null ? lastSet.weight : (lastTemplate.weight || lastHistoricalWeight || 0)
-    const defaultReps = lastSet?.reps || lastTemplate.reps || 8
-    const nextSets = [
-      ...sets,
-      { id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, reps: defaultReps, weight: defaultWeight },
-    ]
-    setSets(nextSets)
+    const nextSets = commitSets((currentSets) => {
+      const lastSet = currentSets[currentSets.length - 1]
+      const defaultWeight = lastSet != null ? lastSet.weight : (lastTemplate.weight || lastHistoricalWeight || 0)
+      const defaultReps = lastSet?.reps || lastTemplate.reps || 8
+      return [
+        ...currentSets,
+        { id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, reps: defaultReps, weight: defaultWeight },
+      ]
+    })
     scheduleSave(nextSets)
     restart()
   }
 
-  function updateSet(updatedSet) {
-    const nextSets = sets.map((set) => (set.id === updatedSet.id ? updatedSet : set))
-    setSets(nextSets)
+  // `patch` holds only the edited field and is merged into the current set, so
+  // editing reps cannot write back a stale weight.
+  function updateSet(setId, patch) {
+    const nextSets = commitSets((currentSets) => (
+      currentSets.map((set) => (set.id === setId ? { ...set, ...patch } : set))
+    ))
     scheduleSave(nextSets)
   }
 
@@ -313,8 +364,7 @@ export default function LegacyExerciseWorkout() {
   }
 
   function deletePendingSet(id) {
-    const nextSets = sets.filter((set) => set.id !== id)
-    setSets(nextSets)
+    const nextSets = commitSets((currentSets) => currentSets.filter((set) => set.id !== id))
     scheduleSave(nextSets)
   }
 
@@ -331,9 +381,11 @@ export default function LegacyExerciseWorkout() {
   }
 
   async function handleFinish() {
-    clearTimeout(saveTimeoutRef.current)
-    if (sets.length > 0) {
-      await persistSets(sets)
+    const target = currentSaveTarget()
+    await flushPendingSave()
+    const currentSets = setsRef.current
+    if (currentSets.length > 0) {
+      await queueSave(target, currentSets)
     }
     reset()
     goBack()
@@ -403,9 +455,9 @@ export default function LegacyExerciseWorkout() {
                 {sessionCount} session{sessionCount !== 1 ? 's' : ''}
               </span>
             )}
-            {lastSessionDate && (
+            {lastTrainedDate && (
               <span className="text-[11px] text-text-secondary">
-                Last {format(parseISO(lastSessionDate), 'MMM d')}
+                {lastTrainedLabel(lastTrainedDate)}
               </span>
             )}
           </div>
@@ -417,7 +469,10 @@ export default function LegacyExerciseWorkout() {
               <p className="section-title mb-0">{isCardio ? 'Duration History' : 'Volume History'}</p>
               {bestWeight > 0 && (
                 <p className="text-text-secondary text-sm">
-                  Best: <span className="text-accent-green font-semibold">{bestWeight} {isCardio ? 'min' : 'lbs'}</span>
+                  {isCardio ? 'Longest:' : 'Top set:'}{' '}
+                  <span className="text-accent-green font-semibold">
+                    {formatWeight(bestWeight)} {isCardio ? 'min' : 'lbs'}
+                  </span>
                 </p>
               )}
             </div>
@@ -483,11 +538,11 @@ export default function LegacyExerciseWorkout() {
                         <p className="text-text-secondary text-sm">No sets recorded</p>
                       </div>
                     ) : (
-                      [...sessionSets].reverse().map((set, index) => (
+                      sessionSets.map((set, index) => (
                         <PastSetRow
-                          key={set.id || index}
+                          key={set.id}
                           set={set}
-                          index={sessionSets.length - 1 - index}
+                          index={index}
                           isCardio={isCardio}
                         />
                       ))
@@ -536,15 +591,15 @@ export default function LegacyExerciseWorkout() {
                   <div className="py-8 text-center">
                     <p className="text-text-secondary text-sm">No sets yet</p>
                     <p className="text-text-secondary text-xs mt-1">
-                      Use Add Set below to start with {lastTemplate.reps} reps x {lastTemplate.weight} {isCardio ? 'min' : 'lbs'}
+                      Use Add Set below to start with {lastTemplate.reps} reps x {formatWeight(lastTemplate.weight)} {isCardio ? 'min' : 'lbs'}
                     </p>
                   </div>
                 ) : (
-                  [...sets].reverse().map((set, index) => (
+                  sets.map((set, index) => (
                     <SetRow
                       key={set.id}
                       set={set}
-                      index={sets.length - 1 - index}
+                      index={index}
                       onUpdate={updateSet}
                       onDelete={deleteSet}
                       isCardio={isCardio}
