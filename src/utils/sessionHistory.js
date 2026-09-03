@@ -166,6 +166,18 @@ export function deriveExerciseHistory(sessions = [], today) {
   }
 }
 
+// A session is uniquely identified by exercise + day, so derive the document id
+// from those instead of letting addDoc mint a random one. A retried or
+// double-fired save then lands on the SAME document, which makes duplicate
+// exercise-day rows structurally impossible rather than merely unlikely - the
+// previous guard only serialized saves, so a first write that timed out (or
+// failed on a weak gym connection) could still be followed by a second create.
+// Matches the id shape the CSV importer already uses.
+export function sessionDocId(exerciseId, date) {
+  const safeExerciseId = String(exerciseId || '').replace(/[^A-Za-z0-9_.~:@+-]/g, '-')
+  return `${safeExerciseId}--${date}`
+}
+
 // ─── Duplicate session repair ─────────────────────────────
 // Before saves were serialized, a debounced write already in flight plus a
 // Finish tap could both take the "no session yet -> addDoc" branch and leave two

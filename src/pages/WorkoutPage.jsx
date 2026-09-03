@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { format } from 'date-fns'
-import { addDoc, getDocs, serverTimestamp, updateDoc } from 'firebase/firestore'
+import { getDocs, serverTimestamp, setDoc, updateDoc } from 'firebase/firestore'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import ConfirmDialog from '../components/ConfirmDialog'
 import PageWrapper from '../components/layout/PageWrapper'
@@ -9,7 +9,7 @@ import { useAuth } from '../context/AuthContext'
 import { useTimer } from '../context/TimerContext'
 import useNumericField from '../hooks/useNumericField'
 import { sessionDoc, sessionsCol } from '../firebase/collections'
-import { deriveExerciseHistory, formatWeight, lastTrainedLabel } from '../utils/sessionHistory'
+import { deriveExerciseHistory, formatWeight, lastTrainedLabel, sessionDocId } from '../utils/sessionHistory'
 import LegacyExerciseWorkout from './LegacyExerciseWorkout'
 
 const TODAY = format(new Date(), 'yyyy-MM-dd')
@@ -207,7 +207,27 @@ function GuidedWorkoutPage() {
         const sessions = snapshot.docs
           .map((docSnapshot) => ({ id: docSnapshot.id, ...docSnapshot.data() }))
           .filter((session) => exerciseIds.has(session.exerciseId))
-        const nextExerciseState = buildExerciseState(guidedWorkout.exercises, sessions)
+        const fetchedState = buildExerciseState(guidedWorkout.exercises, sessions)
+
+        // This effect can run again mid-workout (a retry, a remount, the active
+        // workout briefly resolving to null). Adopting the fetched sets wholesale
+        // would throw away anything typed but not yet written, and each row would
+        // snap back to the value Add Set seeded it with - i.e. the previous set's
+        // weight. Sets already held in memory win; everything else refreshes.
+        const previousState = exerciseStateRef.current
+        const nextExerciseState = Object.fromEntries(
+          Object.entries(fetchedState).map(([id, fetched]) => {
+            const local = previousState[id]
+            const keepLocalSets = Boolean(local?.sets?.length) || Boolean(pendingSavesRef.current[id])
+            if (!keepLocalSets) return [id, fetched]
+            return [id, {
+              ...fetched,
+              sets: local?.sets || [],
+              sessionId: sessionIdsRef.current[id] || local?.sessionId || fetched.sessionId,
+            }]
+          })
+        )
+
         const completedTodayIds = Object.entries(nextExerciseState)
           .filter(([, state]) => (state.sets || []).some((set) => (set.reps || 0) > 0 || (set.weight || 0) > 0))
           .map(([id]) => id)
@@ -319,17 +339,24 @@ function GuidedWorkoutPage() {
       if (sessionId) {
         await updateDoc(sessionDoc(user.uid, sessionId), payload)
       } else {
-        const ref = await addDoc(sessionsCol(user.uid), { ...payload, createdAt: serverTimestamp() })
-        sessionIdsRef.current[exercise.id] = ref.id
+        // Deterministic id: a retry after a timeout re-writes this same document
+        // instead of creating a second row for the day.
+        const nextId = sessionDocId(exercise.id, TODAY)
+        sessionIdsRef.current[exercise.id] = nextId
         // Record the id only. Writing `sets: currentSets` back here used to
         // undo every keystroke made while the request was in flight.
         commitExerciseState((current) => ({
           ...current,
           [exercise.id]: {
             ...(current[exercise.id] || {}),
-            sessionId: ref.id,
+            sessionId: nextId,
           },
         }))
+        await setDoc(
+          sessionDoc(user.uid, nextId),
+          { ...payload, createdAt: serverTimestamp() },
+          { merge: true }
+        )
       }
     } finally {
       setSavingExerciseId((current) => (current === exercise.id ? null : current))

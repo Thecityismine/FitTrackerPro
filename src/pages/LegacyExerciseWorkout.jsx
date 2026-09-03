@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useNavigate, useParams, useLocation } from 'react-router-dom'
 import { format, parseISO } from 'date-fns'
 import {
-  addDoc, updateDoc, getDocs, query, where, serverTimestamp,
+  setDoc, updateDoc, getDocs, query, where, serverTimestamp,
 } from 'firebase/firestore'
 import {
   AreaChart, Area, XAxis, Tooltip, ResponsiveContainer,
@@ -13,7 +13,7 @@ import { useAuth } from '../context/AuthContext'
 import { sessionsCol, sessionDoc } from '../firebase/collections'
 import { useTimer } from '../context/TimerContext'
 import useNumericField from '../hooks/useNumericField'
-import { deriveExerciseHistory, ensureSetIds, formatWeight, lastTrainedLabel } from '../utils/sessionHistory'
+import { deriveExerciseHistory, ensureSetIds, formatWeight, lastTrainedLabel, sessionDocId } from '../utils/sessionHistory'
 import PageWrapper from '../components/layout/PageWrapper'
 
 const TODAY = format(new Date(), 'yyyy-MM-dd')
@@ -289,10 +289,16 @@ export default function LegacyExerciseWorkout() {
       if (sessionId) {
         await updateDoc(sessionDoc(user.uid, sessionId), payload)
       } else {
-        const ref = await addDoc(sessionsCol(user.uid), { ...payload, createdAt: serverTimestamp() })
-        // Record the id before yielding so a following save updates this
-        // document instead of creating a second one for the same day.
-        sessionIdsRef.current[target.exerciseId] = ref.id
+        // Deterministic id, so a retry after a timeout re-writes this same
+        // document instead of creating a second row for the day. Recorded
+        // before yielding so a following save takes the update path.
+        const nextId = sessionDocId(target.exerciseId, TODAY)
+        sessionIdsRef.current[target.exerciseId] = nextId
+        await setDoc(
+          sessionDoc(user.uid, nextId),
+          { ...payload, createdAt: serverTimestamp() },
+          { merge: true }
+        )
       }
     } finally {
       setSaving(false)
